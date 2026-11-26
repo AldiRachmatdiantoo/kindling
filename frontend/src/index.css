@@ -411,6 +411,32 @@ html[data-theme="dark"][data-mood="standard"] {
   .k-enter {
     animation: k-enter calc(320ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+  /* Popups (mascot dialogs) open more slowly than a page changes: the dim fades in, then
+     the bubble rises and settles, so it reads as arriving rather than snapping on. */
+  @keyframes k-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes k-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .k-dim-backdrop {
+    animation: k-fade-in 380ms ease-out both;
+  }
+  .k-dialog-in {
+    animation: k-dialog-in 600ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+  }
   .k-step-next {
     animation: k-step-next calc(280ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -446,9 +472,9 @@ html[data-theme="dark"][data-mood="standard"] {
     }
   }
   .k-popover[data-state="open"] {
-    animation: k-popover-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: k-popover-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .k-popover[data-state="closed"] {
-    animation: k-popover-out 140ms ease-in both;
+    animation: k-popover-out 220ms ease-in both;
   }
 }

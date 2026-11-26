@@ -90,7 +90,7 @@ export function MascotDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={handleKeys}
-        className="k-enter w-full max-w-lg"
+        className="k-dialog-in w-full max-w-lg"
       >
         <MascotBubble mood={mood} pillar={pillar} title={title} titleId={titleId} corner={corner} actions={actions}>
           {children}
