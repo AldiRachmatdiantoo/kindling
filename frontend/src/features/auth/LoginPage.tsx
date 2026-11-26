@@ -52,27 +52,29 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-50 px-4 py-12">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+    <div className="min-h-screen bg-cream">
+      <div className="k-wave bg-primary px-4 pt-10 pb-24 text-center">
+        <div className="mx-auto max-w-md">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border-[1.5px] border-ink bg-lime text-ink">
             <Flame className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900">Masuk ke Kindling</h1>
-          <p className="mt-1 text-sm text-stone-500">
+          <h1 className="text-3xl font-bold tracking-tight text-white">Masuk ke Kindling</h1>
+          <p className="mt-2 text-sm text-white/85">
             Small sparks, steady fire. Mulai hari sesuai kapasitas energimu.
           </p>
         </div>
 
+      </div>
+
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs"
+          className="k-card relative z-10 mx-auto -mt-16 w-[calc(100%-2rem)] max-w-md space-y-4 p-6 sm:p-7"
           data-testid="login-form"
           noValidate
         >
           {formError && (
             <div
-              className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-800"
+              className="k-error"
               data-testid="login-error"
               role="alert"
             >
@@ -81,7 +83,7 @@ export function LoginPage() {
           )}
 
           <div>
-            <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-stone-700">
+            <label htmlFor="login-email" className="k-label">
               Email
             </label>
             <input
@@ -92,17 +94,17 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               data-testid="login-email"
               placeholder="kamu@contoh.com"
-              className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              className="k-input"
             />
             {fieldErrors.email && (
-              <p className="mt-1 text-xs text-rose-600">{fieldErrors.email}</p>
+              <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.email}</p>
             )}
           </div>
 
           <div>
             <label
               htmlFor="login-password"
-              className="mb-1.5 block text-sm font-medium text-stone-700"
+              className="k-label"
             >
               Kata Sandi
             </label>
@@ -114,10 +116,10 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               data-testid="login-password"
               placeholder="••••••••••"
-              className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              className="k-input"
             />
             {fieldErrors.password && (
-              <p className="mt-1 text-xs text-rose-600">{fieldErrors.password}</p>
+              <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.password}</p>
             )}
           </div>
 
@@ -125,23 +127,22 @@ export function LoginPage() {
             type="submit"
             disabled={submitting}
             data-testid="login-submit"
-            className="w-full rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="k-btn-primary w-full"
           >
             {submitting ? 'Memproses...' : 'Masuk'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-stone-600">
+        <p className="mx-auto mt-6 max-w-md px-4 pb-12 text-center text-sm text-ink-soft">
           Belum punya akun?{' '}
           <Link
             to="/register"
-            className="font-semibold text-amber-700 hover:text-amber-800 hover:underline"
+            className="font-bold text-primary underline-offset-4 hover:text-primary-dark hover:underline"
             data-testid="go-to-register"
           >
             Daftar sekarang
           </Link>
         </p>
-      </div>
     </div>
   );
 }
