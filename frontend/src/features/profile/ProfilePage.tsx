@@ -152,7 +152,7 @@ export function ProfilePage() {
               <span className="text-xs font-semibold text-ink-soft">{label}</span>
               <Icon className={`h-4 w-4 shrink-0 ${tint}`} aria-hidden="true" />
             </div>
-            <p className={`mt-2 font-serif text-4xl font-bold tracking-tight ${tint}`}>{value}</p>
+            <p className={`mt-2 k-tinted-num font-serif text-4xl font-bold tracking-tight ${tint}`}>{value}</p>
             <p className="mt-1 text-[11px] text-ink-soft">All time</p>
           </div>
         ))}

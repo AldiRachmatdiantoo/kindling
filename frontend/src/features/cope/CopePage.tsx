@@ -263,7 +263,7 @@ export function CopePage() {
                 data-testid={`score-${item.key}`}
               >
                 <span className="block text-xs font-semibold text-ink-soft">{item.label}</span>
-                <span className={`mt-1 block font-serif text-3xl font-bold ${item.textColor}`}>
+                <span className={`k-tinted-num mt-1 block font-serif text-3xl font-bold ${item.textColor}`}>
                   {item.value}
                 </span>
                 <Progress
