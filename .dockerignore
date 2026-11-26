@@ -1,0 +1,11 @@
+.git
+.github
+**/node_modules
+frontend/dist
+frontend/playwright-report
+frontend/test-results
+zap-output
+*.log
+.env
+.env.*
+!.env.example

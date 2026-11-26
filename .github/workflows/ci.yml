@@ -1,0 +1,221 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  golangci-lint:
+    name: Backend Lint & Gosec (golangci-lint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.26.0"
+          cache-dependency-path: backend/go.sum
+
+      - name: Run golangci-lint (with gosec)
+        uses: golangci/golangci-lint-action@v7
+        with:
+          working-directory: backend
+          version: latest
+
+  govulncheck:
+    name: Backend Vulnerability Scan (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.26.0"
+          cache-dependency-path: backend/go.sum
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        working-directory: backend
+        run: govulncheck ./...
+
+  go-test:
+    name: Backend Tests (-race + Testcontainers)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.26.0"
+          cache-dependency-path: backend/go.sum
+
+      - name: Run go test -race with Testcontainers
+        working-directory: backend
+        run: go test -race -count=1 -v ./...
+
+  frontend-vitest:
+    name: Frontend Build & Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Run Vitest unit tests
+        working-directory: frontend
+        run: npm run test
+
+  build-and-trivy:
+    name: Build Images & Trivy Scan (HIGH/CRITICAL)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image (kindling-api)
+        run: docker build -t kindling-api:ci ./backend
+
+      - name: Build frontend/nginx image (kindling-web)
+        run: docker build -t kindling-web:ci -f ./frontend/Dockerfile .
+
+      - name: Trivy scan kindling-api (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: kindling-api:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Trivy scan kindling-web (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: kindling-web:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+  e2e-playwright:
+    name: E2E Tests (Playwright + Docker Compose)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Start Docker Compose stack (AI_PROVIDER=mock)
+        env:
+          AI_PROVIDER: mock
+          COOKIE_SECURE: "false"
+        run: |
+          docker compose up -d --build --wait
+          curl -fsS http://localhost/api/v1/health/ready
+
+      - name: Install frontend dependencies & Playwright Chromium
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E suite
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://localhost
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
+
+      - name: Stop Docker Compose stack
+        if: always()
+        run: docker compose down -v
+
+  owasp-zap-api-scan:
+    name: Security Scan (OWASP ZAP API Scan)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start Docker Compose stack (AI_PROVIDER=mock)
+        env:
+          AI_PROVIDER: mock
+          COOKIE_SECURE: "false"
+        run: |
+          docker compose up -d --build --wait
+          curl -fsS http://localhost/api/v1/health/ready
+
+      - name: Run OWASP ZAP API Scan against openapi.yaml
+        run: |
+          mkdir -p zap-output
+          chmod 777 zap-output
+          docker run --rm --network host \
+            -v "${{ github.workspace }}:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-api-scan.py \
+            -t /zap/wrk/backend/api/openapi.yaml \
+            -f openapi \
+            -c /zap/wrk/deploy/zap/zap-rules.tsv \
+            -r /zap/wrk/zap-output/zap-report.html \
+            -z "-config scanner.maxRuleDurationInMins=1 -config scanner.maxScanDurationInMins=3" \
+            -I
+
+      - name: Upload OWASP ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-api-scan-report
+          path: zap-output/zap-report.html
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop Docker Compose stack
+        if: always()
+        run: docker compose down -v

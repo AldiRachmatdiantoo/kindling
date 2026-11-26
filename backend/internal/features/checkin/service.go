@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 	_ "time/tzdata"
@@ -79,7 +80,7 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 	if aiErr == nil {
 		aiErr = ai.ValidateCheckinOutput(aiOut)
 	}
-	latencyMs := int32(time.Since(start).Milliseconds())
+	latencyMs := clampLatencyMs(time.Since(start))
 
 	isFallback := false
 	if aiErr != nil {
@@ -258,4 +259,15 @@ func mapDailyLogToResponse(row sqlc.DailyLog) (DailyLogResponse, error) {
 		WinsData:           winsData,
 		WinsCompletedCount: int(row.WinsCompletedCount),
 	}, nil
+}
+
+func clampLatencyMs(d time.Duration) int32 {
+	ms := d.Milliseconds()
+	if ms < 0 {
+		return 0
+	}
+	if ms > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(ms)
 }

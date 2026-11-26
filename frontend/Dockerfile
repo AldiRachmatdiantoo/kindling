@@ -9,7 +9,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:stable-alpine-slim AS runtime
 COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 EXPOSE 80

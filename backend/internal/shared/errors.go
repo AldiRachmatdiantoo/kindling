@@ -9,7 +9,7 @@ import (
 const (
 	CodeValidationError        = "VALIDATION_ERROR"
 	CodeUnauthenticated        = "UNAUTHENTICATED"
-	CodeInvalidCredentials     = "INVALID_CREDENTIALS"
+	CodeInvalidCredentials     = "INVALID_CREDENTIALS" //nolint:gosec // API error code constant, not a credential
 	CodeCSRFInvalid            = "CSRF_INVALID"
 	CodeNotFound               = "NOT_FOUND"
 	CodeEmailTaken             = "EMAIL_TAKEN"

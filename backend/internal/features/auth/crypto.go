@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -80,6 +81,9 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 		case "t":
 			iterations = uint32(v)
 		case "p":
+			if v > math.MaxUint8 {
+				return false, errors.New("argon2 parallelism out of range")
+			}
 			parallelism = uint8(v)
 		}
 	}
@@ -95,8 +99,13 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("decode argon2 hash: %w", err)
 	}
+	keyLen := len(expectedHash)
+	if keyLen == 0 || keyLen > 1024 {
+		return false, errors.New("invalid argon2 hash length")
+	}
 
-	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(expectedHash)))
+	//nolint:gosec // keyLen is explicitly bounded to [1, 1024] above
+	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(keyLen))
 	return subtle.ConstantTimeCompare(computed, expectedHash) == 1, nil
 }
 

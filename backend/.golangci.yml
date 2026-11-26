@@ -1,0 +1,21 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - gosec
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+      - path: internal/database/sqlc/
+        linters:
+          - gosec
+          - errcheck
+          - staticcheck
+          - unused

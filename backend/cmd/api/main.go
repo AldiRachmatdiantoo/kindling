@@ -117,6 +117,7 @@ func runHealthcheck() int {
 		addr = "127.0.0.1" + addr
 	}
 	client := &http.Client{Timeout: 2 * time.Second}
+	//nolint:gosec // local container self-healthcheck against HTTP_ADDR
 	resp, err := client.Get("http://" + addr + "/api/v1/health")
 	if err != nil {
 		return 1

@@ -3,6 +3,7 @@ package wins
 import (
 	"context"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 	_ "time/tzdata"
@@ -77,7 +78,7 @@ func (s *Service) SliceTask(ctx context.Context, userID uuid.UUID, dateStr strin
 	if aiErr == nil {
 		aiErr = ai.ValidateSliceTaskOutput(aiOut)
 	}
-	latencyMs := int32(time.Since(start).Milliseconds())
+	latencyMs := clampLatencyMs(time.Since(start))
 
 	isFallback := false
 	if aiErr != nil {
@@ -155,7 +156,7 @@ func (s *Service) Recalibrate(ctx context.Context, userID uuid.UUID, dateStr str
 	if aiErr == nil {
 		aiErr = ai.ValidateRecalibrateOutput(aiOut)
 	}
-	latencyMs := int32(time.Since(start).Milliseconds())
+	latencyMs := clampLatencyMs(time.Since(start))
 
 	isFallback := false
 	if aiErr != nil {
@@ -224,4 +225,15 @@ func (s *Service) recordAuditLog(ctx context.Context, userID uuid.UUID, endpoint
 			"err", err,
 		)
 	}
+}
+
+func clampLatencyMs(d time.Duration) int32 {
+	ms := d.Milliseconds()
+	if ms < 0 {
+		return 0
+	}
+	if ms > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(ms)
 }

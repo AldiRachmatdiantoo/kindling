@@ -1,0 +1,21 @@
+# OWASP ZAP API Scan ruleset for Kindling (/api/v1)
+# Format: <rule_id>\t<IGNORE|WARN|FAIL>\t<description>
+#
+# Expected API behaviors over local HTTP CI environment:
+100000	IGNORE	(A Client Error response code was returned by the server - expected 400/401/403/404/422/429 on unauthenticated/invalid API probes)
+100001	WARN	(Unexpected Content-Type was returned)
+10010	WARN	(Cookie No HttpOnly Flag - csrf_token is intentionally readable by JS for double-submit CSRF per PRD §7.2)
+10011	IGNORE	(Cookie Without Secure Flag - local CI runs over HTTP with COOKIE_SECURE=false; production sets COOKIE_SECURE=true)
+10015	IGNORE	(Re-examine Cache-control Directives)
+10021	WARN	(X-Content-Type-Options Header Missing)
+10035	IGNORE	(Strict-Transport-Security Header Not Set - local CI runs over HTTP without TLS termination)
+10038	WARN	(Content Security Policy Header Not Set on JSON API responses)
+10049	IGNORE	(Storable and Cacheable Content)
+10054	WARN	(Cookie without SameSite Attribute)
+10063	IGNORE	(Permissions Policy Header Not Set)
+10096	IGNORE	(Timestamp Disclosure - Unix/ISO timestamps in JSON API responses)
+10098	WARN	(Cross-Domain Misconfiguration)
+10109	IGNORE	(Modern Web Application)
+40026	IGNORE	(Cross Site Scripting DOM Based - browser-based rule not applicable to JSON API endpoints)
+90004	IGNORE	(Insufficient Site Isolation Against Spectre Vulnerability - JSON API)
+90033	WARN	(Loosely Scoped Cookie - csrf_token scoped to / for SPA double-submit)

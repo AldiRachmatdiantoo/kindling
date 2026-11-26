@@ -181,9 +181,10 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 func (m *MockAiProvider) SliceTask(_ context.Context, in SliceTaskInput) (SliceTaskOutput, error) {
 	clean := TruncateRunes(strings.TrimSpace(in.MainTask), 60)
 	duration := 420
-	if in.CalibrationTier == TierGentle {
+	switch in.CalibrationTier {
+	case TierGentle:
 		duration = 300
-	} else if in.CalibrationTier == TierStandard {
+	case TierStandard:
 		duration = 600
 	}
 	step := fmt.Sprintf("Buka bahan untuk \"%s\" dan kerjakan bagian pembuka paling kecil selama %d menit tanpa mengejar sempurna.", clean, duration/60)

@@ -123,6 +123,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) setSessionCookies(w http.ResponseWriter, tokens SessionTokens) {
+	//nolint:gosec // Secure is env-configurable (true in prod, false in local HTTP dev/CI per PRD NFR-04).
 	http.SetCookie(w, &http.Cookie{
 		Name:     middleware.AccessTokenCookieName,
 		Value:    tokens.AccessToken,
@@ -133,6 +134,7 @@ func (h *Handler) setSessionCookies(w http.ResponseWriter, tokens SessionTokens)
 		SameSite: http.SameSiteStrictMode,
 	})
 
+	//nolint:gosec // Secure is env-configurable (true in prod, false in local HTTP dev/CI per PRD NFR-04).
 	http.SetCookie(w, &http.Cookie{
 		Name:     RefreshTokenCookieName,
 		Value:    tokens.RefreshToken,
@@ -143,6 +145,7 @@ func (h *Handler) setSessionCookies(w http.ResponseWriter, tokens SessionTokens)
 		SameSite: http.SameSiteStrictMode,
 	})
 
+	//nolint:gosec // csrf_token is intentionally non-HttpOnly for double-submit CSRF (PRD §7.2 & NFR-04).
 	http.SetCookie(w, &http.Cookie{
 		Name:     middleware.CSRFCookieName,
 		Value:    tokens.CSRFToken,
@@ -157,6 +160,7 @@ func (h *Handler) setSessionCookies(w http.ResponseWriter, tokens SessionTokens)
 func (h *Handler) clearSessionCookies(w http.ResponseWriter) {
 	expired := time.Unix(0, 0).UTC()
 
+	//nolint:gosec // Secure is env-configurable (true in prod, false in local HTTP dev/CI per PRD NFR-04).
 	http.SetCookie(w, &http.Cookie{
 		Name:     middleware.AccessTokenCookieName,
 		Value:    "",
@@ -168,6 +172,7 @@ func (h *Handler) clearSessionCookies(w http.ResponseWriter) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
+	//nolint:gosec // Secure is env-configurable (true in prod, false in local HTTP dev/CI per PRD NFR-04).
 	http.SetCookie(w, &http.Cookie{
 		Name:     RefreshTokenCookieName,
 		Value:    "",
@@ -179,6 +184,7 @@ func (h *Handler) clearSessionCookies(w http.ResponseWriter) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
+	//nolint:gosec // csrf_token is intentionally non-HttpOnly for double-submit CSRF (PRD §7.2 & NFR-04).
 	http.SetCookie(w, &http.Cookie{
 		Name:     middleware.CSRFCookieName,
 		Value:    "",
