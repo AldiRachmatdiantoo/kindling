@@ -1,5 +1,6 @@
 import { Check, ChevronDown, Feather, Lightbulb, RefreshCw } from 'lucide-react';
-import { memo, type ReactNode } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
+import { AnimatePresence, m } from 'motion/react';
 import type { Pillar, WinItem, WorkWinItem } from '../../api/types';
 import { CountdownTimer } from '../../components/CountdownTimer';
 import { FeatureTip } from '../../components/FeatureTip';
@@ -44,6 +45,16 @@ export const WinCard = memo(function WinCard({
 }: WinCardProps) {
   const meta = PILLAR_META[pillar];
   const isMaxGentle = item.level >= 3;
+
+  // The details stay in the DOM (hidden) while folded, so a running timer keeps its place.
+  // `shown` lags isOpen on the way out so the fold can animate before `hidden` applies.
+  const [shown, setShown] = useState(isOpen);
+  if (isOpen && !shown) setShown(true);
+  useEffect(() => {
+    if (isOpen || !shown) return;
+    const t = window.setTimeout(() => setShown(false), 450); // backstop if no animation runs
+    return () => window.clearTimeout(t);
+  }, [isOpen, shown]);
 
   return (
     <article
@@ -124,54 +135,62 @@ export const WinCard = memo(function WinCard({
         />
       </button>
 
-      {/* Kept mounted while folded so a running timer keeps its place. */}
-      <div
+      {/* Watermelon-style disclosure: the panel springs open to its height and folds away. */}
+      <m.div
         id={`win-details-${pillar}`}
-        hidden={!isOpen}
-        className="space-y-4"
+        hidden={!shown}
+        initial={false}
+        animate={isOpen ? { height: 'auto', opacity: 1 } : { height: 0, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 30, opacity: { duration: 0.2 } }}
+        onAnimationComplete={() => {
+          if (!isOpen) setShown(false);
+        }}
+        className="-mx-1 overflow-hidden px-1"
         data-testid={`win-details-${pillar}`}
       >
-        {item.why_this && (
-          <div className="rounded-2xl bg-surface-2 px-3.5 py-3" data-testid={`win-why-${pillar}`}>
-            <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink">
-              <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
-              Why this, today
-            </span>
-            <p className="mt-1 text-xs leading-relaxed text-ink-soft">{item.why_this}</p>
-          </div>
-        )}
+        <div className="space-y-4 pb-1">
+          {item.why_this && (
+            <div className="rounded-2xl bg-surface-2 px-3.5 py-3" data-testid={`win-why-${pillar}`}>
+              <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink">
+                <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
+                Why this, today
+              </span>
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">{item.why_this}</p>
+            </div>
+          )}
 
-        {item.steps && item.steps.length > 0 && (
-          <div data-testid={`win-steps-${pillar}`}>
-            <span className="text-[11px] font-bold text-ink">How to start</span>
-            <ol className="mt-1.5 space-y-1.5">
-              {item.steps.map((stepText, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm leading-snug text-ink">
-                  <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 text-[11px] font-bold"
-                    aria-hidden="true"
-                  >
-                    {i + 1}
-                  </span>
-                  <span>{stepText}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
+          {item.steps && item.steps.length > 0 && (
+            <div data-testid={`win-steps-${pillar}`}>
+              <span className="text-[11px] font-bold text-ink">How to start</span>
+              <ol className="mt-1.5 space-y-1.5">
+                {item.steps.map((stepText, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm leading-snug text-ink">
+                    <span
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 text-[11px] font-bold"
+                      aria-hidden="true"
+                    >
+                      {i + 1}
+                    </span>
+                    <span>{stepText}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
-        {pillar !== 'work' && !item.completed && item.duration_seconds ? (
-          <CountdownTimer
-            durationSeconds={item.duration_seconds}
-            title={pillar === 'physical' ? 'Move timer' : 'Me-time timer'}
-            testIdPrefix={`win-timer-${pillar}`}
-            persistKey={userId ? timerKey(userId, logDate, pillar) : undefined}
-            compact
-          />
-        ) : null}
+          {pillar !== 'work' && !item.completed && item.duration_seconds ? (
+            <CountdownTimer
+              durationSeconds={item.duration_seconds}
+              title={pillar === 'physical' ? 'Move timer' : 'Me-time timer'}
+              testIdPrefix={`win-timer-${pillar}`}
+              persistKey={userId ? timerKey(userId, logDate, pillar) : undefined}
+              compact
+            />
+          ) : null}
 
-        {workSlicer}
-      </div>
+          {workSlicer}
+        </div>
+      </m.div>
 
       {showShrunkTip && (
         <FeatureTip
@@ -201,11 +220,19 @@ export const WinCard = memo(function WinCard({
               : 'border-line-strong bg-transparent text-ink hover:bg-surface-2'
           }`}
         >
-          <Check
-            key={item.completed ? 'done' : 'open'}
-            className={`h-4 w-4 ${justCompleted && item.completed ? 'k-pop' : ''}`}
-            aria-hidden="true"
-          />
+          {/* Watermelon "Save Toggle" feel: the check springs in when the win lands. */}
+          <AnimatePresence initial={false} mode="popLayout">
+            <m.span
+              key={item.completed ? 'done' : 'open'}
+              initial={{ scale: 0.4, opacity: 0, rotate: -30 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              exit={{ scale: 0.4, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 24 }}
+              className="flex"
+            >
+              <Check className="h-4 w-4" aria-hidden="true" />
+            </m.span>
+          </AnimatePresence>
           {isToggling ? 'Saving...' : item.completed ? 'Done (undo)' : 'Mark as done'}
         </button>
 

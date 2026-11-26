@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, Check, Clock, Smile, Wand2 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { m } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, generateIdempotencyKey } from '../../api/client';
 import { checkinApi } from '../../api/endpoints';
@@ -389,12 +390,21 @@ export function CheckinPage() {
                       handleSelectAnswer(question.key, value);
                       setShowSympathy(true);
                     }}
-                    className={`flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold k-press has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
+                    className={`relative flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold k-press has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
                       isChecked
-                        ? 'border-primary bg-primary-soft'
+                        ? 'border-transparent bg-surface-2'
                         : 'border-line bg-surface-2 hover:border-line-strong'
                     }`}
                   >
+                    {/* The selection slides to the new answer instead of jumping (layoutId). */}
+                    {isChecked && (
+                      <m.span
+                        layoutId={`answer-pill-${question.key}`}
+                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                        className="absolute -inset-px rounded-2xl border border-primary bg-primary-soft"
+                        aria-hidden="true"
+                      />
+                    )}
                     <input
                       type="radio"
                       name={question.key}
@@ -407,16 +417,21 @@ export function CheckinPage() {
                       className="sr-only"
                     />
                     <span
-                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${ANSWER_DOT[value] ?? 'bg-ink-faint'}`}
+                      className={`relative h-2.5 w-2.5 shrink-0 rounded-full ${ANSWER_DOT[value] ?? 'bg-ink-faint'}`}
                       aria-hidden="true"
                     />
-                    <span className="flex-1">
+                    <span className="relative flex-1">
                       {value} · {label}
                     </span>
                     {isChecked && (
-                      <span className="k-pop flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white">
+                      <m.span
+                        initial={{ scale: 0, rotate: -45 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                        className="relative flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white"
+                      >
                         <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                      </span>
+                      </m.span>
                     )}
                   </label>
                 );

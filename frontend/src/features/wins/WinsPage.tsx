@@ -1,5 +1,6 @@
 import { HeartHandshake, Trophy } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { m } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ApiError, generateIdempotencyKey } from '../../api/client';
 import { checkinApi, winsApi } from '../../api/endpoints';
@@ -425,9 +426,17 @@ export function WinsPage() {
             data-testid="wins-progress-badge"
           >
             <Trophy className="h-4 w-4" aria-hidden="true" />
-            {/* Re-keyed on change so the count pops when a win lands. */}
-            <span key={dailyLog.wins_completed_count} className="k-pop inline-block">
-              {dailyLog.wins_completed_count} / 3
+            {/* Re-keyed on change so the new count rolls up into place when a win lands. */}
+            <span className="inline-flex overflow-hidden">
+              <m.span
+                key={dailyLog.wins_completed_count}
+                initial={{ y: '100%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                className="inline-block"
+              >
+                {dailyLog.wins_completed_count} / 3
+              </m.span>
             </span>
             done
           </Badge>

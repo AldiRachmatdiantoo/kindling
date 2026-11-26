@@ -1,5 +1,6 @@
 import { CalendarCheck, HeartHandshake, LogOut, Sun, Trophy, User } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { m } from 'motion/react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
 import { WelcomeTourProvider } from '../features/onboarding/WelcomeTour';
@@ -131,16 +132,33 @@ function AppShellLayout() {
                   to={to}
                   data-testid={testId}
                   className={({ isActive }) =>
-                    `flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors duration-200 md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:px-3.5 ${
-                      isActive
-                        ? 'border-primary bg-primary-soft text-ink'
-                        : 'border-transparent text-ink-soft hover:bg-surface-2 hover:text-ink'
+                    `relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors duration-200 md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:px-3.5 ${
+                      isActive ? 'text-ink' : 'text-ink-soft hover:bg-surface-2 hover:text-ink'
                     }`
                   }
                 >
-                  <Icon className="h-5 w-5 shrink-0 md:h-4 md:w-4" aria-hidden="true" />
-                  <span className="lg:hidden">{short}</span>
-                  <span className="hidden lg:inline">{label}</span>
+                  {({ isActive }) => (
+                    <>
+                      {/* Watermelon "Fluid Tabs": one pill that springs from tab to tab. */}
+                      {isActive && (
+                        <m.span
+                          layoutId="nav-active-pill"
+                          transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 0.8 }}
+                          className="absolute inset-0 rounded-2xl border border-primary bg-primary-soft md:rounded-full"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <m.span
+                        animate={{ scale: isActive ? 1.1 : 1 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                        className="relative flex"
+                      >
+                        <Icon className="h-5 w-5 shrink-0 md:h-4 md:w-4" aria-hidden="true" />
+                      </m.span>
+                      <span className="relative lg:hidden">{short}</span>
+                      <span className="relative hidden lg:inline">{label}</span>
+                    </>
+                  )}
                 </NavLink>
               ))}
             </nav>
