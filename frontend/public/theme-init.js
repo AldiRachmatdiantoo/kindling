@@ -5,7 +5,7 @@
     t = localStorage.getItem('kindling:theme');
   } catch (e) {}
   if (t !== 'light' && t !== 'dark') {
-    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    t = 'dark'; // The night palette is the default; the toggle remembers a light choice.
   }
   document.documentElement.dataset.theme = t;
 })();

@@ -7,6 +7,8 @@ import { SafetyBanner } from '../../components/SafetyBanner';
 import { moodGreeting, TIER_META, TIER_MOOD } from './tier';
 import { formatLongDate } from '../../utils/date';
 import { Button } from '@/components/watermelon-ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 
 const PILLAR_LABEL: Record<Pillar, string> = {
   physical: 'Physical',
@@ -27,32 +29,38 @@ export function TodayOverview({ log }: { log: DailyLog }) {
     <div className="space-y-6" data-testid="checkin-done">
       {log.safety_flag && <SafetyBanner />}
 
-      <section className="k-card space-y-4 p-6 sm:p-8" data-testid="today-summary">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-end gap-3">
-            <Mascot
-              mood={allDone ? 'cheer' : TIER_MOOD[log.calibration_tier]}
-              className="k-pop h-20 w-16 shrink-0"
-            />
-            <div>
-              <p className="text-xs font-semibold text-ink-faint">{formatLongDate(log.log_date)}</p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink sm:text-4xl">Today</h1>
+      <Card asChild className="space-y-4 p-6 sm:p-8">
+        <section data-testid="today-summary">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-end gap-3">
+              <Mascot
+                mood={allDone ? 'cheer' : TIER_MOOD[log.calibration_tier]}
+                className="k-pop h-20 w-16 shrink-0"
+              />
+              <div>
+                <p className="text-xs font-semibold text-ink-faint">
+                  {formatLongDate(log.log_date)}
+                </p>
+                <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+                  Today
+                </h1>
+              </div>
             </div>
+            <span className={`k-chip ${tier.badgeClass}`} data-testid="today-tier">
+              <Leaf className="h-3.5 w-3.5" aria-hidden="true" />
+              {tier.label}
+            </span>
           </div>
-          <span className={`k-chip ${tier.badgeClass}`} data-testid="today-tier">
-            <Leaf className="h-3.5 w-3.5" aria-hidden="true" />
-            {tier.label}
-          </span>
-        </div>
-        <p
-          className="max-w-3xl font-serif text-lg leading-snug font-semibold text-ink sm:text-xl"
-          data-testid="mood-greeting"
-        >
-          {moodGreeting(log.calibration_tier, log.scores)}
-        </p>
-        <p className="max-w-2xl text-sm leading-relaxed text-ink">{log.diagnostic_summary}</p>
-        <p className="text-xs text-ink-soft">{tier.desc}</p>
-      </section>
+          <p
+            className="max-w-3xl font-serif text-lg leading-snug font-semibold text-ink sm:text-xl"
+            data-testid="mood-greeting"
+          >
+            {moodGreeting(log.calibration_tier, log.scores)}
+          </p>
+          <p className="max-w-2xl text-sm leading-relaxed text-ink">{log.diagnostic_summary}</p>
+          <p className="text-xs text-ink-soft">{tier.desc}</p>
+        </section>
+      </Card>
 
       <FeatureTip id="today-how" title="Your day at a glance">
         <p>
@@ -63,11 +71,11 @@ export function TodayOverview({ log }: { log: DailyLog }) {
       </FeatureTip>
 
       <div className="grid gap-4 md:grid-cols-[2fr_3fr]">
-        <section className="flex flex-col gap-3 rounded-3xl border-[1.5px] border-ink bg-mint p-5">
-          <span className="k-chip self-start">
+        <section className="flex flex-col gap-3 rounded-3xl border border-line bg-surface p-5">
+          <Badge className="self-start">
             <HeartHandshake className="h-3.5 w-3.5" aria-hidden="true" />
             Recovery moment
-          </span>
+          </Badge>
           {log.positive_cope_chosen ? (
             <>
               <h2 className="text-xl leading-snug font-bold text-ink" data-testid="today-cope">
@@ -94,11 +102,11 @@ export function TodayOverview({ log }: { log: DailyLog }) {
           </Button>
         </section>
 
-        <section className="flex flex-col gap-4 rounded-3xl border-[1.5px] border-ink bg-lavender p-5">
+        <section className="flex flex-col gap-4 rounded-3xl border border-line bg-surface p-5">
           <div className="flex items-center justify-between gap-2">
-            <span className="k-chip">
+            <Badge>
               <Trophy className="h-3.5 w-3.5" aria-hidden="true" />3 Daily Wins
-            </span>
+            </Badge>
             <span className="font-serif text-2xl font-bold text-ink" data-testid="today-wins-count">
               {log.wins_completed_count} / 3
             </span>
@@ -110,10 +118,10 @@ export function TodayOverview({ log }: { log: DailyLog }) {
               return (
                 <li
                   key={pillar}
-                  className="flex items-start gap-3 rounded-2xl bg-surface/70 px-3 py-2.5"
+                  className="flex items-start gap-3 rounded-2xl bg-surface-2 px-3 py-2.5"
                 >
                   <span
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink ${
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line ${
                       item.completed ? 'bg-ink text-cream' : 'bg-surface'
                     }`}
                   >

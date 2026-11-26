@@ -8,17 +8,17 @@ export const TIER_META: Record<
 > = {
   gentle: {
     label: 'Gentle Mode',
-    badgeClass: 'bg-sky',
+    badgeClass: 'border-sky-strong bg-sky text-sky-strong',
     desc: 'Goals are as small as they get today, so your nervous system can recover.',
   },
   balanced: {
     label: 'Balanced Mode',
-    badgeClass: 'bg-lavender',
+    badgeClass: 'border-lavender-strong bg-lavender text-lavender-strong',
     desc: 'Light-to-moderate goals that keep you moving without wearing you out.',
   },
   standard: {
     label: 'Standard Mode',
-    badgeClass: 'bg-mint',
+    badgeClass: 'border-mint-strong bg-mint text-mint-strong',
     desc: 'Your energy is steady enough for regular-sized goals today.',
   },
 };

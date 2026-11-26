@@ -5,17 +5,17 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 /*
-  Watermelon UI button (registry.watermelon.sh/r/button.json), restyled to Kindling's
-  outlined look. Solid variants sit on a chunky ink "lip" (k-press in index.css) that
-  sinks when pressed and springs back on release, so every tap feels answered.
+  Watermelon UI button (registry.watermelon.sh/r/button.json), restyled to the Figma
+  night look: a filled periwinkle pill for the main action, a hairline outline pill for
+  the rest. k-press (index.css) eases them in a touch when pressed.
 */
 const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-bold outline-none disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='h-'])]:h-4 [&_svg:not([class*='w-'])]:w-4",
   {
     variants: {
       variant: {
-        primary: 'k-press border-[1.5px] border-ink bg-lime text-ink hover:bg-lime-dark',
-        secondary: 'k-press border-[1.5px] border-ink bg-surface text-ink hover:bg-primary-soft',
+        primary: 'k-press bg-lime text-ink hover:bg-lime-dark',
+        secondary: 'k-press border border-line-strong bg-transparent text-ink hover:bg-surface-2',
         ghost:
           'k-press-soft font-semibold text-ink-soft underline-offset-4 hover:text-ink hover:underline',
         link: 'k-press-soft text-primary underline-offset-4 hover:text-primary-dark hover:underline',

@@ -20,6 +20,8 @@ import { PILLARS, timerKey } from './constants';
 import { RecoveryLockedView } from './RecoveryLockedView';
 import { WinCard } from './WinCard';
 import { WorkTaskSlicer } from './WorkTaskSlicer';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 
 // Mirrors the backend's RecalibratedWhyThis: once a goal shrinks, its old reason and steps no longer fit.
 const RECALIBRATED_WHY =
@@ -406,7 +408,7 @@ export function WinsPage() {
       <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
       <TaskMorphOverlay morph={morph} onClose={() => setMorph(null)} />
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
           <p className="text-xs font-semibold text-ink-faint">
             Your 3 Daily Wins · {dailyLog.log_date}
@@ -418,14 +420,17 @@ export function WinsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="k-chip bg-lime px-3.5 py-1.5 text-sm" data-testid="wins-progress-badge">
+          <Badge
+            className="border-mint-strong bg-transparent px-3.5 py-1.5 text-sm text-mint-strong"
+            data-testid="wins-progress-badge"
+          >
             <Trophy className="h-4 w-4" aria-hidden="true" />
             {/* Re-keyed on change so the count pops when a win lands. */}
             <span key={dailyLog.wins_completed_count} className="k-pop inline-block">
               {dailyLog.wins_completed_count} / 3
             </span>
             done
-          </span>
+          </Badge>
           <Button asChild variant="secondary">
             <Link to="/cope">
               <HeartHandshake className="h-4 w-4" aria-hidden="true" />
@@ -433,7 +438,7 @@ export function WinsPage() {
             </Link>
           </Button>
         </div>
-      </div>
+      </Card>
 
       {error && (
         <div className="k-error" data-testid="wins-error" role="alert">

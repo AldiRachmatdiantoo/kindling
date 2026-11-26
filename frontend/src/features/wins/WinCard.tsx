@@ -48,7 +48,9 @@ export const WinCard = memo(function WinCard({
   return (
     <article
       data-testid={`win-card-${pillar}`}
-      className={`relative flex flex-col gap-3 overflow-hidden rounded-3xl border-[1.5px] border-ink p-4 sm:gap-4 sm:p-5 ${meta.bg} ${isRecalibrating ? 'k-recal' : ''}`}
+      className={`relative flex flex-col gap-3 overflow-hidden rounded-3xl border p-4 transition-colors duration-300 sm:gap-4 sm:p-5 ${
+        item.completed ? 'border-mint-strong bg-mint' : 'border-line bg-surface'
+      } ${isRecalibrating ? 'k-recal' : ''}`}
       aria-busy={isRecalibrating || undefined}
     >
       <div className="flex items-center justify-between gap-3">
@@ -58,7 +60,8 @@ export const WinCard = memo(function WinCard({
             mood={item.completed ? 'cheer' : 'happy'}
             className={`h-11 w-10 shrink-0 sm:h-14 sm:w-12 ${justCompleted && item.completed ? 'k-pop' : ''}`}
           />
-          <span className="k-chip">
+          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${meta.text}`}>
+            <span className={`h-2 w-2 rounded-full ${meta.dot}`} aria-hidden="true" />
             {PILLAR_MASCOT[pillar].name} · {meta.label}
           </span>
         </span>
@@ -89,7 +92,7 @@ export const WinCard = memo(function WinCard({
         <p className="mt-1 text-xs text-ink-soft">{meta.subtitle}</p>
         {item.level > 0 && (
           <span
-            className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-2.5 py-1 text-[11px] font-semibold text-ink"
+            className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-ink"
             data-testid={`win-recal-${pillar}`}
           >
             <Feather className="h-3.5 w-3.5" aria-hidden="true" />
@@ -104,7 +107,7 @@ export const WinCard = memo(function WinCard({
         aria-expanded={isOpen}
         aria-controls={`win-details-${pillar}`}
         data-testid={`win-details-toggle-${pillar}`}
-        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl bg-surface/70 px-3.5 py-2 text-left text-sm font-bold text-ink hover:bg-surface"
+        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl bg-surface-2 px-3.5 py-2 text-left text-sm font-bold text-ink hover:brightness-110"
       >
         <span>
           {isOpen
@@ -129,7 +132,7 @@ export const WinCard = memo(function WinCard({
         data-testid={`win-details-${pillar}`}
       >
         {item.why_this && (
-          <div className="rounded-2xl bg-surface/70 px-3.5 py-3" data-testid={`win-why-${pillar}`}>
+          <div className="rounded-2xl bg-surface-2 px-3.5 py-3" data-testid={`win-why-${pillar}`}>
             <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink">
               <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
               Why this, today
@@ -145,7 +148,7 @@ export const WinCard = memo(function WinCard({
               {item.steps.map((stepText, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm leading-snug text-ink">
                   <span
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-surface text-[11px] font-bold"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line bg-surface-2 text-[11px] font-bold"
                     aria-hidden="true"
                   >
                     {i + 1}
@@ -192,10 +195,10 @@ export const WinCard = memo(function WinCard({
           onClick={() => onToggle(pillar)}
           data-testid={`win-toggle-${pillar}`}
           aria-pressed={item.completed}
-          className={`k-press flex min-h-11 w-full items-center justify-center gap-2 rounded-full border-[1.5px] border-ink px-4 py-2.5 text-sm font-bold disabled:opacity-60 ${
+          className={`k-press flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-bold disabled:opacity-60 ${
             item.completed
-              ? 'bg-ink text-cream hover:bg-ink/85'
-              : 'bg-surface text-ink hover:bg-lime'
+              ? 'border-transparent bg-mint-strong text-surface'
+              : 'border-line-strong bg-transparent text-ink hover:bg-surface-2'
           }`}
         >
           <Check
@@ -208,7 +211,7 @@ export const WinCard = memo(function WinCard({
 
         {isMaxGentle ? (
           <div
-            className="flex items-start gap-2 rounded-2xl bg-surface/70 px-3.5 py-2.5 text-xs leading-relaxed text-ink"
+            className="flex items-start gap-2 rounded-2xl bg-surface-2 px-3.5 py-2.5 text-xs leading-relaxed text-ink"
             data-testid={`rest-message-${pillar}`}
           >
             <Feather className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

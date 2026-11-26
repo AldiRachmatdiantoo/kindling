@@ -7,6 +7,9 @@ import { ThemeToggle } from '../theme/ThemeToggle';
 import { loginSchema } from '../../api/schemas';
 import { useAuth } from './AuthContext';
 import { Button } from '@/components/watermelon-ui/button';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 export function LoginPage() {
   const { setUser } = useAuth();
@@ -66,81 +69,80 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <div className="k-wave k-on-primary relative bg-primary px-4 pt-10 pb-24 text-center">
+      <div className="relative px-4 pt-10 pb-20 text-center">
         <ThemeToggle className="absolute top-4 right-4" />
         <div className="mx-auto max-w-md">
           <div className="mb-3 flex justify-center">
             <Mascot mood="happy" className="k-pop h-24 w-20" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Welcome back</h1>
-          <p className="mt-2 text-sm text-white">
+          <h1 className="text-3xl font-bold tracking-tight text-ink">Welcome back</h1>
+          <p className="mt-2 text-sm text-ink-soft">
             Start today with the energy you actually have, not yesterday's to-do list.
           </p>
         </div>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="k-card k-enter relative z-10 mx-auto -mt-16 w-[calc(100%-2rem)] max-w-md space-y-4 p-6 sm:p-7"
-        data-testid="login-form"
-        noValidate
+      <Card
+        asChild
+        className="k-enter relative z-10 mx-auto -mt-16 w-[calc(100%-2rem)] max-w-md space-y-4 p-6 sm:p-7"
       >
-        {formError && (
-          <div className="k-error" data-testid="login-error" role="alert">
-            {formError}
+        <form
+          onSubmit={handleSubmit}
+
+          data-testid="login-form"
+          noValidate
+        >
+          {formError && (
+            <div className="k-error" data-testid="login-error" role="alert">
+              {formError}
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="login-email">Email</Label>
+            <Input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              data-testid="login-email"
+              placeholder="you@example.com"
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
+            />
+            {fieldErrors.email && (
+              <p id="login-email-error" className="mt-1 text-xs font-medium text-peach-strong">
+                {fieldErrors.email}
+              </p>
+            )}
           </div>
-        )}
 
-        <div>
-          <label htmlFor="login-email" className="k-label">
-            Email
-          </label>
-          <input
-            id="login-email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            data-testid="login-email"
-            placeholder="you@example.com"
-            aria-invalid={fieldErrors.email ? true : undefined}
-            aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
-            className="k-input"
-          />
-          {fieldErrors.email && (
-            <p id="login-email-error" className="mt-1 text-xs font-medium text-peach-strong">
-              {fieldErrors.email}
-            </p>
-          )}
-        </div>
+          <div>
+            <Label htmlFor="login-password">Password</Label>
+            <Input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              data-testid="login-password"
+              placeholder="••••••••••"
+              aria-invalid={fieldErrors.password ? true : undefined}
+              aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
+            />
+            {fieldErrors.password && (
+              <p id="login-password-error" className="mt-1 text-xs font-medium text-peach-strong">
+                {fieldErrors.password}
+              </p>
+            )}
+          </div>
 
-        <div>
-          <label htmlFor="login-password" className="k-label">
-            Password
-          </label>
-          <input
-            id="login-password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            data-testid="login-password"
-            placeholder="••••••••••"
-            aria-invalid={fieldErrors.password ? true : undefined}
-            aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
-            className="k-input"
-          />
-          {fieldErrors.password && (
-            <p id="login-password-error" className="mt-1 text-xs font-medium text-peach-strong">
-              {fieldErrors.password}
-            </p>
-          )}
-        </div>
-
-        <Button type="submit" disabled={submitting} data-testid="login-submit" className="w-full">
-          {submitting ? 'Signing in...' : 'Sign in'}
-        </Button>
-      </form>
+          <Button type="submit" disabled={submitting} data-testid="login-submit" className="w-full">
+            {submitting ? 'Signing in...' : 'Sign in'}
+          </Button>
+        </form>
+      </Card>
 
       <p className="mx-auto mt-6 max-w-md px-4 pb-12 text-center text-sm text-ink-soft">
         New here?{' '}

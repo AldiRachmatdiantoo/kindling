@@ -89,16 +89,16 @@ function AppShellLayout() {
       <div className="min-h-screen bg-cream text-ink">
         <a
           href="#content"
-          className="sr-only z-50 rounded-full border-[1.5px] border-ink bg-lime px-4 py-2 text-sm font-bold text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+          className="sr-only z-50 rounded-full border border-line bg-lime px-4 py-2 text-sm font-bold text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
         >
           Skip to content
         </a>
 
-        <header className="k-wave k-on-primary sticky top-0 z-30 bg-primary">
+        <header className="k-wave sticky top-0 z-30 border-b border-line bg-cream/90 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
             <Link
               to="/"
-              className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-full text-white hover:opacity-90"
+              className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-full text-ink hover:opacity-90"
               data-testid="brand-logo"
             >
               <KindlingMark />
@@ -111,7 +111,7 @@ function AppShellLayout() {
           */}
             <nav
               aria-label="Main navigation"
-              className="k-nav-surface fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t-[1.5px] border-ink bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:static md:flex md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0"
+              className="k-nav-surface fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-line bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:static md:flex md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0"
             >
               {navItems.map(({ to, label, short, icon: Icon, testId }) => (
                 <NavLink
@@ -119,10 +119,10 @@ function AppShellLayout() {
                   to={to}
                   data-testid={testId}
                   className={({ isActive }) =>
-                    `flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border-[1.5px] px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors duration-200 md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:px-3.5 ${
+                    `flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors duration-200 md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:px-3.5 ${
                       isActive
-                        ? 'border-ink bg-lavender text-ink md:bg-lime'
-                        : 'border-transparent text-ink-soft hover:bg-primary-soft hover:text-ink md:text-white md:hover:border-white/40 md:hover:bg-white/10 md:hover:text-white'
+                        ? 'border-primary bg-primary-soft text-ink'
+                        : 'border-transparent text-ink-soft hover:bg-surface-2 hover:text-ink'
                     }`
                   }
                 >
@@ -136,7 +136,7 @@ function AppShellLayout() {
             <div className="flex shrink-0 items-center gap-2">
               {user && (
                 <span
-                  className="hidden max-w-40 truncate text-sm font-medium text-white xl:inline"
+                  className="hidden max-w-40 truncate text-sm font-medium text-ink-soft xl:inline"
                   data-testid="header-user-name"
                 >
                   {user.full_name}

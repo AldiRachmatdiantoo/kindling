@@ -3,36 +3,45 @@
 @import "@fontsource-variable/plus-jakarta-sans";
 
 /*
-  Design direction: the approved Figma redesign (warm, outlined, hand-drawn feel for
-  people who are already tired). Fraunces carries the soft, friendly voice of headings;
-  Plus Jakarta Sans keeps body copy plain and readable at small sizes.
-  Text colors below were checked against WCAG AA with antislop-human/contrast-check.py.
+  Design direction: the Figma "kindling" redesign. A calm, low-glare night palette for people
+  who are already tired: near-black page, softly raised cards with hairline borders, one
+  periwinkle accent for actions and the current place, and four signal colors (green, amber,
+  blue, coral) that only ever carry meaning (pillars, scores, heatmap). Fraunces carries the
+  warm voice of headings; Plus Jakarta Sans keeps body copy plain at small sizes.
+  The light theme is the same system on paper. Text pairings checked with
+  antislop-human/contrast-check.py (AA 4.5:1 for text, 3:1 for control borders).
 */
 @theme {
   --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-serif: "Fraunces Variable", ui-serif, Georgia, "Times New Roman", serif;
 
-  --color-cream: #fffdf7;
-  --color-surface: #ffffff; /* cards, inputs, chips: white in light, raised navy in dark */
-  --color-ink: #1f1b3a;
-  --color-ink-soft: #5e5a75; /* 6.46:1 on cream, >= 5.1:1 on every pastel */
-  --color-ink-faint: #6b6784; /* 5.30:1 on cream; only on cream/white surfaces */
+  --color-cream: #f6f6f8; /* the page */
+  --color-surface: #ffffff; /* cards */
+  --color-surface-2: #f0f0f4; /* wells inside cards: options, inputs, the slicer */
+  --color-line: #e3e3ea; /* hairline card borders (decorative) */
+  --color-line-strong: #8a8a96; /* control borders: 3.16:1 on the page */
+  --color-ink: #16161c;
+  --color-ink-soft: #55555f; /* 6.48:1 on surface-2 */
+  --color-ink-faint: #6a6a75; /* 4.95:1 on the page */
 
-  --color-primary: #5a5fd8; /* white text on it: 5.17:1 */
-  --color-primary-dark: #4549b8;
-  --color-primary-soft: #e8e8fb;
+  --color-primary: #4f5bd5; /* white text on it: 5.54:1; as text on white: 5.54:1 */
+  --color-primary-dark: #3e49b8;
+  --color-primary-soft: #e9ebff;
 
-  --color-lime: #e6f04a; /* the one accent: primary actions and the current tab */
-  --color-lime-dark: #d4df2c;
+  /* The action color (named lime for history): periwinkle with dark text in both themes. */
+  --color-lime: #7c8cff; /* #10132e on it: 6.11:1 */
+  --color-lime-dark: #95a2ff;
 
-  --color-mint: #d3f5df;
-  --color-mint-strong: #1e7a4b; /* 4.54:1 on mint */
-  --color-lavender: #e6dfff;
-  --color-lavender-strong: #5b47d6; /* 4.93:1 on lavender */
-  --color-sky: #dcebff;
-  --color-sky-strong: #3b7ddd;
-  --color-peach: #ffe1d6;
-  --color-peach-strong: #a8401f; /* 4.97:1 on peach, 6.14:1 on white */
+  --color-mint: #e5f6ec;
+  --color-mint-strong: #1b7a4a; /* 4.77:1 on mint */
+  --color-lavender: #ececff;
+  --color-lavender-strong: #4f55d0; /* 5.08:1 on lavender */
+  --color-sky: #e4efff;
+  --color-sky-strong: #2563b8; /* 5.09:1 on sky */
+  --color-peach: #fde8e2;
+  --color-peach-strong: #a8401f;
+  --color-sun: #fff4d6;
+  --color-sun-strong: #8a6100; /* 5.54:1 on white */
 }
 
 @layer base {
@@ -91,46 +100,29 @@
 
 @layer components {
   .k-card {
-    @apply rounded-3xl border-[1.5px] border-ink bg-surface;
+    @apply rounded-3xl border border-line bg-surface;
   }
 
   /*
-    Duolingo-style chunky press: a solid lip under the control sinks when pressed and the
-    springy release overshoots a touch, so taps feel answered. The lip is a box-shadow, so
-    it never shifts layout. k-press-soft is the quieter version for text-only controls.
+    Flat press: controls sit flush (no lip) and answer a tap by easing in a touch, so the
+    calm surface stays calm while every press still feels registered.
   */
-  .k-press {
-    --k-lip: 4px;
-    box-shadow: 0 var(--k-lip) 0 0 var(--k-lip-color, #1f1b3a);
-    transform: translateY(0);
-  }
   .k-press:hover:not(:disabled, [aria-disabled="true"]) {
-    transform: translateY(-1px);
-    box-shadow: 0 calc(var(--k-lip) + 1px) 0 0 var(--k-lip-color, #1f1b3a);
+    filter: brightness(1.08);
   }
   .k-press:active:not(:disabled, [aria-disabled="true"]) {
-    transform: translateY(var(--k-lip));
-    box-shadow: 0 0 0 0 var(--k-lip-color, #1f1b3a);
-  }
-  .k-press:disabled,
-  .k-press[aria-disabled="true"] {
-    box-shadow: 0 2px 0 0 var(--k-lip-color, #1f1b3a);
-  }
-  /* A chosen card or a done win stays half pressed in, like a key that clicked. */
-  .k-press[aria-pressed="true"]:not(:active) {
-    transform: translateY(2px);
-    box-shadow: 0 2px 0 0 var(--k-lip-color, #1f1b3a);
+    transform: scale(0.98);
   }
   .k-press-soft:active:not(:disabled) {
     transform: scale(0.95);
   }
 
   .k-input {
-    @apply w-full rounded-2xl border-[1.5px] border-ink bg-surface px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20;
+    @apply w-full rounded-2xl border border-line-strong bg-surface-2 px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/25;
   }
 
   .k-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3 py-1 text-xs font-semibold text-ink;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3 py-1 text-xs font-semibold text-ink;
   }
 
   .k-label {
@@ -138,7 +130,7 @@
   }
 
   .k-error {
-    @apply rounded-2xl border-[1.5px] border-peach-strong bg-peach px-4 py-3 text-sm text-ink;
+    @apply rounded-2xl border border-peach-strong bg-peach px-4 py-3 text-sm text-ink;
   }
 
   .k-spinner {
@@ -155,145 +147,93 @@
     }
   }
 
-  /* Scalloped bottom edge: the identity motif shared by the app header and auth pages. */
+  /* The header and auth bands are flat now; the class stays as a hook for the mood fade. */
   .k-wave {
     position: relative;
   }
-  .k-wave::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -10px;
-    height: 10px;
-    /* A mask, so the scallops take the header color and fade with it when the mood shifts. */
-    background-color: var(--color-primary);
-    -webkit-mask: radial-gradient(circle at 10px 0, #000 10px, transparent 10.5px) 0 0 / 20px 10px
-      repeat-x;
-    mask: radial-gradient(circle at 10px 0, #000 10px, transparent 10.5px) 0 0 / 20px 10px repeat-x;
-    pointer-events: none;
-  }
-
-  /* Inside the periwinkle header the default primary focus ring would vanish. */
-  .k-on-primary :focus-visible {
-    outline-color: #ffffff;
-  }
-
-  /* Below md the nav docks to the bottom on bg-surface, so white focus rings would vanish. */
-  @media (width < 48rem) {
-    .k-on-primary .k-nav-surface :focus-visible {
-      outline-color: var(--color-primary);
-    }
-    html[data-theme="dark"] .k-on-primary .k-nav-surface :focus-visible {
-      outline-color: var(--color-ink);
-    }
-  }
 }
 
 /*
-  Dark mode: the same tokens, re-pointed. Every utility reads its color from a CSS
-  variable, so overriding the variables here themes the whole app without per-component
-  dark: classes. Pairings checked with contrast-check.py (normal text, AA 4.5:1):
-  ink 16.0 / ink-soft 10.4 / ink-faint 7.6 on cream; ink-soft >= 7.1 on every pastel;
-  each *-strong >= 6.9 on its pastel.
+  Dark mode: the Figma palette itself. Every utility reads its color from a CSS variable,
+  so re-pointing the variables themes the whole app without per-component dark: classes.
+  Pairings (contrast-check.py): ink-soft 7.60 on surface, 6.88 on surface-2; ink-faint 5.46
+  on surface; line-strong 3.47 on surface-2; each *-strong >= 7.2 on its tint.
 */
 html[data-theme="dark"] {
   color-scheme: dark;
-  --color-cream: #15132a;
-  --color-surface: #221f3d;
-  --color-ink: #f1efff;
-  --color-ink-soft: #c5c1de;
-  --color-ink-faint: #a8a4c6;
-  --color-primary-soft: #2e2e63;
-  --color-mint: #173829;
-  --color-mint-strong: #7ddba8;
-  --color-lavender: #2a2552;
-  --color-lavender-strong: #b8acff;
-  --color-sky: #182b49;
-  --color-sky-strong: #8dbbff;
-  --color-peach: #3d2219;
-  --color-peach-strong: #ff9e80;
+  --color-cream: #0e0e11;
+  --color-surface: #18181c;
+  --color-surface-2: #212127;
+  --color-line: #2c2c33;
+  --color-line-strong: #74747f;
+  --color-ink: #f4f4f6;
+  --color-ink-soft: #a9a9b4;
+  --color-ink-faint: #8e8e99;
+  --color-primary: #5560e0; /* white text 5.08:1; as a ring 3.80:1 on the page */
+  --color-primary-dark: #4651c8;
+  --color-primary-soft: #1d2048;
+  --color-mint: #12261c;
+  --color-mint-strong: #5be0a0;
+  --color-lavender: #1c1e3e;
+  --color-lavender-strong: #a3adff;
+  --color-sky: #13233a;
+  --color-sky-strong: #6cb4ff;
+  --color-peach: #2c1916;
+  --color-peach-strong: #ff8c7a;
+  --color-sun: #2a2212;
+  --color-sun-strong: #f5c451;
 }
 
-/* Lime stays lime in both themes, so anything sitting on it keeps dark ink. */
-html[data-theme="dark"] :is(.bg-lime, .hover\:bg-lime:hover) {
-  --color-ink: #1f1b3a;
-  --color-ink-soft: #3d3958;
+/* The action color keeps dark ink on it in both themes. */
+:is(.bg-lime, .hover\:bg-lime:hover) {
+  --color-ink: #10132e;
+  --color-ink-soft: #2a2f5c;
   color: var(--color-ink);
 }
 @media (width >= 48rem) {
-  html[data-theme="dark"] .md\:bg-lime {
-    --color-ink: #1f1b3a;
-    --color-ink-soft: #3d3958;
+  .md\:bg-lime {
+    --color-ink: #10132e;
+    --color-ink-soft: #2a2f5c;
   }
 }
 
-/* Dark lips: a muted lilac under outlined controls, a deep olive under lime ones. */
-html[data-theme="dark"] .k-press {
-  --k-lip-color: #6f6b94;
-}
-html[data-theme="dark"] .k-press.bg-lime {
-  --k-lip-color: #8e9714;
-}
-
-/* The periwinkle brand color is too dark for text on navy; links get a lighter tint. */
+/* Periwinkle fills stay deep for white text; as text and rings it needs the lighter tint. */
 html[data-theme="dark"] .text-primary {
-  color: #a9acff;
+  color: #8b98ff;
 }
 html[data-theme="dark"] .hover\:text-primary-dark:hover {
-  color: #c8caff;
+  color: #a9b3ff;
+}
+html[data-theme="dark"] :focus-visible {
+  outline-color: #8b98ff;
 }
 
 /*
-  Adaptive atmosphere: today's check-in sets html[data-mood] (AppShell), and the whole app
-  shifts with it. Gentle (high exhaustion) goes warm amber paper under a deep slate header
-  and slows every animation down; balanced (running but far away) settles into a dusky
-  lavender; standard (energy to spare) goes fresh with teal.
-  Text pairings checked with contrast-check.py:
-  gentle ink-faint 4.73 / ink-soft 5.77 on paper, white 8.77 on slate;
-  balanced ink-faint 4.68 on lavender paper, dark ink-faint >= 6.13;
-  standard ink-faint 5.07 on mint paper, white 5.47 on teal; dark variants >= 5.88.
+  Adaptive atmosphere: today's check-in sets html[data-mood] (AppShell). On the calm night
+  palette the room only shifts a little: gentle (high exhaustion) warms the page and slows
+  every animation; balanced cools it toward indigo; standard (energy to spare) leans teal
+  and quickens. Text colors are untouched, so every checked pairing above still holds.
 */
 html[data-mood="gentle"] {
   --k-pace: 1.7;
-  --color-cream: #f9efe0;
-  --color-surface: #fffaf2;
-  --color-primary: #4a4862;
-  --color-primary-dark: #3a3850;
-  --color-primary-soft: #efe2cf;
+  --color-cream: #f7f3ec;
 }
 html[data-theme="dark"][data-mood="gentle"] {
-  --color-cream: #1b1714;
-  --color-surface: #2b2521;
-  --color-primary: #4a4560;
-  --color-primary-soft: #3a3029;
+  --color-cream: #121010;
 }
 html[data-mood="balanced"] {
   --k-pace: 1.25;
-  --color-cream: #efedff;
-  --color-primary-soft: #e0defb;
+  --color-cream: #f3f3fa;
 }
 html[data-theme="dark"][data-mood="balanced"] {
-  --color-cream: #131433;
-  --color-surface: #23254a;
+  --color-cream: #0e0e15;
 }
 html[data-mood="standard"] {
   --k-pace: 0.9;
-  --color-cream: #f2faf6;
-  --color-primary: #0f766e;
-  --color-primary-dark: #0b5e58;
-  --color-primary-soft: #d6f2ea;
+  --color-cream: #f2f7f5;
 }
 html[data-theme="dark"][data-mood="standard"] {
-  --color-cream: #0e1b1a;
-  --color-surface: #16302d;
-  --color-primary-soft: #1d3f3a;
-}
-html[data-theme="dark"][data-mood="gentle"] .text-primary {
-  color: #e3c79a;
-}
-html[data-theme="dark"][data-mood="standard"] .text-primary {
-  color: #7fe0d0;
+  --color-cream: #0c1110;
 }
 
 /* The shift itself is slow and soft, so it reads as the room changing, not a flicker. */
@@ -320,8 +260,8 @@ html[data-theme="dark"][data-mood="standard"] .text-primary {
   .k-press,
   .k-press-soft {
     transition:
-      transform 220ms cubic-bezier(0.34, 1.8, 0.64, 1),
-      box-shadow 220ms cubic-bezier(0.34, 1.8, 0.64, 1),
+      transform 160ms ease,
+      filter 150ms ease,
       background-color 150ms ease,
       color 150ms ease;
   }

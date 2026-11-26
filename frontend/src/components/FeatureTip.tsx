@@ -81,7 +81,7 @@ export function FeatureTip({
           <Button
             variant={seen ? 'ghost' : 'secondary'}
             size="sm"
-            className={cn('gap-1.5 px-3', !seen && 'bg-lime hover:bg-lime-dark')}
+            className={cn('gap-1.5 px-3', !seen && 'border-primary text-primary')}
             data-testid={`tip-${id}-open`}
           >
             <Lightbulb className="h-4 w-4" aria-hidden="true" />

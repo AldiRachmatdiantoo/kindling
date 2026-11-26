@@ -7,6 +7,9 @@ import { ThemeToggle } from '../theme/ThemeToggle';
 import { registerSchema } from '../../api/schemas';
 import { useAuth } from './AuthContext';
 import { Button } from '@/components/watermelon-ui/button';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 function detectTimezone(): string {
   try {
@@ -81,163 +84,161 @@ export function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <div className="k-wave k-on-primary relative bg-primary px-4 pt-10 pb-24 text-center">
+      <div className="relative px-4 pt-10 pb-20 text-center">
         <ThemeToggle className="absolute top-4 right-4" />
         <div className="mx-auto max-w-md">
           <div className="mb-3 flex justify-center">
             <Mascot mood="happy" className="k-pop h-24 w-20" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Join Kindling</h1>
-          <p className="mt-2 text-sm text-white">
+          <h1 className="text-3xl font-bold tracking-tight text-ink">Join Kindling</h1>
+          <p className="mt-2 text-sm text-ink-soft">
             No streak pressure. Just small, realistic steps for today.
           </p>
         </div>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="k-card k-enter relative z-10 mx-auto -mt-16 w-[calc(100%-2rem)] max-w-md space-y-4 p-6 sm:p-7"
-        data-testid="register-form"
-        noValidate
+      <Card
+        asChild
+        className="k-enter relative z-10 mx-auto -mt-16 w-[calc(100%-2rem)] max-w-md space-y-4 p-6 sm:p-7"
       >
-        {formError && (
-          <div className="k-error" data-testid="register-error" role="alert">
-            {formError}
-          </div>
-        )}
+        <form
+          onSubmit={handleSubmit}
 
-        <div>
-          <label htmlFor="register-name" className="k-label">
-            Your name
-          </label>
-          <input
-            id="register-name"
-            type="text"
-            autoComplete="name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            data-testid="register-fullname"
-            placeholder="Alex Morgan"
-            aria-invalid={fieldErrors.full_name ? true : undefined}
-            aria-describedby={fieldErrors.full_name ? 'register-name-error' : undefined}
-            className="k-input"
-          />
-          {fieldErrors.full_name && (
-            <p id="register-name-error" className="mt-1 text-xs font-medium text-peach-strong">
-              {fieldErrors.full_name}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="register-email" className="k-label">
-            Email
-          </label>
-          <input
-            id="register-email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            data-testid="register-email"
-            placeholder="you@example.com"
-            aria-invalid={fieldErrors.email ? true : undefined}
-            aria-describedby={fieldErrors.email ? 'register-email-error' : undefined}
-            className="k-input"
-          />
-          {fieldErrors.email && (
-            <p id="register-email-error" className="mt-1 text-xs font-medium text-peach-strong">
-              {fieldErrors.email}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="register-password" className="k-label">
-            Password <span className="font-normal text-ink-faint">(at least 10 characters)</span>
-          </label>
-          <input
-            id="register-password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            data-testid="register-password"
-            placeholder="At least 10 characters"
-            aria-invalid={fieldErrors.password ? true : undefined}
-            aria-describedby={fieldErrors.password ? 'register-password-error' : undefined}
-            className="k-input"
-          />
-          {fieldErrors.password && (
-            <p id="register-password-error" className="mt-1 text-xs font-medium text-peach-strong">
-              {fieldErrors.password}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="register-timezone" className="k-label">
-            Time zone
-          </label>
-          <input
-            id="register-timezone"
-            type="text"
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            data-testid="register-timezone"
-            placeholder="Asia/Jakarta"
-            aria-invalid={fieldErrors.timezone ? true : undefined}
-            aria-describedby={fieldErrors.timezone ? 'register-timezone-error' : undefined}
-            className="k-input"
-          />
-          {fieldErrors.timezone && (
-            <p
-              id="register-timezone-error"
-              data-testid="register-timezone-error"
-              className="mt-1 text-xs font-medium text-peach-strong"
-            >
-              {fieldErrors.timezone}
-            </p>
-          )}
-        </div>
-
-        <div className="rounded-2xl border-[1.5px] border-ink bg-lavender p-4">
-          <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-ink">
-            <input
-              type="checkbox"
-              checked={aiConsent}
-              onChange={(e) => setAiConsent(e.target.checked)}
-              data-testid="register-ai-consent"
-              aria-invalid={fieldErrors.ai_consent ? true : undefined}
-              aria-describedby={fieldErrors.ai_consent ? 'register-consent-error' : undefined}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-            />
-            <span>
-              I agree that my check-in text (the <em>brain dump</em>, my <em>fun thing</em>, and
-              daily tasks) can be processed by an AI service to suggest recovery moments and small
-              daily steps. Personal details like my name and email are never sent to the AI.
-            </span>
-          </label>
-          {fieldErrors.ai_consent && (
-            <p
-              id="register-consent-error"
-              className="mt-1.5 text-xs font-medium text-peach-strong"
-              data-testid="register-consent-error"
-            >
-              {fieldErrors.ai_consent}
-            </p>
-          )}
-        </div>
-
-        <Button
-          type="submit"
-          disabled={submitting}
-          data-testid="register-submit"
-          className="w-full"
+          data-testid="register-form"
+          noValidate
         >
-          {submitting ? 'Creating your account...' : 'Create account'}
-        </Button>
-      </form>
+          {formError && (
+            <div className="k-error" data-testid="register-error" role="alert">
+              {formError}
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="register-name">Your name</Label>
+            <Input
+              id="register-name"
+              type="text"
+              autoComplete="name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              data-testid="register-fullname"
+              placeholder="Alex Morgan"
+              aria-invalid={fieldErrors.full_name ? true : undefined}
+              aria-describedby={fieldErrors.full_name ? 'register-name-error' : undefined}
+            />
+            {fieldErrors.full_name && (
+              <p id="register-name-error" className="mt-1 text-xs font-medium text-peach-strong">
+                {fieldErrors.full_name}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="register-email">Email</Label>
+            <Input
+              id="register-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              data-testid="register-email"
+              placeholder="you@example.com"
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? 'register-email-error' : undefined}
+            />
+            {fieldErrors.email && (
+              <p id="register-email-error" className="mt-1 text-xs font-medium text-peach-strong">
+                {fieldErrors.email}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="register-password">
+              Password <span className="font-normal text-ink-faint">(at least 10 characters)</span>
+            </Label>
+            <Input
+              id="register-password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              data-testid="register-password"
+              placeholder="At least 10 characters"
+              aria-invalid={fieldErrors.password ? true : undefined}
+              aria-describedby={fieldErrors.password ? 'register-password-error' : undefined}
+            />
+            {fieldErrors.password && (
+              <p
+                id="register-password-error"
+                className="mt-1 text-xs font-medium text-peach-strong"
+              >
+                {fieldErrors.password}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="register-timezone">Time zone</Label>
+            <Input
+              id="register-timezone"
+              type="text"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              data-testid="register-timezone"
+              placeholder="Asia/Jakarta"
+              aria-invalid={fieldErrors.timezone ? true : undefined}
+              aria-describedby={fieldErrors.timezone ? 'register-timezone-error' : undefined}
+            />
+            {fieldErrors.timezone && (
+              <p
+                id="register-timezone-error"
+                data-testid="register-timezone-error"
+                className="mt-1 text-xs font-medium text-peach-strong"
+              >
+                {fieldErrors.timezone}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-line bg-surface-2 p-4">
+            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-ink">
+              <input
+                type="checkbox"
+                checked={aiConsent}
+                onChange={(e) => setAiConsent(e.target.checked)}
+                data-testid="register-ai-consent"
+                aria-invalid={fieldErrors.ai_consent ? true : undefined}
+                aria-describedby={fieldErrors.ai_consent ? 'register-consent-error' : undefined}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              />
+              <span>
+                I agree that my check-in text (the <em>brain dump</em>, my <em>fun thing</em>, and
+                daily tasks) can be processed by an AI service to suggest recovery moments and small
+                daily steps. Personal details like my name and email are never sent to the AI.
+              </span>
+            </label>
+            {fieldErrors.ai_consent && (
+              <p
+                id="register-consent-error"
+                className="mt-1.5 text-xs font-medium text-peach-strong"
+                data-testid="register-consent-error"
+              >
+                {fieldErrors.ai_consent}
+              </p>
+            )}
+          </div>
+
+          <Button
+            type="submit"
+            disabled={submitting}
+            data-testid="register-submit"
+            className="w-full"
+          >
+            {submitting ? 'Creating your account...' : 'Create account'}
+          </Button>
+        </form>
+      </Card>
 
       <p className="mx-auto mt-6 max-w-md px-4 pb-12 text-center text-sm text-ink-soft">
         Already have an account?{' '}

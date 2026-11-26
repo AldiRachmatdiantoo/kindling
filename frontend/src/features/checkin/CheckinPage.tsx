@@ -24,16 +24,29 @@ import {
   type DemoPreset,
 } from './constants';
 import { Button } from '@/components/watermelon-ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 const INITIAL_ANSWERS: Partial<CheckinAnswers> = {};
 const TOTAL_QUESTIONS = CHECKIN_QUESTIONS.length;
 const FINAL_STEP = TOTAL_QUESTIONS;
 
-const DIMENSION_META: Record<CheckinQuestion['dimension'], { label: string; chip: string }> = {
-  Physical: { label: 'Physical Energy', chip: 'bg-mint' },
-  'Work Exhaustion': { label: 'Work Exhaustion', chip: 'bg-lavender' },
-  Disengagement: { label: 'Disengagement', chip: 'bg-sky' },
-  Soul: { label: 'Soul Well-Being', chip: 'bg-peach' },
+// Same signal colors as the score bars on the results page, so a dimension keeps its color.
+const DIMENSION_META: Record<CheckinQuestion['dimension'], { label: string; dot: string }> = {
+  Physical: { label: 'Physical Energy', dot: 'bg-peach-strong' },
+  'Work Exhaustion': { label: 'Work Exhaustion', dot: 'bg-sun-strong' },
+  Disengagement: { label: 'Disengagement', dot: 'bg-sky-strong' },
+  Soul: { label: 'Soul Well-Being', dot: 'bg-mint-strong' },
+};
+
+// A dot per answer (Figma): calm green for "not at all" through periwinkle for "very".
+const ANSWER_DOT: Record<number, string> = {
+  1: 'bg-mint-strong',
+  2: 'bg-sun-strong',
+  3: 'bg-peach-strong',
+  4: 'bg-lavender-strong',
 };
 
 interface Sympathy {
@@ -257,7 +270,7 @@ export function CheckinPage() {
                 <span>{progress}%</span>
               </div>
               <div
-                className="h-2.5 w-full overflow-hidden rounded-full border-[1.5px] border-ink bg-surface"
+                className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2"
                 role="progressbar"
                 aria-valuemin={0}
                 aria-valuemax={100}
@@ -289,7 +302,7 @@ export function CheckinPage() {
                   onClick={() => applyPreset(preset)}
                   data-testid={preset.id === 'preset-a' ? 'preset-a-button' : 'preset-b-button'}
                   title={`${preset.label}: ${preset.description}`}
-                  className="font-semibold hover:bg-lime"
+                  className="font-semibold"
                 >
                   {preset.id === 'preset-a' ? 'Preset A' : 'Preset B'}
                 </Button>
@@ -347,17 +360,20 @@ export function CheckinPage() {
           >
             <legend className="block w-full space-y-2.5 p-0">
               <span className="flex justify-center">
-                <span className={`k-chip ${DIMENSION_META[question.dimension].chip}`}>
-                  <span className="h-1.5 w-1.5 rounded-full bg-ink" />
+                <Badge>
+                  <span
+                    className={`h-2 w-2 rounded-full ${DIMENSION_META[question.dimension].dot}`}
+                    aria-hidden="true"
+                  />
                   {DIMENSION_META[question.dimension].label}
-                </span>
+                </Badge>
               </span>
-              <span className="k-card block px-5 py-4 text-center font-serif text-xl leading-snug font-bold text-ink sm:px-6 sm:py-5 sm:text-2xl">
+              <span className="block rounded-3xl border border-line bg-surface px-5 py-4 text-center font-serif text-xl leading-snug font-bold text-ink sm:px-6 sm:py-5 sm:text-2xl">
                 {question.text}
               </span>
             </legend>
 
-            <div className="space-y-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               {LIKERT_LABELS.map(({ value, label }) => {
                 const isChecked = selected === value;
                 return (
@@ -373,8 +389,10 @@ export function CheckinPage() {
                       handleSelectAnswer(question.key, value);
                       setShowSympathy(true);
                     }}
-                    className={`flex min-h-11 items-center gap-3 rounded-2xl border-[1.5px] border-ink px-4 py-2.5 text-sm font-semibold k-press has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
-                      isChecked ? 'bg-lavender' : 'bg-surface hover:bg-primary-soft'
+                    className={`flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold k-press has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
+                      isChecked
+                        ? 'border-primary bg-primary-soft'
+                        : 'border-line bg-surface-2 hover:border-line-strong'
                     }`}
                   >
                     <input
@@ -389,13 +407,9 @@ export function CheckinPage() {
                       className="sr-only"
                     />
                     <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink ${
-                        isChecked ? 'bg-ink' : 'bg-surface'
-                      }`}
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${ANSWER_DOT[value] ?? 'bg-ink-faint'}`}
                       aria-hidden="true"
-                    >
-                      {isChecked && <span className="h-1.5 w-1.5 rounded-full bg-surface" />}
-                    </span>
+                    />
                     <span className="flex-1">
                       {value} · {label}
                     </span>
@@ -432,34 +446,36 @@ export function CheckinPage() {
               </p>
             </FeatureTip>
 
-            <section className="k-card space-y-3 p-5">
-              <div className="flex items-baseline justify-between gap-2">
-                <label htmlFor="brain-dump" className="font-serif text-lg font-bold text-ink">
-                  Brain dump{' '}
-                  <span className="font-sans text-sm font-medium text-ink-faint">(optional)</span>
-                </label>
-              </div>
-              <textarea
-                id="brain-dump"
-                rows={4}
-                maxLength={2000}
-                value={brainDump}
-                onChange={(e) => setBrainDump(e.target.value)}
-                data-testid="checkin-brain-dump"
-                placeholder="Let it all out. What's weighing on your mind today?"
-                className="k-input resize-y"
-              />
-              <p className="text-right text-xs text-ink-faint">{brainDump.length} / 2000</p>
-            </section>
+            <Card asChild className="space-y-3 p-5">
+              <section>
+                <div className="flex items-baseline justify-between gap-2">
+                  <label htmlFor="brain-dump" className="font-serif text-lg font-bold text-ink">
+                    Brain dump{' '}
+                    <span className="font-sans text-sm font-medium text-ink-faint">(optional)</span>
+                  </label>
+                </div>
+                <Textarea
+                  id="brain-dump"
+                  rows={4}
+                  maxLength={2000}
+                  value={brainDump}
+                  onChange={(e) => setBrainDump(e.target.value)}
+                  data-testid="checkin-brain-dump"
+                  placeholder="Let it all out. What's weighing on your mind today?"
+                  className="resize-y"
+                />
+                <p className="text-right text-xs text-ink-faint">{brainDump.length} / 2000</p>
+              </section>
+            </Card>
 
-            <section className="space-y-3 rounded-3xl border-[1.5px] border-ink bg-lavender p-5">
+            <section className="space-y-3 rounded-3xl border border-line bg-surface p-5">
               <label htmlFor="fun-cope-input" className="flex items-start gap-2">
                 <Smile className="mt-1 h-4 w-4 shrink-0 text-lavender-strong" aria-hidden="true" />
                 <span className="font-serif text-lg leading-snug font-bold text-ink">
                   What's one fun thing you always want to do when you're running on empty?
                 </span>
               </label>
-              <input
+              <Input
                 id="fun-cope-input"
                 type="text"
                 maxLength={200}
@@ -467,7 +483,6 @@ export function CheckinPage() {
                 onChange={(e) => setFunCopeInput(e.target.value)}
                 data-testid="checkin-fun-cope"
                 placeholder="e.g. Lying down with my favorite playlist"
-                className="k-input"
               />
               <div className="flex justify-between gap-3 text-xs text-ink-soft">
                 <span>Having a go-to way to unwind is a good thing.</span>
