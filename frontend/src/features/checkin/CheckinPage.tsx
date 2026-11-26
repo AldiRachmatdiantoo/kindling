@@ -1,4 +1,4 @@
-import { Sparkles, Wand2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sparkles, Wand2 } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, generateIdempotencyKey } from '../../api/client';
@@ -8,15 +8,43 @@ import type { CheckinAnswers } from '../../api/types';
 import { DisclaimerBanner } from '../../components/DisclaimerBanner';
 import { getTodayInTimezone } from '../../utils/date';
 import { useAuth } from '../auth/AuthContext';
-import { CHECKIN_QUESTIONS, DEMO_PRESETS, LIKERT_LABELS, type DemoPreset } from './constants';
+import {
+  CHECKIN_QUESTIONS,
+  DEMO_PRESETS,
+  LIKERT_LABELS,
+  type CheckinQuestion,
+  type DemoPreset,
+} from './constants';
 
 const INITIAL_ANSWERS: Partial<CheckinAnswers> = {};
+const TOTAL_QUESTIONS = CHECKIN_QUESTIONS.length;
+const FINAL_STEP = TOTAL_QUESTIONS;
+
+const DIMENSION_META: Record<CheckinQuestion['dimension'], { label: string; chip: string }> = {
+  Physical: { label: 'Physical Energy', chip: 'bg-mint' },
+  'Work Exhaustion': { label: 'Work Exhaustion', chip: 'bg-lavender' },
+  Disengagement: { label: 'Disengagement', chip: 'bg-sky' },
+  Soul: { label: 'Soul Well-Being', chip: 'bg-peach' },
+};
+
+function acknowledgement(question: CheckinQuestion, value: number): string {
+  // Soul items are positively worded: a high score is good news, not strain.
+  if (question.dimension === 'Soul') {
+    return value >= 3
+      ? 'Senang mendengarnya. Kita jaga ritme ini pelan-pelan.'
+      : 'Tidak apa-apa. Hari yang redup juga layak dirawat dengan lembut.';
+  }
+  return value >= 3
+    ? 'Pantas saja rasanya berat. Terima kasih sudah jujur dengan tubuhmu hari ini — kita akan kecilkan targetmu nanti.'
+    : 'Tercatat. Tidak ada jawaban yang salah di sini.';
+}
 
 export function CheckinPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [checkingExisting, setCheckingExisting] = useState(true);
+  const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Partial<CheckinAnswers>>(INITIAL_ANSWERS);
   const [brainDump, setBrainDump] = useState('');
   const [funCopeInput, setFunCopeInput] = useState('');
@@ -32,14 +60,9 @@ export function CheckinPage() {
           navigate('/wins', { replace: true });
         }
       })
-      .catch((err) => {
-        if (!active) return;
-        // 404 means user has not checked in today yet -> show form
-        if (err instanceof ApiError && err.status === 404) {
-          setCheckingExisting(false);
-          return;
-        }
-        setCheckingExisting(false);
+      .catch(() => {
+        // 404 means no check-in yet today; any other error still falls back to the form.
+        if (active) setCheckingExisting(false);
       });
 
     return () => {
@@ -52,10 +75,12 @@ export function CheckinPage() {
     setBrainDump(preset.brain_dump);
     setFunCopeInput(preset.fun_cope_input);
     setFormError(null);
+    setStep(FINAL_STEP);
   };
 
   const handleSelectAnswer = (key: keyof CheckinAnswers, value: number) => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
+    setFormError(null);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -72,11 +97,13 @@ export function CheckinPage() {
 
     if (!parsed.success) {
       const firstIssue = parsed.error.issues[0];
-      setFormError(
-        firstIssue?.path[0] === 'answers'
-          ? 'Mohon lengkapi seluruh 9 butir check-in terlebih dahulu.'
-          : firstIssue?.message || 'Periksa kembali isian form check-in.'
-      );
+      if (firstIssue?.path[0] === 'answers') {
+        const firstMissing = CHECKIN_QUESTIONS.findIndex((q) => answers[q.key] === undefined);
+        if (firstMissing >= 0) setStep(firstMissing);
+        setFormError('Mohon lengkapi seluruh 9 butir check-in terlebih dahulu.');
+      } else {
+        setFormError(firstIssue?.message || 'Periksa kembali isian form check-in.');
+      }
       return;
     }
 
@@ -104,191 +131,215 @@ export function CheckinPage() {
     return (
       <div className="flex min-h-[50vh] items-center justify-center" data-testid="checkin-loading">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-          <p className="text-sm text-stone-500">Memeriksa check-in hari ini...</p>
+          <div className="k-spinner" />
+          <p className="text-sm text-ink-soft">Memeriksa check-in hari ini...</p>
         </div>
       </div>
     );
   }
 
-  const answeredCount = Object.keys(answers).length;
+  const isFinal = step === FINAL_STEP;
+  const question = isFinal ? null : CHECKIN_QUESTIONS[step];
+  const selected = question ? answers[question.key] : undefined;
+  const progress = isFinal ? 100 : Math.round(((step + 1) / TOTAL_QUESTIONS) * 100);
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100/80 px-3 py-1 text-xs font-medium text-amber-800">
-          <Sparkles className="h-3.5 w-3.5" />
-          Kalibrasi Energi Harian
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
-          Bagaimana kondisimu hari ini?
-        </h1>
-        <p className="max-w-2xl text-sm text-stone-600">
-          Tidak perlu memaksakan target besar. Jawab sejujurnya agar Kindling bisa menyesuaikan
-          pemulihan dan 3 kemenangan kecil sesuai energimu hari ini.
-        </p>
-      </div>
-
-      <DisclaimerBanner />
-
-      <section className="rounded-2xl border border-amber-200/80 bg-amber-50/70 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-2.5">
-            <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-            <div>
-              <p className="text-sm font-semibold text-amber-950">Demo Presets (Isi Otomatis)</p>
-              <p className="text-xs text-amber-800/90">
-                Isi form secara instan untuk simulasi. Kamu tetap menekan tombol Kirim Check-In.
-              </p>
+    <div className="mx-auto max-w-xl space-y-6">
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0}
+            aria-label="Pertanyaan sebelumnya"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-white transition-colors hover:bg-primary-soft disabled:invisible"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex-1">
+            <div className="mb-1 flex items-center justify-between text-xs font-semibold text-ink-soft">
+              <span data-testid="checkin-step-label">
+                {isFinal ? 'Langkah Terakhir' : `${step + 1} dari ${TOTAL_QUESTIONS}`}
+              </span>
+              <span>{progress}%</span>
+            </div>
+            <div
+              className="h-2.5 w-full overflow-hidden rounded-full border-[1.5px] border-ink bg-white"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress}
+              aria-label="Progres check-in"
+            >
+              <div
+                className="h-full rounded-full bg-lime transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {DEMO_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => applyPreset(preset)}
-                data-testid={preset.id === 'preset-a' ? 'preset-a-button' : 'preset-b-button'}
-                title={preset.description}
-                className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 shadow-2xs transition-colors hover:bg-amber-100"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
         </div>
-      </section>
 
-      <form onSubmit={handleSubmit} className="space-y-6" data-testid="checkin-form" noValidate>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-soft">
+            <Wand2 className="h-3.5 w-3.5" />
+            Demo:
+          </span>
+          {DEMO_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => applyPreset(preset)}
+              data-testid={preset.id === 'preset-a' ? 'preset-a-button' : 'preset-b-button'}
+              title={`${preset.label} — ${preset.description}`}
+              className="rounded-full border-[1.5px] border-ink bg-white px-3 py-1 text-xs font-semibold text-ink transition-colors hover:bg-lime"
+            >
+              {preset.id === 'preset-a' ? 'Preset A' : 'Preset B'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-5" data-testid="checkin-form" noValidate>
         {formError && (
-          <div
-            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
-            data-testid="checkin-error"
-            role="alert"
-          >
+          <div className="k-error" data-testid="checkin-error" role="alert">
             {formError}
           </div>
         )}
 
-        <section className="space-y-4 rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-3">
-            <div>
-              <h2 className="text-base font-semibold text-stone-900">
-                Bagian 1 — 9 Butir Kondisi Diri
-              </h2>
-              <p className="text-xs text-stone-500">
-                1 = Tidak sama sekali · 2 = Sedikit · 3 = Cukup · 4 = Sangat
-              </p>
-            </div>
-            <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600">
-              {answeredCount} / 9 terjawab
-            </span>
-          </div>
+        {question && (
+          <fieldset key={question.key} className="space-y-4">
+            <legend className="block w-full space-y-4 p-0">
+              <span className="flex justify-center">
+                <span className={`k-chip ${DIMENSION_META[question.dimension].chip}`}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-ink" />
+                  {DIMENSION_META[question.dimension].label}
+                </span>
+              </span>
+              <span className="k-card block px-6 py-7 text-center font-serif text-2xl leading-snug font-bold text-ink sm:text-[1.7rem]">
+                {question.text}
+              </span>
+            </legend>
 
-          <div className="divide-y divide-stone-100">
-            {CHECKIN_QUESTIONS.map((q, index) => {
-              const selected = answers[q.key];
-              return (
-                <fieldset key={q.key} className="py-4 first:pt-2 last:pb-0">
-                  <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                    <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">
-                      {q.dimension}
+            <div className="space-y-2.5">
+              {LIKERT_LABELS.map(({ value, label }) => {
+                const isChecked = selected === value;
+                return (
+                  <label
+                    key={value}
+                    data-testid={`answer-${question.key}-${value}`}
+                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border-[1.5px] border-ink px-4 py-3 text-sm font-semibold transition-colors has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
+                      isChecked ? 'bg-lavender' : 'bg-white hover:bg-primary-soft'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={question.key}
+                      value={value}
+                      checked={isChecked}
+                      onChange={() => handleSelectAnswer(question.key, value)}
+                      className="sr-only"
+                    />
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink ${
+                        isChecked ? 'bg-ink' : 'bg-white'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {isChecked && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </span>
-                    <legend className="text-sm font-medium text-stone-900">
-                      {index + 1}. {q.text}
-                    </legend>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {LIKERT_LABELS.map(({ value, label }) => {
-                      const isChecked = selected === value;
-                      return (
-                        <label
-                          key={value}
-                          data-testid={`answer-${q.key}-${value}`}
-                          className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-center text-xs font-medium transition-all ${
-                            isChecked
-                              ? 'border-amber-500 bg-amber-50 text-amber-900 ring-1 ring-amber-500'
-                              : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-50'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={q.key}
-                            value={value}
-                            checked={isChecked}
-                            onChange={() => handleSelectAnswer(q.key, value)}
-                            className="sr-only"
-                          />
-                          <span className="font-semibold">{value}</span>
-                          <span className="text-[11px] opacity-85">{label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="space-y-5 rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs sm:p-6">
-          <h2 className="text-base font-semibold text-stone-900">
-            Bagian 2 — Ruang Lega & Positive Cope
-          </h2>
-
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="brain-dump" className="text-sm font-medium text-stone-800">
-                Brain Dump <span className="font-normal text-stone-400">(opsional)</span>
-              </label>
-              <span className="text-xs text-stone-400">{brainDump.length} / 2000</span>
+                    <span className="flex-1">
+                      {value} · {label}
+                    </span>
+                    {isChecked && (
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white">
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
-            <textarea
-              id="brain-dump"
-              rows={4}
-              maxLength={2000}
-              value={brainDump}
-              onChange={(e) => setBrainDump(e.target.value)}
-              data-testid="checkin-brain-dump"
-              placeholder="Tumpahkan apa saja yang sedang mengganjal pikiranmu hari ini..."
-              className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-          </div>
 
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="fun-cope-input" className="text-sm font-medium text-stone-800">
-                What fun thing do you always want to do when everything feels tired?
+            {selected !== undefined && (
+              <div
+                className="flex items-start gap-2.5 rounded-2xl border-[1.5px] border-ink bg-mint px-4 py-3 text-sm leading-relaxed text-ink"
+                aria-live="polite"
+              >
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-mint-strong" />
+                <span>{acknowledgement(question, selected)}</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setStep((s) => s + 1)}
+              disabled={selected === undefined}
+              data-testid="checkin-next"
+              className="k-btn-primary w-full"
+            >
+              Lanjut
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            <p className="text-center text-xs text-ink-faint">Bukan alat diagnosis klinis.</p>
+          </fieldset>
+        )}
+
+        {isFinal && (
+          <div className="space-y-5">
+            <section className="k-card space-y-3 p-5">
+              <div className="flex items-baseline justify-between gap-2">
+                <label htmlFor="brain-dump" className="font-serif text-lg font-bold text-ink">
+                  Brain Dump <span className="font-sans text-sm font-medium text-ink-faint">(opsional)</span>
+                </label>
+              </div>
+              <textarea
+                id="brain-dump"
+                rows={4}
+                maxLength={2000}
+                value={brainDump}
+                onChange={(e) => setBrainDump(e.target.value)}
+                data-testid="checkin-brain-dump"
+                placeholder="Tumpahkan apa saja yang sedang mengganjal pikiranmu hari ini..."
+                className="k-input resize-y"
+              />
+              <p className="text-right text-xs text-ink-faint">{brainDump.length} / 2000</p>
+            </section>
+
+            <section className="space-y-3 rounded-3xl border-[1.5px] border-ink bg-lavender p-5">
+              <label htmlFor="fun-cope-input" className="flex items-start gap-2">
+                <Sparkles className="mt-1 h-4 w-4 shrink-0 text-lavender-strong" />
+                <span className="font-serif text-lg leading-snug font-bold text-ink">
+                  What fun thing do you always want to do when everything feels tired?
+                </span>
               </label>
-              <span className="text-xs text-stone-400">{funCopeInput.length} / 200</span>
-            </div>
-            <input
-              id="fun-cope-input"
-              type="text"
-              maxLength={200}
-              value={funCopeInput}
-              onChange={(e) => setFunCopeInput(e.target.value)}
-              data-testid="checkin-fun-cope"
-              placeholder="Contoh: Rebahan sambil dengerin lagu favorit, main gitar 10 menit..."
-              className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-            />
-            <p className="mt-1 text-xs text-stone-500">
-              Having a coping mechanism is not a bad thing — kami akan mengubahnya menjadi 3 opsi
-              pemulihan yang bisa kamu pilih sendiri.
-            </p>
-          </div>
-        </section>
+              <input
+                id="fun-cope-input"
+                type="text"
+                maxLength={200}
+                value={funCopeInput}
+                onChange={(e) => setFunCopeInput(e.target.value)}
+                data-testid="checkin-fun-cope"
+                placeholder="Contoh: Rebahan sambil dengerin lagu favorit..."
+                className="k-input"
+              />
+              <div className="flex justify-between gap-3 text-xs text-ink-soft">
+                <span>Having a coping mechanism is not a bad thing.</span>
+                <span className="shrink-0">{funCopeInput.length} / 200</span>
+              </div>
+            </section>
 
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={submitting}
-            data-testid="checkin-submit"
-            className="inline-flex items-center justify-center rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? 'Mengkalibrasi hari ini...' : 'Kirim Check-In & Kalibrasi'}
-          </button>
-        </div>
+            <DisclaimerBanner />
+
+            <button
+              type="submit"
+              disabled={submitting}
+              data-testid="checkin-submit"
+              className="k-btn-primary w-full"
+            >
+              {submitting ? 'Mengkalibrasi hari ini...' : 'Kalibrasi Hari Ini'}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

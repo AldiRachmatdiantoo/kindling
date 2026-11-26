@@ -67,27 +67,29 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-50 px-4 py-12">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+    <div className="min-h-screen bg-cream">
+      <div className="k-wave bg-primary px-4 pt-10 pb-24 text-center">
+        <div className="mx-auto max-w-md">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full border-[1.5px] border-ink bg-lime text-ink">
             <Flame className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900">Buat Akun Kindling</h1>
-          <p className="mt-1 text-sm text-stone-500">
+          <h1 className="text-3xl font-bold tracking-tight text-white">Buat Akun Kindling</h1>
+          <p className="mt-2 text-sm text-white/85">
             Tanpa tekanan streak. Cukup langkah kecil yang realistis hari ini.
           </p>
         </div>
 
+      </div>
+
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs"
+          className="k-card relative z-10 mx-auto -mt-16 w-[calc(100%-2rem)] max-w-md space-y-4 p-6 sm:p-7"
           data-testid="register-form"
           noValidate
         >
           {formError && (
             <div
-              className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-800"
+              className="k-error"
               data-testid="register-error"
               role="alert"
             >
@@ -98,7 +100,7 @@ export function RegisterPage() {
           <div>
             <label
               htmlFor="register-name"
-              className="mb-1.5 block text-sm font-medium text-stone-700"
+              className="k-label"
             >
               Nama Lengkap
             </label>
@@ -110,17 +112,17 @@ export function RegisterPage() {
               onChange={(e) => setFullName(e.target.value)}
               data-testid="register-fullname"
               placeholder="Alice Kindling"
-              className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              className="k-input"
             />
             {fieldErrors.full_name && (
-              <p className="mt-1 text-xs text-rose-600">{fieldErrors.full_name}</p>
+              <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.full_name}</p>
             )}
           </div>
 
           <div>
             <label
               htmlFor="register-email"
-              className="mb-1.5 block text-sm font-medium text-stone-700"
+              className="k-label"
             >
               Email
             </label>
@@ -132,19 +134,19 @@ export function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               data-testid="register-email"
               placeholder="kamu@contoh.com"
-              className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              className="k-input"
             />
             {fieldErrors.email && (
-              <p className="mt-1 text-xs text-rose-600">{fieldErrors.email}</p>
+              <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.email}</p>
             )}
           </div>
 
           <div>
             <label
               htmlFor="register-password"
-              className="mb-1.5 block text-sm font-medium text-stone-700"
+              className="k-label"
             >
-              Kata Sandi <span className="font-normal text-stone-400">(minimal 10 karakter)</span>
+              Kata Sandi <span className="font-normal text-ink-faint">(minimal 10 karakter)</span>
             </label>
             <input
               id="register-password"
@@ -154,17 +156,17 @@ export function RegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
               data-testid="register-password"
               placeholder="Minimal 10 karakter"
-              className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              className="k-input"
             />
             {fieldErrors.password && (
-              <p className="mt-1 text-xs text-rose-600">{fieldErrors.password}</p>
+              <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.password}</p>
             )}
           </div>
 
           <div>
             <label
               htmlFor="register-timezone"
-              className="mb-1.5 block text-sm font-medium text-stone-700"
+              className="k-label"
             >
               Zona Waktu
             </label>
@@ -175,18 +177,18 @@ export function RegisterPage() {
               onChange={(e) => setTimezone(e.target.value)}
               data-testid="register-timezone"
               placeholder="Asia/Jakarta"
-              className="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              className="k-input"
             />
           </div>
 
-          <div className="rounded-xl border border-stone-200 bg-stone-50 p-3.5">
-            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-stone-700">
+          <div className="rounded-2xl border-[1.5px] border-ink bg-lavender p-4">
+            <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-ink">
               <input
                 type="checkbox"
                 checked={aiConsent}
                 onChange={(e) => setAiConsent(e.target.checked)}
                 data-testid="register-ai-consent"
-                className="mt-0.5 h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
+                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
               />
               <span>
                 Saya menyetujui bahwa teks check-in (<em>brain dump</em>, <em>fun thing</em>, dan
@@ -195,7 +197,7 @@ export function RegisterPage() {
               </span>
             </label>
             {fieldErrors.ai_consent && (
-              <p className="mt-1.5 text-xs text-rose-600" data-testid="register-consent-error">
+              <p className="mt-1.5 text-xs font-medium text-peach-strong" data-testid="register-consent-error">
                 {fieldErrors.ai_consent}
               </p>
             )}
@@ -205,23 +207,22 @@ export function RegisterPage() {
             type="submit"
             disabled={submitting}
             data-testid="register-submit"
-            className="w-full rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="k-btn-primary w-full"
           >
             {submitting ? 'Mendaftarkan...' : 'Daftar'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-stone-600">
+        <p className="mx-auto mt-6 max-w-md px-4 pb-12 text-center text-sm text-ink-soft">
           Sudah punya akun?{' '}
           <Link
             to="/login"
-            className="font-semibold text-amber-700 hover:text-amber-800 hover:underline"
+            className="font-bold text-primary underline-offset-4 hover:text-primary-dark hover:underline"
             data-testid="go-to-login"
           >
             Masuk di sini
           </Link>
         </p>
-      </div>
     </div>
   );
 }
