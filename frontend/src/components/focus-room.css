@@ -1,0 +1,371 @@
+/*
+  Focus Room: the full-screen space a picked recovery moment opens into. A calm, dark stage
+  in every theme, so the tool is the only thing on screen. Motion is transform and opacity
+  only; the breathing orb's growth is the guidance itself, so it stays even under reduced
+  motion, while everything decorative stops.
+*/
+.fr-room {
+  --color-ink: #f1efff;
+  --fr-accent: #8dbbff;
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: radial-gradient(120% 80% at 50% 0%, #26234a 0%, #15132a 60%);
+  color: #f1efff;
+  animation: fr-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fr-room[data-tool='timer'] {
+  --fr-accent: #ffc58a;
+  background: radial-gradient(120% 80% at 50% 0%, #3a2a24 0%, #181210 62%);
+}
+.fr-room[data-tool='brain_dump'] {
+  --fr-accent: #b8acff;
+}
+.fr-room.fr-out {
+  animation: fr-out 260ms ease-in forwards;
+}
+
+.fr-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+}
+.fr-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #c5c1de;
+}
+.fr-close {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid #6f6b94;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f1efff;
+}
+.fr-close:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+.fr-close:focus-visible,
+.fr-room button:focus-visible,
+.fr-room textarea:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.fr-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 8px 20px 40px;
+  text-align: center;
+}
+.fr-title {
+  margin: 0;
+  max-width: 34rem;
+  font: 700 clamp(24px, 4vw, 32px) / 1.2 var(--font-serif, Georgia, serif);
+}
+.fr-sub {
+  margin: 0;
+  max-width: 32rem;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #c5c1de;
+}
+.fr-time {
+  font:
+    700 44px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.fr-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Breathing: an organic orb that grows on the in-breath and shrinks on the out-breath. */
+.fr-orb-wrap {
+  position: relative;
+  display: grid;
+  width: min(72vw, 300px);
+  aspect-ratio: 1;
+  place-items: center;
+}
+.fr-orb {
+  position: absolute;
+  inset: 0;
+  transform: scale(0.55);
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  will-change: transform;
+}
+.fr-blob {
+  position: absolute;
+  inset: 0;
+  border-radius: 58% 42% 55% 45% / 47% 58% 42% 53%;
+  background: var(--fr-accent);
+  opacity: 0.9;
+  transition: background-color 1.2s ease;
+}
+.fr-blob-2 {
+  inset: 6%;
+  border-radius: 45% 55% 42% 58% / 55% 45% 58% 42%;
+  background: #ffffff;
+  opacity: 0.18;
+}
+.fr-ring {
+  position: absolute;
+  inset: -8%;
+  border: 2px solid var(--fr-accent);
+  border-radius: 50%;
+  opacity: 0;
+}
+.fr-orb-label {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #15132a;
+}
+.fr-orb-label strong {
+  font: 700 24px/1.1 var(--font-serif, Georgia, serif);
+}
+.fr-orb-label span {
+  margin-top: 4px;
+  font:
+    700 30px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+/* Hobby: a record that spins while the time runs, inside a ring that fills up. */
+.fr-vinyl-wrap {
+  position: relative;
+  width: min(66vw, 260px);
+  aspect-ratio: 1;
+}
+.fr-vinyl-wrap svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.fr-vinyl {
+  transform-origin: 50% 50%;
+}
+.fr-ring-track {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.12);
+  stroke-width: 6;
+}
+.fr-ring-fill {
+  fill: none;
+  stroke: var(--fr-accent);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 400ms linear;
+}
+.fr-permission {
+  max-width: 30rem;
+  border: 1.5px solid rgb(255 197 138 / 0.5);
+  border-radius: 20px;
+  background: rgb(255 197 138 / 0.08);
+  padding: 14px 18px;
+  font: 600 17px/1.45 var(--font-serif, Georgia, serif);
+  color: #ffe2c4;
+}
+
+/* Brain dump: a quiet page, then it folds itself up and is filed away. */
+.fr-page {
+  width: min(92vw, 640px);
+  transform-origin: 50% 0;
+}
+.fr-page textarea {
+  display: block;
+  width: 100%;
+  min-height: 42vh;
+  resize: vertical;
+  border: 1.5px solid #4b4870;
+  border-radius: 20px;
+  background: #fffdf7;
+  padding: 18px 20px;
+  font: 400 17px/1.6 var(--font-sans, system-ui, sans-serif);
+  color: #1f1b3a;
+}
+.fr-page textarea::placeholder {
+  color: #6b6784;
+}
+.fr-note {
+  font-size: 13px;
+  color: #a8a4c6;
+}
+.fr-envelope {
+  display: grid;
+  width: 120px;
+  height: 84px;
+  place-items: center;
+  border: 1.5px solid #b8acff;
+  border-radius: 14px;
+  background: #2a2552;
+}
+.fr-archived {
+  max-width: 30rem;
+  font: 600 18px/1.45 var(--font-serif, Georgia, serif);
+}
+
+@keyframes fr-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0) scale(0.98);
+  }
+}
+@keyframes fr-out {
+  to {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fr-blob {
+    animation: fr-morph 9s ease-in-out infinite alternate;
+  }
+  .fr-blob-2 {
+    animation: fr-morph 7s ease-in-out infinite alternate-reverse;
+  }
+  .fr-orb-wrap.fr-idle .fr-orb {
+    animation: fr-idle 3.2s ease-in-out infinite alternate;
+  }
+  /* The hold: a soft shimmer and a ring that ripples out, so stillness still feels alive. */
+  .fr-orb-wrap.fr-hold .fr-orb {
+    animation: fr-shimmer 1.4s ease-in-out infinite alternate;
+  }
+  .fr-orb-wrap.fr-hold .fr-ring {
+    animation: fr-ripple 2.4s ease-out infinite;
+  }
+  .fr-vinyl {
+    animation: fr-spin 3.6s linear infinite;
+    animation-play-state: paused;
+  }
+  .fr-vinyl.fr-spinning {
+    animation-play-state: running;
+  }
+  .fr-page.fr-folding {
+    animation: fr-fold 900ms cubic-bezier(0.55, 0, 0.45, 1) forwards;
+  }
+  .fr-envelope {
+    animation: fr-drop 700ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .fr-archived,
+  .fr-after {
+    animation: fr-rise 500ms 350ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes fr-morph {
+  0% {
+    border-radius: 58% 42% 55% 45% / 47% 58% 42% 53%;
+    transform: rotate(0deg);
+  }
+  50% {
+    border-radius: 44% 56% 48% 52% / 58% 44% 56% 42%;
+  }
+  100% {
+    border-radius: 52% 48% 40% 60% / 42% 52% 48% 58%;
+    transform: rotate(40deg);
+  }
+}
+@keyframes fr-idle {
+  from {
+    transform: scale(0.55);
+  }
+  to {
+    transform: scale(0.6);
+  }
+}
+@keyframes fr-shimmer {
+  from {
+    transform: scale(var(--fr-scale, 1));
+  }
+  to {
+    transform: scale(calc(var(--fr-scale, 1) * 1.025));
+  }
+}
+@keyframes fr-ripple {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+@keyframes fr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fr-fold {
+  0% {
+    transform: none;
+  }
+  45% {
+    transform: perspective(900px) rotateX(70deg) scale(0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: perspective(900px) rotateX(88deg) scale(0.3) translate3d(0, 120px, 0);
+    opacity: 0;
+  }
+}
+@keyframes fr-drop {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -30px, 0) scale(0.6);
+  }
+}
+@keyframes fr-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+}
+
+/* App buttons on the dark stage: outlined ones turn navy, lime keeps dark ink, lips show. */
+.fr-room {
+  --color-surface: #221f3d;
+  --color-primary-soft: #2e2e63;
+  --color-ink-soft: #c5c1de;
+}
+.fr-room .k-press {
+  --k-lip-color: #6f6b94;
+}
+.fr-room .bg-lime {
+  --color-ink: #1f1b3a;
+  --k-lip-color: #8e9714;
+  color: #1f1b3a;
+}

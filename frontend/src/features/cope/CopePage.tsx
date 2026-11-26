@@ -4,12 +4,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { checkinApi } from '../../api/endpoints';
 import type { CopeOption, DailyLog } from '../../api/types';
-import { BreathingPacer, pickBreathingPattern } from '../../components/BreathingPacer';
 import { CheckinPending } from '../../components/CheckinPending';
-import { CountdownTimer } from '../../components/CountdownTimer';
+import { FocusRoom } from '../../components/FocusRoom';
 import { DisclaimerBanner } from '../../components/DisclaimerBanner';
 import { FeatureTip } from '../../components/FeatureTip';
-import { GuidedBrainDump } from '../../components/GuidedBrainDump';
 import { Mascot } from '../../components/Mascot';
 import { SafetyBanner } from '../../components/SafetyBanner';
 import { moodGreeting, TIER_META, TIER_MOOD } from '../today/tier';
@@ -81,6 +79,8 @@ export function CopePage() {
   // After a pick, bring the tool into view: on a phone it opens below the fold.
   const toolRef = useRef<HTMLDivElement>(null);
   const [pickCount, setPickCount] = useState(0);
+  const [roomOpen, setRoomOpen] = useState(false);
+  const openRoomRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (pickCount === 0) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -98,6 +98,7 @@ export function CopePage() {
       );
       setActiveOption(option);
       setPickCount((n) => n + 1);
+      setRoomOpen(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "We couldn't save that pick. Try again?");
     } finally {
@@ -260,8 +261,8 @@ export function CopePage() {
 
         <FeatureTip id="cope-pick" title="Pick whatever feels good right now">
           <p>
-            Tap any card to pick it, and its tool opens right below, ready to go. Changed your mind?
-            Just tap another one. They're all short, so there's no wrong choice.
+            Tap any card to pick it, and it opens in a quiet full-screen room, ready to go. Changed
+            your mind? Close it and tap another one. They're all short, so there's no wrong choice.
           </p>
         </FeatureTip>
 
@@ -320,60 +321,41 @@ export function CopePage() {
         </div>
 
         {activeOption && (
-          <div ref={toolRef} className="scroll-mt-28 space-y-3 pt-2" data-testid="active-cope-tool">
-            {activeOption.tool_type === 'breathing' && (
-              <FeatureTip id="cope-tool-breathing" title="Let the circle lead" mood="calm">
-                <p>
-                  Press Start and follow along. Breathe in while the circle grows, hold while it
-                  waits, and breathe out while it shrinks. You can pause anytime.
+          <div
+            ref={toolRef}
+            className="flex scroll-mt-28 flex-wrap items-center justify-between gap-3 rounded-3xl border-[1.5px] border-ink bg-surface p-5"
+            data-testid="active-cope-tool"
+          >
+            <div className="flex items-center gap-3">
+              <Mascot mood="calm" className="h-14 w-12 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-ink-faint">Your recovery moment</p>
+                <p className="font-serif text-lg font-bold text-ink">{activeOption.title}</p>
+                <p className="text-xs text-ink-soft">
+                  Your timer keeps going even if you close the room.
                 </p>
-              </FeatureTip>
-            )}
-            {activeOption.tool_type === 'timer' && (
-              <FeatureTip
-                id="cope-tool-timer"
-                title="Press Start, then put your phone down"
-                mood="calm"
-              >
-                <p>
-                  The timer keeps track so you don't have to. Just enjoy the activity, and come back
-                  when it says time's up.
-                </p>
-              </FeatureTip>
-            )}
-            {activeOption.tool_type === 'brain_dump' && (
-              <FeatureTip id="cope-tool-brain-dump" title="Messy is perfect here" mood="calm">
-                <p>
-                  Type whatever is buzzing around your head. Nothing in this box gets saved. When
-                  you're done, press Let it go and watch it all disappear.
-                </p>
-              </FeatureTip>
-            )}
-            {activeOption.tool_type === 'breathing' && (
-              <BreathingPacer
-                pattern={pickBreathingPattern(`${activeOption.title} ${activeOption.guidance}`)}
-                durationSeconds={activeOption.duration_seconds}
-                guidance={activeOption.guidance}
-                persistKey={`${dailyLog.log_date}:cope:${activeOption.id}`}
-              />
-            )}
-            {activeOption.tool_type === 'timer' && (
-              <CountdownTimer
-                durationSeconds={activeOption.duration_seconds}
-                title={activeOption.title}
-                subtitle={activeOption.guidance}
-                testIdPrefix="cope-activity"
-                persistKey={`${dailyLog.log_date}:cope:${activeOption.id}`}
-              />
-            )}
-            {activeOption.tool_type === 'brain_dump' && (
-              <GuidedBrainDump
-                durationSeconds={activeOption.duration_seconds}
-                guidance={activeOption.guidance}
-                persistKey={`${dailyLog.log_date}:cope:${activeOption.id}`}
-              />
-            )}
+              </div>
+            </div>
+            <Button
+              ref={openRoomRef}
+              onClick={() => setRoomOpen(true)}
+              data-testid="open-focus-room"
+            >
+              <Play className="h-4 w-4" aria-hidden="true" />
+              Open focus room
+            </Button>
           </div>
+        )}
+        {activeOption && roomOpen && (
+          <FocusRoom
+            option={activeOption}
+            persistKey={`${dailyLog.log_date}:cope:${activeOption.id}`}
+            onClose={() => {
+              setRoomOpen(false);
+              // The picked card was disabled while saving, so focus returns here instead.
+              window.requestAnimationFrame(() => openRoomRef.current?.focus());
+            }}
+          />
         )}
       </section>
 

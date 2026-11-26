@@ -87,6 +87,10 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(firstCopeCard).toBeVisible();
     await firstCopeCard.click();
     await expect(firstCopeCard).toContainText('Picked for today');
+    // The pick opens the full-screen focus room; closing it leaves a way back in
+    await expect(page.getByTestId('focus-room')).toBeVisible();
+    await page.getByTestId('focus-room-close').click();
+    await expect(page.getByTestId('focus-room')).toHaveCount(0);
     await expect(page.getByTestId('active-cope-tool')).toBeVisible();
 
     // 4. Navigate to /wins
