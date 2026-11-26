@@ -128,3 +128,90 @@ func TestRetryDelayFrom(t *testing.T) {
 		t.Errorf("got %v", d)
 	}
 }
+
+func TestThinkingConfigFor(t *testing.T) {
+	marshal := func(model string) string {
+		b, _ := json.Marshal(thinkingConfigFor(model))
+		return string(b)
+	}
+	cases := map[string]string{
+		"gemini-2.5-flash":         `{"thinkingBudget":0}`,
+		"gemini-2.5-flash-lite":    `{"thinkingBudget":0}`,
+		"gemini-3-flash-preview":   `{"thinkingLevel":"minimal"}`,
+		"gemini-flash-lite-latest": `{"thinkingLevel":"minimal"}`,
+		"gemini-2.5-pro":           `null`,
+	}
+	for model, want := range cases {
+		if got := marshal(model); got != want {
+			t.Errorf("thinkingConfigFor(%q) = %s, want %s", model, got, want)
+		}
+	}
+}
+
+// chainServer answers each model with the status in statuses (200 when absent), or stalls
+// past the client timeout for models in slow.
+func chainServer(statuses map[string]int, slow map[string]bool, calls *[]string, mu *sync.Mutex) http.HandlerFunc {
+	slice, _ := json.Marshal(SliceTaskOutput{MicroStep: "Open the document and write one heading.", DurationSeconds: 300})
+	return func(w http.ResponseWriter, r *http.Request) {
+		model := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/models/"), ":generateContent")
+		mu.Lock()
+		*calls = append(*calls, model)
+		mu.Unlock()
+		if slow[model] {
+			select {
+			case <-r.Context().Done():
+			case <-time.After(2 * time.Second):
+			}
+			return
+		}
+		if code, ok := statuses[model]; ok {
+			w.WriteHeader(code)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"candidates": []map[string]any{{"content": map[string]any{"parts": []map[string]any{{"text": string(slice)}}}}},
+		})
+	}
+}
+
+func TestGeminiProvider_MovesOnWhenAModelIsOverloadedOrSlow(t *testing.T) {
+	var mu sync.Mutex
+	var calls []string
+	srv := httptest.NewServer(chainServer(
+		map[string]int{"overloaded": http.StatusServiceUnavailable},
+		map[string]bool{"slow": true},
+		&calls, &mu,
+	))
+	defer srv.Close()
+
+	p := NewGeminiProvider(GeminiConfig{
+		APIKey:  "k",
+		Model:   "overloaded,slow,fast",
+		BaseURL: srv.URL,
+		Timeout: 200 * time.Millisecond,
+	})
+	in := SliceTaskInput{MainTask: "Finish the lab report", CalibrationTier: TierBalanced}
+
+	if _, err := p.SliceTask(context.Background(), in); err != nil {
+		t.Fatalf("expected the fast model to answer, got %v", err)
+	}
+	mu.Lock()
+	got := append([]string(nil), calls...)
+	calls = nil
+	mu.Unlock()
+	if want := []string{"overloaded", "slow", "fast"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("calls = %v, want %v", got, want)
+	}
+
+	// Both are cooling down now, so the next request goes straight to the fast model.
+	if _, err := p.SliceTask(context.Background(), in); err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+	mu.Lock()
+	got = append([]string(nil), calls...)
+	mu.Unlock()
+	if want := []string{"fast"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("second calls = %v, want %v", got, want)
+	}
+}

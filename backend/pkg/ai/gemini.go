@@ -25,6 +25,11 @@ const (
 	// A retired model (404) is skipped for this long before it is tried again.
 	unavailableCooldown = 6 * time.Hour
 	maxQuotaCooldown    = 24 * time.Hour
+	// An overloaded model (5xx, "high demand") usually recovers within minutes.
+	overloadCooldown = 2 * time.Minute
+	// A model that ran past the per-call timeout is left alone for a while, so the next
+	// requests go straight to a faster one instead of waiting out the timeout again.
+	slowModelCooldown = 10 * time.Minute
 )
 
 // GeminiConfig configures GeminiProvider.
@@ -246,8 +251,11 @@ type geminiPart struct {
 	Text string `json:"text"`
 }
 
+// geminiThinkingConfig: Gemini 2.5 takes a token budget, Gemini 3 a named level. Each model
+// family rejects the other field's "off" value, so only one of them is ever sent.
 type geminiThinkingConfig struct {
-	ThinkingBudget int `json:"thinkingBudget"`
+	ThinkingBudget *int   `json:"thinkingBudget,omitempty"`
+	ThinkingLevel  string `json:"thinkingLevel,omitempty"`
 }
 
 type geminiGenerationConfig struct {
@@ -326,6 +334,10 @@ func (g *GeminiProvider) callModel(ctx context.Context, model, systemPrompt, use
 
 	resp, err := g.httpClient.Do(req)
 	if err != nil {
+		// This model ran out of time while the request itself still has some: try the next.
+		if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+			return nil, &modelSkipError{status: http.StatusGatewayTimeout, cooldown: slowModelCooldown}
+		}
 		return nil, fmt.Errorf("gemini http call: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -339,6 +351,8 @@ func (g *GeminiProvider) callModel(ctx context.Context, model, systemPrompt, use
 		return nil, &modelSkipError{status: resp.StatusCode, cooldown: retryDelayFrom(body)}
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, &modelSkipError{status: resp.StatusCode, cooldown: unavailableCooldown}
+	case resp.StatusCode >= 500:
+		return nil, &modelSkipError{status: resp.StatusCode, cooldown: overloadCooldown}
 	case resp.StatusCode < 200 || resp.StatusCode >= 300:
 		return nil, fmt.Errorf("gemini api returned status %d", resp.StatusCode)
 	}
@@ -388,11 +402,17 @@ func retryDelayFrom(body []byte) time.Duration {
 	return 0
 }
 
-// thinkingConfigFor disables thinking on Gemini 2.5 Flash models, which accept a zero budget.
-// Other models keep their default, since some of them reject a budget of 0.
+// thinkingConfigFor keeps thinking to a minimum: these are short structured answers, and
+// thinking time can push a request past the timeout and into the template fallback.
+// Gemini 2.5 Flash turns it off with a zero budget; Gemini 3 (and the "-latest" aliases,
+// which point at it) rejects that and takes thinkingLevel "minimal" instead.
 func thinkingConfigFor(model string) *geminiThinkingConfig {
-	if strings.Contains(model, "2.5-flash") {
-		return &geminiThinkingConfig{ThinkingBudget: 0}
+	switch {
+	case strings.Contains(model, "2.5-flash"):
+		zero := 0
+		return &geminiThinkingConfig{ThinkingBudget: &zero}
+	case strings.HasPrefix(model, "gemini-3") || strings.HasSuffix(model, "-latest"):
+		return &geminiThinkingConfig{ThinkingLevel: "minimal"}
 	}
 	return nil
 }

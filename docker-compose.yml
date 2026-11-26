@@ -69,7 +69,7 @@ services:
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash,gemini-2.5-flash-lite}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-lite-latest,gemini-3-flash-preview}
       AI_DAILY_LIMIT: ${AI_DAILY_LIMIT:-30}
     healthcheck:
       test: ["CMD", "/api", "-healthcheck"]
@@ -103,7 +103,7 @@ services:
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash,gemini-2.5-flash-lite}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-lite-latest,gemini-3-flash-preview}
       AI_DAILY_LIMIT: ${AI_DAILY_LIMIT:-30}
     healthcheck:
       test: ["CMD", "/api", "-healthcheck"]
