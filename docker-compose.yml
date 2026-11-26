@@ -1,0 +1,139 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kindling}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_supersecret_dev}
+      APP_MIGRATOR_PASSWORD: ${APP_MIGRATOR_PASSWORD:-migrator_secret_dev}
+      APP_RUNTIME_PASSWORD: ${APP_RUNTIME_PASSWORD:-runtime_secret_dev}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-kindling}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - kindling_net
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - kindling_net
+
+  migrate:
+    image: migrate/migrate:v4.18.2
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=${MIGRATE_DATABASE_URL:-postgres://app_migrator:migrator_secret_dev@postgres:5432/kindling?sslmode=disable}"
+      - "up"
+    restart: "no"
+    networks:
+      - kindling_net
+
+  api-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: kindling-api:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      HTTP_ADDR: :8080
+      INSTANCE_ID: api-1
+      DATABASE_URL: ${DATABASE_URL:-postgres://app_runtime:runtime_secret_dev@postgres:5432/kindling?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-random-32-plus-byte-secret-key-in-prod}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    healthcheck:
+      test: ["CMD", "/api", "-healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - kindling_net
+
+  api-2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: kindling-api:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      HTTP_ADDR: :8080
+      INSTANCE_ID: api-2
+      DATABASE_URL: ${DATABASE_URL:-postgres://app_runtime:runtime_secret_dev@postgres:5432/kindling?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-random-32-plus-byte-secret-key-in-prod}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    healthcheck:
+      test: ["CMD", "/api", "-healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - kindling_net
+
+  nginx:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: kindling-web:local
+    depends_on:
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/nginx-health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - kindling_net
+
+volumes:
+  pg_data:
+
+networks:
+  kindling_net:
+    driver: bridge

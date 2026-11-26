@@ -1,0 +1,407 @@
+openapi: 3.0.3
+info:
+  title: Kindling API
+  version: 0.2.0
+  description: >
+    Holistic Self-Calibration & Anti-Burnout API ("Small sparks, steady fire.").
+    Updated incrementally per module (currently Modul 1–2: Health, Core & Auth).
+servers:
+  - url: http://localhost/api/v1
+    description: Local Docker Compose via NGINX load balancer
+  - url: http://localhost:8080/api/v1
+    description: Direct API instance
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      operationId: getHealth
+      tags: [Health]
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [status]
+                        properties:
+                          status:
+                            type: string
+                            example: ok
+  /health/ready:
+    get:
+      summary: Readiness probe (PostgreSQL & Redis)
+      operationId: getHealthReady
+      tags: [Health]
+      responses:
+        "200":
+          description: Service and dependencies are ready
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [status, postgres, redis]
+                        properties:
+                          status:
+                            type: string
+                            example: ready
+                          postgres:
+                            type: string
+                            example: ok
+                          redis:
+                            type: string
+                            example: ok
+        "503":
+          description: One or more dependencies are unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/register:
+    post:
+      summary: Register a new user account
+      operationId: register
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered and session cookies issued (access_token, refresh_token, csrf_token)
+          headers:
+            Set-Cookie:
+              description: Sets HttpOnly access_token (15m), HttpOnly refresh_token (7d), and non-HttpOnly csrf_token (7d) with SameSite=Strict
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthData"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Email already registered (EMAIL_TAKEN)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/login:
+    post:
+      summary: Authenticate with email and password (rate limited 5/min per IP+email)
+      operationId: login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated and session cookies issued
+          headers:
+            Set-Cookie:
+              description: Sets HttpOnly access_token (15m), HttpOnly refresh_token (7d), and non-HttpOnly csrf_token (7d) with SameSite=Strict
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthData"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Invalid credentials (generic error message)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Login rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/me:
+    get:
+      summary: Get currently authenticated user
+      operationId: getMe
+      tags: [Auth]
+      security:
+        - AccessTokenCookie: []
+      responses:
+        "200":
+          description: Authenticated user profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthData"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/refresh:
+    post:
+      summary: Rotate refresh token and issue new session cookies (with reuse detection & 10s grace period)
+      operationId: refreshSession
+      tags: [Auth]
+      security:
+        - RefreshTokenCookie: []
+          CSRFHeader: []
+      responses:
+        "200":
+          description: Session rotated and new cookies issued
+          headers:
+            Set-Cookie:
+              description: Rotated access_token, refresh_token, and csrf_token cookies
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RefreshData"
+        "401":
+          description: Missing, expired, grace-period parallel, or reused refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/logout:
+    post:
+      summary: Revoke active refresh token family and clear session cookies
+      operationId: logout
+      tags: [Auth]
+      security:
+        - CSRFHeader: []
+      responses:
+        "200":
+          description: Logged out and cookies cleared
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/LogoutData"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+components:
+  securitySchemes:
+    AccessTokenCookie:
+      type: apiKey
+      in: cookie
+      name: access_token
+    RefreshTokenCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+    CSRFHeader:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, full_name, ai_consent]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: "alice@kindling.app"
+        password:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 128
+          example: "correct-horse-battery"
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: "Alice Kindling"
+        timezone:
+          type: string
+          maxLength: 64
+          default: "Asia/Jakarta"
+          example: "Asia/Jakarta"
+        ai_consent:
+          type: boolean
+          enum: [true]
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "alice@kindling.app"
+        password:
+          type: string
+          format: password
+          example: "correct-horse-battery"
+    User:
+      type: object
+      required: [id, email, full_name, timezone]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "0193a8f2-1234-7000-8000-abcdef123456"
+        email:
+          type: string
+          format: email
+          example: "alice@kindling.app"
+        full_name:
+          type: string
+          example: "Alice Kindling"
+        timezone:
+          type: string
+          example: "Asia/Jakarta"
+    AuthData:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+    RefreshData:
+      type: object
+      required: [refreshed]
+      properties:
+        refreshed:
+          type: boolean
+          enum: [true]
+    LogoutData:
+      type: object
+      required: [logged_out]
+      properties:
+        logged_out:
+          type: boolean
+          enum: [true]
+    Meta:
+      type: object
+      required: [request_id]
+      properties:
+        request_id:
+          type: string
+          example: "0193a8f2-1234-7000-8000-abcdef123456"
+    SuccessEnvelope:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+        meta:
+          $ref: "#/components/schemas/Meta"
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - UNAUTHENTICATED
+            - INVALID_CREDENTIALS
+            - CSRF_INVALID
+            - NOT_FOUND
+            - EMAIL_TAKEN
+            - CHECKIN_LOCKED
+            - IDEMPOTENCY_IN_PROGRESS
+            - CONCURRENT_MODIFICATION
+            - IDEMPOTENCY_KEY_REUSED
+            - MIN_LEVEL_REACHED
+            - DATE_OUT_OF_RANGE
+            - RATE_LIMITED
+            - NOT_READY
+            - INTERNAL
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    ErrorEnvelope:
+      type: object
+      required: [success, error, meta]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+        meta:
+          $ref: "#/components/schemas/Meta"
