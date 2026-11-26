@@ -5,7 +5,7 @@
   motion, while everything decorative stops.
 */
 .fr-room {
-  --color-ink: #f1efff;
+  --color-ink: #f4f4f6;
   --fr-accent: #8dbbff;
   position: fixed;
   inset: 0;
@@ -13,16 +13,16 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  background: radial-gradient(120% 80% at 50% 0%, #26234a 0%, #15132a 60%);
-  color: #f1efff;
+  background: radial-gradient(120% 80% at 50% 0%, #1d1d24 0%, #0e0e11 60%);
+  color: #f4f4f6;
   animation: fr-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .fr-room[data-tool='timer'] {
   --fr-accent: #ffc58a;
-  background: radial-gradient(120% 80% at 50% 0%, #3a2a24 0%, #181210 62%);
+  background: radial-gradient(120% 80% at 50% 0%, #2a231c 0%, #0e0e11 62%);
 }
 .fr-room[data-tool='brain_dump'] {
-  --fr-accent: #b8acff;
+  --fr-accent: #a3adff;
 }
 .fr-room.fr-out {
   animation: fr-out 260ms ease-in forwards;
@@ -39,20 +39,20 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #c5c1de;
+  color: #a9a9b4;
 }
 .fr-close {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   gap: 6px;
-  border: 1.5px solid #6f6b94;
+  border: 1px solid #74747f;
   border-radius: 999px;
   background: transparent;
   padding: 0 16px;
   font-size: 14px;
   font-weight: 700;
-  color: #f1efff;
+  color: #f4f4f6;
 }
 .fr-close:hover {
   background: rgb(255 255 255 / 0.08);
@@ -84,7 +84,7 @@
   max-width: 32rem;
   font-size: 15px;
   line-height: 1.55;
-  color: #c5c1de;
+  color: #a9a9b4;
 }
 .fr-time {
   font:
@@ -145,7 +145,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  color: #15132a;
+  color: #0e0e11;
 }
 .fr-orb-label strong {
   font: 700 24px/1.1 var(--font-serif, Georgia, serif);
@@ -215,28 +215,28 @@
   width: 100%;
   min-height: 42vh;
   resize: vertical;
-  border: 1.5px solid #4b4870;
+  border: 1px solid #2c2c33;
   border-radius: 20px;
-  background: #fffdf7;
+  background: #18181c;
   padding: 18px 20px;
   font: 400 17px/1.6 var(--font-sans, system-ui, sans-serif);
-  color: #1f1b3a;
+  color: #f4f4f6;
 }
 .fr-page textarea::placeholder {
-  color: #6b6784;
+  color: #8e8e99;
 }
 .fr-note {
   font-size: 13px;
-  color: #a8a4c6;
+  color: #8e8e99;
 }
 .fr-envelope {
   display: grid;
   width: 120px;
   height: 84px;
   place-items: center;
-  border: 1.5px solid #b8acff;
+  border: 1px solid #a3adff;
   border-radius: 14px;
-  background: #2a2552;
+  background: #1d2048;
 }
 .fr-archived {
   max-width: 30rem;
@@ -362,25 +362,21 @@
   }
 }
 
-/* App buttons on the dark stage: outlined ones turn navy, lime keeps dark ink, lips show. */
+/* App buttons on the dark stage use the night surfaces; the action color keeps dark ink. */
 .fr-room {
-  --color-surface: #221f3d;
-  --color-primary-soft: #2e2e63;
-  --color-ink-soft: #c5c1de;
-}
-.fr-room .k-press {
-  --k-lip-color: #6f6b94;
+  --color-surface: #18181c;
+  --color-primary-soft: #1d2048;
+  --color-ink-soft: #a9a9b4;
 }
 .fr-room .bg-lime {
-  --color-ink: #1f1b3a;
-  --k-lip-color: #8e9714;
-  color: #1f1b3a;
+  --color-ink: #10132e;
+  color: #10132e;
 }
 
 /* The reserved scrollbar gutter sits outside the fixed room; paint it to match. */
 html:has(.fr-room) {
-  background: #15132a;
+  background: #0e0e11;
 }
 html:has(.fr-room[data-tool='timer']) {
-  background: #181210;
+  background: #0e0e11;
 }

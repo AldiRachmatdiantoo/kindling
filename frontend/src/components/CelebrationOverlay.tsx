@@ -8,12 +8,12 @@ export type Celebration =
   { id: number; kind: 'win'; pillar: Pillar; count: number } | { id: number; kind: 'all' };
 
 const WIN_COPY: Record<Pillar, { title: string; line: string; accent: string }> = {
-  physical: { title: 'Body win done!', line: 'Timber is flexing for you.', accent: '#7ddba8' },
-  work: { title: 'Work win done!', line: 'Sparky says: one step at a time.', accent: '#b8acff' },
-  soul: { title: 'Heart win done!', line: 'Glow is beaming at you.', accent: '#8dbbff' },
+  physical: { title: 'Body win done!', line: 'Timber is flexing for you.', accent: '#5be0a0' },
+  work: { title: 'Work win done!', line: 'Sparky says: one step at a time.', accent: '#f5c451' },
+  soul: { title: 'Heart win done!', line: 'Glow is beaming at you.', accent: '#6cb4ff' },
 };
 
-const CONFETTI_COLORS = ['#e6f04a', '#7ddba8', '#b8acff', '#8dbbff', '#ff9e80'];
+const CONFETTI_COLORS = ['#7c8cff', '#5be0a0', '#f5c451', '#6cb4ff', '#ff8c7a'];
 
 /** Stable pseudo-random numbers, so the confetti looks scattered but renders the same each time. */
 function seeded(i: number, salt: number) {
@@ -158,7 +158,7 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
     >
       <div className="kc-stage">
         <Burst
-          accent={isAll ? '#e6f04a' : WIN_COPY[celebration.pillar].accent}
+          accent={isAll ? '#7c8cff' : WIN_COPY[celebration.pillar].accent}
           rays={isAll ? 14 : 10}
         />
         {isAll ? (

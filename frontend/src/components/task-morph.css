@@ -13,8 +13,8 @@
   justify-content: center;
   gap: 18px;
   padding: 24px;
-  background: #15132a;
-  color: #f1efff;
+  background: #0e0e11;
+  color: #f4f4f6;
   animation: tm-fade-in 200ms ease-out both;
 }
 /* The container only holds focus while the request runs; it is not a control. */
@@ -41,10 +41,9 @@
   width: 280px;
   max-width: calc(100vw - 48px);
   padding: 18px 20px;
-  border: 1.5px solid #1f1b3a;
+  border: 1px solid #2c2c33;
   border-radius: 22px;
-  box-shadow: 0 4px 0 #1f1b3a;
-  color: #1f1b3a;
+  color: #f4f4f6;
   font-family: var(--font-serif);
   font-size: 17px;
   font-weight: 700;
@@ -62,7 +61,7 @@
   bottom: 18%;
   width: 20px;
   height: 20px;
-  color: #e6f04a;
+  color: #7c8cff;
   opacity: 0;
   animation: tm-float 1.9s ease-out infinite;
 }
@@ -102,7 +101,7 @@
   width: 3px;
   margin-left: -1.5px;
   border-radius: 2px;
-  background: linear-gradient(transparent, #e6f04a 30%, #e6f04a 70%, transparent);
+  background: linear-gradient(transparent, #7c8cff 30%, #7c8cff 70%, transparent);
   transform-origin: top;
   animation: tm-cut-line 1.5s ease-in-out infinite;
 }
@@ -113,7 +112,7 @@
   width: 28px;
   height: 28px;
   margin-left: -14px;
-  color: #e6f04a;
+  color: #7c8cff;
   animation: tm-cut 1.5s ease-in-out infinite;
 }
 .tm-left.tm-apart {
@@ -136,8 +135,8 @@
   margin-bottom: 8px;
   padding: 2px 9px;
   border-radius: 999px;
-  background: #1f1b3a;
-  color: #ffffff;
+  background: #2c2c33;
+  color: #f4f4f6;
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
@@ -151,10 +150,10 @@
   gap: 8px;
   margin: 0;
   padding: 10px 12px;
-  border: 1.5px solid #4a4670;
+  border: 1px solid #2c2c33;
   border-radius: 14px;
-  background: #221f3d;
-  color: #f1efff;
+  background: #18181c;
+  color: #f4f4f6;
   font-size: 13px;
   line-height: 1.4;
   animation: tm-rise 400ms cubic-bezier(0.22, 1, 0.36, 1) 1300ms both;
@@ -164,7 +163,7 @@
   width: 16px;
   height: 16px;
   margin-top: 1px;
-  color: #e6f04a;
+  color: #7c8cff;
 }
 .tm-status {
   max-width: 320px;
@@ -188,9 +187,8 @@
   padding: 0 26px;
   border: 0;
   border-radius: 999px;
-  background: #e6f04a;
-  box-shadow: 0 4px 0 #a3ab1f;
-  color: #1f1b3a;
+  background: #7c8cff;
+  color: #10132e;
   font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 700;
@@ -198,14 +196,13 @@
   animation: tm-rise 500ms cubic-bezier(0.22, 1, 0.36, 1) 1600ms both;
 }
 .tm-btn:hover {
-  background: #eef46e;
+  background: #95a2ff;
 }
 .tm-btn:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 #a3ab1f;
+  transform: scale(0.98);
 }
 .tm-btn:focus-visible {
-  outline: 3px solid #f1efff;
+  outline: 3px solid #f4f4f6;
   outline-offset: 3px;
 }
 
@@ -357,5 +354,5 @@
 
 /* The reserved scrollbar gutter sits outside the fixed overlay; paint it to match. */
 html:has(.tm-overlay) {
-  background-color: #15132a;
+  background-color: #0e0e11;
 }

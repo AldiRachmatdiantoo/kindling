@@ -19,9 +19,9 @@ export interface TaskMorph {
 }
 
 const CARD_BG: Record<Pillar, string> = {
-  physical: '#d3f5e3',
-  work: '#e3defc',
-  soul: '#dbe9ff',
+  physical: '#12261c',
+  work: '#2a2212',
+  soul: '#13233a',
 };
 
 const COPY = {

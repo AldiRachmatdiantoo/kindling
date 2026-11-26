@@ -94,7 +94,9 @@ function AppShellLayout() {
           Skip to content
         </a>
 
-        <header className="k-wave sticky top-0 z-30 border-b border-line bg-cream/90 backdrop-blur-md">
+        {/* Blur only from md up: backdrop-filter makes the header the containing block for
+            fixed children, which would pin the mobile bottom nav to the header instead. */}
+        <header className="k-wave sticky top-0 z-30 border-b border-line bg-cream md:bg-cream/90 md:backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
             <Link
               to="/"
