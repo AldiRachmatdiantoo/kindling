@@ -94,7 +94,7 @@ export function FeatureTip({
           align="start"
           side="bottom"
           sideOffset={8}
-          collisionPadding={12}
+          collisionPadding={{ top: 84, right: 12, bottom: 92, left: 12 }}
           transition={reduceMotion ? { duration: 0 } : undefined}
           aria-label={title}
           className="w-[min(24rem,calc(100vw-1.5rem))] rounded-none border-0 bg-transparent p-0 shadow-none"

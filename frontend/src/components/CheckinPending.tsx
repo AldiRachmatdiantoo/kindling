@@ -1,5 +1,6 @@
 import { ClipboardList } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useWelcomeTour } from '../features/onboarding/WelcomeTour';
 import { MascotBubble } from './MascotBubble';
 import { Button } from '@/components/watermelon-ui/button';
 
@@ -17,6 +18,8 @@ export interface CheckinPendingProps {
  * who chose "Answer later".
  */
 export function CheckinPending({ title, unlocks, testId }: CheckinPendingProps) {
+  const { isOpen: tourOpen } = useWelcomeTour();
+
   return (
     <div className="space-y-6" data-testid={testId}>
       <div>
@@ -27,7 +30,7 @@ export function CheckinPending({ title, unlocks, testId }: CheckinPendingProps) 
       <MascotBubble
         mood="calm"
         title="No rush. Answer whenever you're ready."
-        className="max-w-2xl"
+        className={`max-w-2xl transition-opacity duration-200 ${tourOpen ? 'pointer-events-none opacity-0' : ''}`}
         actions={
           <>
             <Button asChild variant="secondary">

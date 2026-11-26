@@ -10,7 +10,7 @@
 | # | Modul | Fokus Utama | Status |
 | :-: | :--- | :--- | :-: |
 | R1 | Keamanan CSP, Auth Resilience & Isolasi State | 0 CSP error, logout aman, isolasi storage per `userId`, validasi form & timezone | ☑ |
-| R2 | Visual Layout, Scrollbar Gutter & Vertical Fit | Hilangkan gap tepi kanan ~15px, kliping bubble Ember, fit `1280x800`, fokus nav mobile | ☐ |
+| R2 | Visual Layout, Scrollbar Gutter & Vertical Fit | Hilangkan gap tepi kanan ~15px, kliping bubble Ember, fit `1280x800`, fokus nav mobile | ☑ |
 | R3 | Aksesibilitas, Interaksi Modal, Check-In, Wins & Heatmap | Keyboard trap check-in, focus trap & cleanup modal, toggle paralel Wins, roving tabIndex Heatmap | ☐ |
 | R4 | Refactoring, Optimasi Bundle & Performa | Hapus `motion` & duplikat Radix, `React.lazy`, pecah `WinsPage.tsx`, cleanup dead code | ☐ |
 
@@ -127,6 +127,6 @@ Ganti `☐` menjadi `☑` setelah seluruh kriteria verifikasi modul terpenuhi.
 | Modul | Selesai | Tertunda / Catatan | Hasil Verifikasi |
 | :-: | :--- | :--- | :--- |
 | R1 | 2026-11-26 | Tidak ada tertunda. Inline theme-init dipindah ke `frontend/public/theme-init.js`, CSP Nginx ditambah `font-src 'self' data:`, `logout()` aman saat error & membersihkan `sessionStorage` timer per `userId`, `recovery.ts` + `WinsPage` + `CopePage` di-scope ke `userId`, `RegisterPage`/`LoginPage` render `err.details` + `aria-invalid`/`aria-describedby`, copy `SessionUnreachable` dinetralkan. | `npm run build` OK; Vitest 11/11 files (38/38 tests) lulus; `docker compose up -d --build nginx` OK; browser live `http://localhost/login` & `/register` terverifikasi 0 CSP error, `/theme-init.js` 200, error timezone tampil di bawah input dengan ARIA. |
-| R2 | — | — | — |
+| R2 | 2026-11-26 | Tidak ada tertunda. Menghapus `scrollbar-gutter: stable` dari `index.css` agar header/banner/overlay penuh edge-to-edge; menambahkan kelas `.k-nav-surface` pada `<nav>` mobile (`AppShell.tsx` + `index.css`) dengan outline `--color-primary` (light) & `--color-ink` (dark); mengatur `collisionPadding={{ top: 84, right: 12, bottom: 92, left: 12 }}` di `FeatureTip.tsx`; merapikan spacing vertikal & sinkronisasi progress bar `Preset A` di `CheckinPage.tsx`; menyesuaikan ukuran vinyl & spacing mode timer di `focus-room.css`; menaikkan opacity + blur backdrop `MascotDialog.tsx` dan menyembunyikan Ember empty-state `CheckinPending.tsx` saat `WelcomeTour` aktif. | `npm run build` OK; Vitest 11/11 files (38/38 tests) lulus; `docker compose up -d --build nginx` OK; verifikasi visual browser `http://localhost` pada `1280x800` & `390x844` (light & dark mode): 0 gap kanan, focus ring nav mobile kontras tinggi, bubble Ember `/cope` & `/profile` bebas kliping, pertanyaan `1 of 9` + `Preset A` 100% + `FocusRoom` vinyl fit di `800px`, `WelcomeTour` di `/wins` kosong bebas overlap. |
 | R3 | — | — | — |
 | R4 | — | — | — |

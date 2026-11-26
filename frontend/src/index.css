@@ -38,9 +38,6 @@
 @layer base {
   html {
     color-scheme: light;
-    /* Reserve the scrollbar's space on every page, so moving between a short page and a
-       long one never slides the whole layout sideways. */
-    scrollbar-gutter: stable;
   }
 
   body {
@@ -170,6 +167,16 @@
   /* Inside the periwinkle header the default primary focus ring would vanish. */
   .k-on-primary :focus-visible {
     outline-color: #ffffff;
+  }
+
+  /* Below md the nav docks to the bottom on bg-surface, so white focus rings would vanish. */
+  @media (width < 48rem) {
+    .k-on-primary .k-nav-surface :focus-visible {
+      outline-color: var(--color-primary);
+    }
+    html[data-theme="dark"] .k-on-primary .k-nav-surface :focus-visible {
+      outline-color: var(--color-ink);
+    }
   }
 }
 

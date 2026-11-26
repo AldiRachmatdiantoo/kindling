@@ -33,7 +33,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 12px 20px;
 }
 .fr-kicker {
   font-size: 12px;
@@ -160,9 +160,16 @@
 }
 
 /* Hobby: a record that spins while the time runs, inside a ring that fills up. */
+.fr-room[data-tool='timer'] .fr-body {
+  gap: 14px;
+  padding: 4px 20px 24px;
+}
+.fr-room[data-tool='timer'] .fr-time {
+  font-size: 36px;
+}
 .fr-vinyl-wrap {
   position: relative;
-  width: min(66vw, 260px);
+  width: min(56vw, 200px, 26vh);
   aspect-ratio: 1;
 }
 .fr-vinyl-wrap svg {
@@ -193,8 +200,8 @@
   border: 1.5px solid rgb(255 197 138 / 0.5);
   border-radius: 20px;
   background: rgb(255 197 138 / 0.08);
-  padding: 14px 18px;
-  font: 600 17px/1.45 var(--font-serif, Georgia, serif);
+  padding: 10px 16px;
+  font: 600 15px/1.4 var(--font-serif, Georgia, serif);
   color: #ffe2c4;
 }
 

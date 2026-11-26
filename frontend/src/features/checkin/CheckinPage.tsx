@@ -80,6 +80,7 @@ export function CheckinPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [started, setStarted] = useState(false);
+  const [skipProgressTransition, setSkipProgressTransition] = useState(false);
   const [showSympathy, setShowSympathy] = useState(false);
   const sympathyNextRef = useRef<HTMLButtonElement>(null);
 
@@ -109,6 +110,7 @@ export function CheckinPage() {
   }, [setStatus, reportLog, lookupAttempt]);
 
   const goToStep = (next: number) => {
+    setSkipProgressTransition(false);
     setDirection(next < step ? 'prev' : 'next');
     setStep(next);
   };
@@ -126,7 +128,9 @@ export function CheckinPage() {
     setFunCopeInput(preset.fun_cope_input);
     setFormError(null);
     setStarted(true);
-    goToStep(FINAL_STEP);
+    setSkipProgressTransition(true);
+    setDirection('next');
+    setStep(FINAL_STEP);
   };
 
   const handleSelectAnswer = (key: keyof CheckinAnswers, value: number) => {
@@ -231,8 +235,8 @@ export function CheckinPage() {
   const progress = isFinal ? 100 : Math.round(((step + 1) / TOTAL_QUESTIONS) * 100);
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div className="space-y-3">
+    <div className="mx-auto max-w-xl space-y-4">
+      <div className="space-y-2">
         {started && (
           <div className="flex items-center gap-3">
             <Button
@@ -261,8 +265,9 @@ export function CheckinPage() {
                 aria-label="Check-in progress"
               >
                 <div
-                  className="h-full rounded-full bg-lime transition-all duration-300"
+                  className={`h-full rounded-full bg-lime ${skipProgressTransition ? '' : 'transition-[width] duration-300'}`}
                   style={{ width: `${progress}%` }}
+                  data-testid="checkin-progress-fill"
                 />
               </div>
             </div>
@@ -334,28 +339,28 @@ export function CheckinPage() {
         {started && question && (
           <fieldset
             key={question.key}
-            className={`space-y-4 ${direction === 'next' ? 'k-step-next' : 'k-step-prev'}`}
+            className={`space-y-3 ${direction === 'next' ? 'k-step-next' : 'k-step-prev'}`}
           >
-            <legend className="block w-full space-y-4 p-0">
+            <legend className="block w-full space-y-2.5 p-0">
               <span className="flex justify-center">
                 <span className={`k-chip ${DIMENSION_META[question.dimension].chip}`}>
                   <span className="h-1.5 w-1.5 rounded-full bg-ink" />
                   {DIMENSION_META[question.dimension].label}
                 </span>
               </span>
-              <span className="k-card block px-6 py-7 text-center font-serif text-2xl leading-snug font-bold text-ink sm:text-[1.7rem]">
+              <span className="k-card block px-5 py-4 text-center font-serif text-xl leading-snug font-bold text-ink sm:px-6 sm:py-5 sm:text-2xl">
                 {question.text}
               </span>
             </legend>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {LIKERT_LABELS.map(({ value, label }) => {
                 const isChecked = selected === value;
                 return (
                   <label
                     key={value}
                     data-testid={`answer-${question.key}-${value}`}
-                    className={`flex min-h-12 items-center gap-3 rounded-2xl border-[1.5px] border-ink px-4 py-3 text-sm font-semibold k-press has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
+                    className={`flex min-h-11 items-center gap-3 rounded-2xl border-[1.5px] border-ink px-4 py-2.5 text-sm font-semibold k-press has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
                       isChecked ? 'bg-lavender' : 'bg-surface hover:bg-primary-soft'
                     }`}
                   >

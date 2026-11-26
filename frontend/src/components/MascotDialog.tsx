@@ -69,7 +69,7 @@ export function MascotDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0b0a18]/50 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0b0a18]/75 p-4 backdrop-blur-xs"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

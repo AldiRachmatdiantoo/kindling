@@ -123,9 +123,14 @@ function buildSteps(firstName: string): TourStep[] {
 interface WelcomeTourValue {
   /** Opens the tour from the first step, e.g. from "Replay the tour" on the profile. */
   openTour: () => void;
+  /** True while the welcome tour dialog is open, so empty-state mascots can step back. */
+  isOpen: boolean;
 }
 
-const WelcomeTourContext = createContext<WelcomeTourValue>({ openTour: () => {} });
+const WelcomeTourContext = createContext<WelcomeTourValue>({
+  openTour: () => {},
+  isOpen: false,
+});
 
 export function useWelcomeTour(): WelcomeTourValue {
   return useContext(WelcomeTourContext);
@@ -162,7 +167,8 @@ export function WelcomeTourProvider({
     setStep(null);
   }, [userId]);
 
-  const value = useMemo(() => ({ openTour: () => setStep(0) }), []);
+  const isOpen = step !== null;
+  const value = useMemo(() => ({ openTour: () => setStep(0), isOpen }), [isOpen]);
   const current = step === null ? null : steps[step];
   const isLast = step === steps.length - 1;
 

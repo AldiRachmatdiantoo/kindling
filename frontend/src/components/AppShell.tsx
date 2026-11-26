@@ -111,7 +111,7 @@ function AppShellLayout() {
           */}
             <nav
               aria-label="Main navigation"
-              className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t-[1.5px] border-ink bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:static md:flex md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0"
+              className="k-nav-surface fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t-[1.5px] border-ink bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:static md:flex md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0"
             >
               {navItems.map(({ to, label, short, icon: Icon, testId }) => (
                 <NavLink
