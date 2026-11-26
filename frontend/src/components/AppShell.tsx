@@ -1,5 +1,5 @@
 import { CalendarCheck, HeartHandshake, LogOut, Sun, Trophy, User } from 'lucide-react';
-import { useEffect, useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
 import { WelcomeTourProvider } from '../features/onboarding/WelcomeTour';
@@ -70,9 +70,12 @@ function AppShellLayout() {
     };
   }, [mood]);
 
-  // A new tab starts at its top, not wherever the previous page was scrolled to.
+  // A new tab starts at its top, not wherever the previous page was scrolled to. Below md
+  // the page scrolls inside scrollRef, from md up the window does.
+  const scrollRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
+    scrollRef.current?.scrollTo?.(0, 0);
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -86,7 +89,14 @@ function AppShellLayout() {
       firstName={firstName}
       canAutoStart={canAutoStart}
     >
-      <div className="min-h-screen bg-cream text-ink">
+      {/*
+        Below md the document itself never scrolls: the shell is one screen tall and the
+        content scrolls inside it. iOS Safari draws page content behind its floating toolbar
+        and refuses to paint fixed elements there, so a scrolling document would show through
+        under the tab bar. With nothing scrolling, that strip shows the html background,
+        which index.css paints in the tab bar's color.
+      */}
+      <div className="k-app flex h-dvh flex-col bg-cream text-ink md:block md:h-auto md:min-h-screen">
         <a
           href="#content"
           className="sr-only z-50 rounded-full border border-line bg-lime px-4 py-2 text-sm font-bold text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -96,7 +106,7 @@ function AppShellLayout() {
 
         {/* Blur only from md up: backdrop-filter makes the header the containing block for
             fixed children, which would pin the mobile bottom nav to the header instead. */}
-        <header className="k-wave sticky top-0 z-30 border-b border-line bg-cream md:bg-cream/90 md:backdrop-blur-md">
+        <header className="k-wave sticky top-0 shrink-0 z-30 border-b border-line bg-cream md:bg-cream/90 md:backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
             <Link
               to="/"
@@ -159,12 +169,17 @@ function AppShellLayout() {
           </div>
         </header>
 
-        <main id="content" className="mx-auto max-w-6xl px-4 pt-10 pb-28 sm:px-6 md:pb-12">
-          {/* Keyed by path so each route change replays the settle-in animation. */}
-          <div key={location.pathname} className="k-enter">
-            <Outlet />
-          </div>
-        </main>
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none] md:overflow-visible"
+        >
+          <main id="content" className="mx-auto max-w-6xl px-4 pt-10 pb-28 sm:px-6 md:pb-12">
+            {/* Keyed by path so each route change replays the settle-in animation. */}
+            <div key={location.pathname} className="k-enter">
+              <Outlet />
+            </div>
+          </main>
+        </div>
       </div>
     </WelcomeTourProvider>
   );

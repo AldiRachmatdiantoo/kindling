@@ -60,6 +60,11 @@
     html {
       scrollbar-width: none;
     }
+    /* The app shell scrolls inside itself here (see AppShell), so the only thing behind a
+       floating browser toolbar is this background: match it to the bottom tab bar. */
+    html:has(.k-app) {
+      background-color: var(--color-surface);
+    }
   }
   /* While a dimmed dialog locks scrolling, the empty gutter takes the dimmed page color. */
   html:has(.k-dim-backdrop) {
