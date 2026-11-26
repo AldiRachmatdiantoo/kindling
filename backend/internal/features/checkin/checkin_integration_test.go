@@ -354,12 +354,27 @@ func TestCheckinModule_Integration(t *testing.T) {
 			t.Fatalf("expected positive_cope_chosen to be reset to null on re-check-in, got %v", *env.Data.PositiveCopeChosen)
 		}
 
-		// Simulate 1 win completed directly via migratorPool (bypassing RLS as owner for test setup).
-		if _, err := migratorPool.Exec(ctx,
-			`UPDATE daily_logs SET wins_completed_count = 1 WHERE log_date = '2026-11-26' AND id = $1`,
-			env.Data.ID,
-		); err != nil {
+		// Simulate 1 win completed using WithUserTx (FORCE ROW LEVEL SECURITY applies even to table owner!).
+		var aliceID uuid.UUID
+		if err := migratorPool.QueryRow(ctx, `SELECT id FROM users WHERE email = 'alice@example.com'`).Scan(&aliceID); err != nil {
+			t.Fatalf("lookup alice id: %v", err)
+		}
+		tx, err := runtimePool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin tx: %v", err)
+		}
+		if _, err := tx.Exec(ctx, `SELECT set_config('app.current_user_id', $1, true)`, aliceID.String()); err != nil {
+			t.Fatalf("set rls context: %v", err)
+		}
+		tag, err := tx.Exec(ctx, `UPDATE daily_logs SET wins_completed_count = 1 WHERE id = $1`, env.Data.ID)
+		if err != nil {
 			t.Fatalf("set wins_completed_count=1: %v", err)
+		}
+		if tag.RowsAffected() != 1 {
+			t.Fatalf("expected 1 row updated for wins_completed_count=1, got %d", tag.RowsAffected())
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatalf("commit tx: %v", err)
 		}
 
 		// Re-check-in now MUST return 409 CHECKIN_LOCKED.

@@ -1,6 +1,6 @@
 # progress.md — Kindling: Pelacak Progres & Prompt Handoff Antar-Modul
 
-**Status Terkini:** Modul 1–2 selesai & terverifikasi. Siap memulai **Modul 3**.
+**Status Terkini:** Modul 1–3 selesai & terverifikasi. Siap memulai **Modul 4**.
 **Target Selesai Kode:** 1 Desember 2026 · **Deadline Submisi:** 7 Desember 2026
 
 ---
@@ -11,7 +11,7 @@
 | :-: | :--- | :--- | :-: |
 | 1 | Infra Docker, NGINX LB, Schema/Index/RLS + `sqlc`, Redis Lua limiter, Go core | 26 Nov | ☑ |
 | 2 | `auth`: Argon2id, JWT + cookie, refresh rotation + reuse detection, CSRF, tests | 27 Nov | ☑ |
-| 3 | `checkin` + `pkg/ai`: scorer, tier, safety, Mock/Gemini + breaker + fallback, idempotency, UPSERT | 28 Nov | ☐ |
+| 3 | `checkin` + `pkg/ai`: scorer, tier, safety, Mock/Gemini + breaker + fallback, idempotency, UPSERT | 28 Nov | ☑ |
 | 4 | `wins` + `profile`: slice-task, recalibrate (FOR UPDATE + versi), toggle, heatmap, `-race` | 29 Nov | ☐ |
 | 5 | Frontend React TS: auth, check-in + preset, cope tools, wins board, heatmap, Vitest | 30 Nov | ☐ |
 | 6 | Playwright E2E, security scan, GitHub Actions CI | 1 Des | ☐ |
@@ -58,7 +58,7 @@ Ganti ☐ menjadi ☑ setelah **Definition of Done** modul (PRD §9) terpenuhi.
 | :-: | :--- | :--- | :--- |
 | 1 | Struktur monorepo (`backend/`, `frontend/` placeholder, `deploy/`), `docker-compose.yml` (nginx `least_conn` → `api-1`/`api-2`, `migrate`, `postgres`, `redis`), `01-roles.sh`, migrasi `000001_init_schema.{up,down}.sql`, `sqlc` + query awal, `pgxpool` (`WithTx`/`WithUserTx`), Redis Lua sliding-window limiter, middleware (`RequestID`, `RealIP`, `SecurityHeaders`, `RateLimitByIP`, `Recoverer`, `AccessLog`), UUIDv7, envelope & `AppError`, `/api/v1/health` & `/api/v1/health/ready`, `openapi.yaml`, `.env.example`, unit test & Testcontainers test (limiter + RLS) lulus, `docker compose up` sehat & LB tersebar ke `api-1`/`api-2`. | — (catatan: di Windows Docker Desktop, set `TESTCONTAINERS_RYUK_DISABLED=true` saat menjalankan Testcontainers) | Unit test: `cd backend && go test -short -v ./...` · Full + Testcontainers: `TESTCONTAINERS_RYUK_DISABLED=true go test -v ./...` (dari `backend/`) · Stack: `docker compose up -d --build --wait` |
 | 2 | `internal/features/auth` (`route → handler → service → repository`, `dto`, `crypto`), query `sqlc` (`queries/auth.sql` → `auth.sql.go`), Argon2id (`m=19 MiB, t=2, p=1`) + timing guard, access JWT HS256 (15m, HttpOnly) + refresh token opak 7d (disimpan SHA-256, HttpOnly) + `csrf_token` (non-HttpOnly, `SameSite=Strict`), rotasi refresh token (`FOR UPDATE`) dengan reuse detection & grace period 10 detik untuk request paralel, middleware `CSRF` double-submit (dipasang pada sub-router `/api/v1/` kecuali `register`/`login`), middleware `Auth` + `UserIDFromContext`, endpoint `register`/`login`/`me`/`refresh`/`logout`, login rate limit 5/menit per IP+email, pesan error generik, `openapi.yaml` v0.2.0, unit test & Testcontainers integration test lulus. | — (catatan: `time/tzdata` di-embed agar validasi timezone IANA jalan di Windows & container distroless; gunakan `TESTCONTAINERS_RYUK_DISABLED=true` di Windows Docker Desktop) | Unit test: `cd backend && go test -short -v ./...` · Full + Testcontainers: `cd backend && $env:TESTCONTAINERS_RYUK_DISABLED="true"; go test -count=1 ./...` |
-| 3 | — | — | — |
+| 3 | `internal/features/checkin` (`route → handler → service → repository`, `dto`, `scorer.go`, `safety.go`, `fallback.go`) + `pkg/ai` (`AiProvider`, `MockAiProvider`, `GeminiProvider` dengan XML delimiter + escaping, JSON schema ketat, validator output, `gobreaker/v2`, timeout 8s), Redis idempotency store (`internal/cache/idempotency.go` + `middleware.Idempotency`), `middleware.RateLimitByUser` (10 req/menit/user), query `sqlc` (`queries/checkin.sql` → `checkin.sql.go`) + `ai_audit_logs`, endpoint `POST /checkin` (UPSERT `WHERE wins_completed_count = 0` → `409 CHECKIN_LOCKED`, validasi tanggal hari ini/kemarin per timezone user), `GET /checkin/today`, `GET /checkin/{date}`, `PATCH /checkin/{date}/cope`, semua akses `daily_logs` lewat `database.WithUserTx`, `openapi.yaml` v0.3.0, unit & Testcontainers integration tests lulus. | — (catatan: di Windows Docker Desktop gunakan `TESTCONTAINERS_RYUK_DISABLED=true` dan `-p 1` saat menjalankan semua paket Testcontainers sekaligus agar named pipe Docker tidak bentrok) | Unit test: `cd backend && go test -short -v ./...` · Full + Testcontainers: `cd backend && $env:TESTCONTAINERS_RYUK_DISABLED="true"; go test -count=1 -p 1 ./...` |
 | 4 | — | — | — |
 | 5 | — | — | — |
 | 6 | — | — | — |

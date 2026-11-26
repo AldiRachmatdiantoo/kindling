@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: Kindling API
-  version: 0.2.0
+  version: 0.3.0
   description: >
     Holistic Self-Calibration & Anti-Burnout API ("Small sparks, steady fire.").
-    Updated incrementally per module (currently Modul 1–2: Health, Core & Auth).
+    Updated incrementally per module (currently Modul 1–3: Health, Core, Auth, Check-In & AI).
 servers:
   - url: http://localhost/api/v1
     description: Local Docker Compose via NGINX load balancer
@@ -256,6 +256,224 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /checkin:
+    post:
+      summary: Submit or update daily psychometric check-in and generate calibrated cope options & 3 daily wins (AI rate limited 10/min/user)
+      operationId: submitCheckin
+      tags: [CheckIn]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: UUID identifying this mutation for idempotent replay (PRD §7.0)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckinRequest"
+      responses:
+        "200":
+          description: Check-in scored, calibrated, and saved (or replayed from idempotency store)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DailyLog"
+        "400":
+          description: Validation error (answers, text length, or Idempotency-Key format)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Re-check-in locked after completing a win (CHECKIN_LOCKED) or key still processing (IDEMPOTENCY_IN_PROGRESS)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Date out of range (DATE_OUT_OF_RANGE) or idempotency key reused with different body (IDEMPOTENCY_KEY_REUSED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: AI rate limit exceeded (10 req/min/user)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /checkin/today:
+    get:
+      summary: Get today's daily check-in log (calculated in user's timezone)
+      operationId: getCheckinToday
+      tags: [CheckIn]
+      security:
+        - AccessTokenCookie: []
+      responses:
+        "200":
+          description: Today's daily check-in log
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DailyLog"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: No check-in log exists for today (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /checkin/{date}:
+    get:
+      summary: Get daily check-in log for a specific date (YYYY-MM-DD)
+      operationId: getCheckinByDate
+      tags: [CheckIn]
+      security:
+        - AccessTokenCookie: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+      responses:
+        "200":
+          description: Daily check-in log for the requested date
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DailyLog"
+        "400":
+          description: Invalid date format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: No check-in log exists for the requested date (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /checkin/{date}/cope:
+    patch:
+      summary: Choose or change the active positive cope option for today/yesterday
+      operationId: choosePositiveCope
+      tags: [CheckIn]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CopeUpdateRequest"
+      responses:
+        "200":
+          description: Chosen cope option title saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CopeUpdateData"
+        "400":
+          description: Invalid cope_option_id or date format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Check-in log not found for date (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Date is not today or yesterday in user's timezone (DATE_OUT_OF_RANGE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   securitySchemes:
     AccessTokenCookie:
@@ -349,6 +567,139 @@ components:
         logged_out:
           type: boolean
           enum: [true]
+    CheckinAnswers:
+      type: object
+      additionalProperties: false
+      required: [cbi_1, cbi_2, cbi_3, olbi_ex_1, olbi_ex_2, olbi_dis_1, olbi_dis_2, who5_1, who5_2]
+      properties:
+        cbi_1: { type: integer, minimum: 1, maximum: 4 }
+        cbi_2: { type: integer, minimum: 1, maximum: 4 }
+        cbi_3: { type: integer, minimum: 1, maximum: 4 }
+        olbi_ex_1: { type: integer, minimum: 1, maximum: 4 }
+        olbi_ex_2: { type: integer, minimum: 1, maximum: 4 }
+        olbi_dis_1: { type: integer, minimum: 1, maximum: 4 }
+        olbi_dis_2: { type: integer, minimum: 1, maximum: 4 }
+        who5_1: { type: integer, minimum: 1, maximum: 4 }
+        who5_2: { type: integer, minimum: 1, maximum: 4 }
+    CheckinRequest:
+      type: object
+      required: [log_date, answers]
+      properties:
+        log_date:
+          type: string
+          format: date
+          example: "2026-11-26"
+        answers:
+          $ref: "#/components/schemas/CheckinAnswers"
+        brain_dump:
+          type: string
+          maxLength: 2000
+        fun_cope_input:
+          type: string
+          maxLength: 200
+    Scores:
+      type: object
+      required: [physical_exhaustion, work_exhaustion, disengagement, soul_wellbeing]
+      properties:
+        physical_exhaustion: { type: integer, minimum: 0, maximum: 100 }
+        work_exhaustion: { type: integer, minimum: 0, maximum: 100 }
+        disengagement: { type: integer, minimum: 0, maximum: 100 }
+        soul_wellbeing: { type: integer, minimum: 0, maximum: 100 }
+    CopeOption:
+      type: object
+      required: [id, title, brief_cope_category, tool_type, duration_seconds, guidance]
+      properties:
+        id: { type: string, example: "cope_1" }
+        title: { type: string, maxLength: 80 }
+        brief_cope_category:
+          type: string
+          enum:
+            - active_coping
+            - planning
+            - positive_reframing
+            - acceptance
+            - humor
+            - religion
+            - emotional_support
+            - instrumental_support
+            - self_distraction
+            - venting
+        tool_type:
+          type: string
+          enum: [breathing, timer, brain_dump]
+        duration_seconds:
+          type: integer
+          minimum: 60
+          maximum: 600
+        guidance:
+          type: string
+          maxLength: 240
+    WinItem:
+      type: object
+      required: [title, level, completed]
+      properties:
+        title: { type: string, maxLength: 80 }
+        level: { type: integer, minimum: 0, maximum: 3 }
+        completed: { type: boolean }
+    WorkWinItem:
+      type: object
+      required: [title, level, completed, main_task, micro_step, duration_seconds]
+      properties:
+        title: { type: string, maxLength: 80 }
+        level: { type: integer, minimum: 0, maximum: 3 }
+        completed: { type: boolean }
+        main_task: { type: string, nullable: true }
+        micro_step: { type: string, nullable: true }
+        duration_seconds: { type: integer, nullable: true }
+    WinsData:
+      type: object
+      required: [physical, work, soul]
+      properties:
+        physical: { $ref: "#/components/schemas/WinItem" }
+        work: { $ref: "#/components/schemas/WorkWinItem" }
+        soul: { $ref: "#/components/schemas/WinItem" }
+    DailyLog:
+      type: object
+      required:
+        - id
+        - log_date
+        - scores
+        - calibration_tier
+        - diagnostic_summary
+        - safety_flag
+        - cope_options
+        - positive_cope_chosen
+        - wins_data
+        - wins_completed_count
+      properties:
+        id: { type: string, format: uuid }
+        log_date: { type: string, format: date }
+        scores: { $ref: "#/components/schemas/Scores" }
+        calibration_tier: { type: string, enum: [gentle, balanced, standard] }
+        diagnostic_summary: { type: string }
+        safety_flag: { type: boolean }
+        cope_options:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: { $ref: "#/components/schemas/CopeOption" }
+        positive_cope_chosen: { type: string, nullable: true }
+        wins_data: { $ref: "#/components/schemas/WinsData" }
+        wins_completed_count: { type: integer, minimum: 0, maximum: 3 }
+    CopeUpdateRequest:
+      type: object
+      required: [cope_option_id]
+      properties:
+        cope_option_id:
+          type: string
+          example: "cope_2"
+    CopeUpdateData:
+      type: object
+      required: [positive_cope_chosen]
+      properties:
+        positive_cope_chosen:
+          type: string
+          example: "Pernapasan 4-7-8"
     Meta:
       type: object
       required: [request_id]
