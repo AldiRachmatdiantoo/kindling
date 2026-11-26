@@ -221,4 +221,23 @@ describe('apiRequest wrapper', () => {
     await expect(apiRequest('/profile/heatmap')).rejects.toMatchObject({ status: 429 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('aborts the 429 retry sleep immediately when options.signal aborts', async () => {
+    const controller = new AbortController();
+    const busy = new Response(
+      JSON.stringify({ success: false, error: { code: 'RATE_LIMITED', message: 'Slow down' } }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '3' } },
+    );
+    const fetchMock = vi.fn().mockResolvedValueOnce(busy);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = apiRequest('/profile/heatmap', { signal: controller.signal });
+    // Yield a microtask so fetch resolves and the 429 sleep starts, then abort.
+    await Promise.resolve();
+    await Promise.resolve();
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

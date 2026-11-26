@@ -7,7 +7,10 @@ import { HEATMAP_DOT, HEATMAP_LABELS } from '../../components/HeatmapGrid';
 import { Mascot, PILLAR_MASCOT } from '../../components/Mascot';
 import { MascotBubble } from '../../components/MascotBubble';
 import { TIER_META, TIER_MOOD } from '../today/tier';
+import { formatLongDate } from '../../utils/date';
 import { Button } from '@/components/watermelon-ui/button';
+
+export { formatLongDate };
 
 const PILLARS: Pillar[] = ['physical', 'work', 'soul'];
 
@@ -23,21 +26,6 @@ const SCORE_ROWS = [
   { key: 'disengagement', label: 'Disengagement', bar: 'bg-lime-dark' },
   { key: 'soul_wellbeing', label: 'Soul well-being', bar: 'bg-mint-strong' },
 ] as const;
-
-export function formatLongDate(date: string): string {
-  try {
-    // Noon UTC keeps the calendar day stable whatever the viewer's timezone.
-    return new Intl.DateTimeFormat('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'UTC',
-    }).format(new Date(`${date}T12:00:00Z`));
-  } catch {
-    return date;
-  }
-}
 
 function formatShortDate(date: string): string {
   try {

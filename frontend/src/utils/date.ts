@@ -48,3 +48,18 @@ export function formatSecondsMMSS(totalSeconds: number): string {
   const seconds = clamped % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
+
+export function formatLongDate(date: string): string {
+  try {
+    // Noon UTC keeps the calendar day stable whatever the viewer's timezone.
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(`${date}T12:00:00Z`));
+  } catch {
+    return date;
+  }
+}

@@ -275,23 +275,27 @@ export function CheckinPage() {
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-soft">
-            <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
-            Demo:
-          </span>
-          {DEMO_PRESETS.map((preset) => (
-            <Button
-              key={preset.id}
-              variant="secondary"
-              size="sm"
-              onClick={() => applyPreset(preset)}
-              data-testid={preset.id === 'preset-a' ? 'preset-a-button' : 'preset-b-button'}
-              title={`${preset.label}: ${preset.description}`}
-              className="font-semibold hover:bg-lime"
-            >
-              {preset.id === 'preset-a' ? 'Preset A' : 'Preset B'}
-            </Button>
-          ))}
+          {import.meta.env.VITE_ENABLE_DEMO_PRESETS !== 'false' && (
+            <>
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-soft">
+                <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Demo:
+              </span>
+              {DEMO_PRESETS.map((preset) => (
+                <Button
+                  key={preset.id}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => applyPreset(preset)}
+                  data-testid={preset.id === 'preset-a' ? 'preset-a-button' : 'preset-b-button'}
+                  title={`${preset.label}: ${preset.description}`}
+                  className="font-semibold hover:bg-lime"
+                >
+                  {preset.id === 'preset-a' ? 'Preset A' : 'Preset B'}
+                </Button>
+              ))}
+            </>
+          )}
           <Button
             variant="link"
             size="sm"

@@ -189,11 +189,11 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   // Too many requests: when the server says the wait is short, wait it out and try a read
-  // once more instead of failing the page.
+  // once more instead of failing the page. Respects AbortSignal so unmounted callers cancel cleanly.
   if (response.status === 429 && method === 'GET' && !options._retried) {
     const waitSecs = Number(response.headers.get('Retry-After') ?? '1');
     if (Number.isFinite(waitSecs) && waitSecs <= 3) {
-      await new Promise((resolve) => setTimeout(resolve, Math.max(0.5, waitSecs) * 1000));
+      await sleepWithSignal(Math.max(0.5, waitSecs) * 1000, options.signal);
       return apiRequest<T>(path, { ...options, idempotencyKey, _retried: true });
     }
   }
@@ -204,6 +204,25 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   const envelope = (await response.json()) as ApiSuccessEnvelope<T>;
   return envelope.data;
+}
+
+function sleepWithSignal(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(
+      signal.reason ?? new DOMException('The operation was aborted.', 'AbortError'),
+    );
+  }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason ?? new DOMException('The operation was aborted.', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 export function _resetRefreshPromiseForTests(): void {

@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ApiError } from '../../api/client';
 import { checkinApi } from '../../api/endpoints';
 import type { CalibrationTier, DailyLog } from '../../api/types';
@@ -48,11 +56,12 @@ export function TodayStatusProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return (
-    <TodayStatusContext.Provider value={{ status, setStatus, mood, reportLog }}>
-      {children}
-    </TodayStatusContext.Provider>
+  const value = useMemo(
+    () => ({ status, setStatus, mood, reportLog }),
+    [status, mood, reportLog],
   );
+
+  return <TodayStatusContext.Provider value={value}>{children}</TodayStatusContext.Provider>;
 }
 
 const NOOP_VALUE: TodayStatusValue = {

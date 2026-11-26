@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { CopeOption } from '../api/types';
 import { formatSecondsMMSS } from '../utils/date';
-import { BREATHING_PATTERNS, getBreathingPhase, pickBreathingPattern } from './BreathingPacer';
+import { BREATHING_PATTERNS, getBreathingPhase, pickBreathingPattern } from './breathingPatterns';
 import { useClockTimer } from './useClockTimer';
 import { Button } from '@/components/watermelon-ui/button';
 import './focus-room.css';

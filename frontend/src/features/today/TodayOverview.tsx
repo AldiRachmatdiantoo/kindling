@@ -5,6 +5,7 @@ import { FeatureTip } from '../../components/FeatureTip';
 import { Mascot } from '../../components/Mascot';
 import { SafetyBanner } from '../../components/SafetyBanner';
 import { moodGreeting, TIER_META, TIER_MOOD } from './tier';
+import { formatLongDate } from '../../utils/date';
 import { Button } from '@/components/watermelon-ui/button';
 
 const PILLAR_LABEL: Record<Pillar, string> = {
@@ -12,21 +13,6 @@ const PILLAR_LABEL: Record<Pillar, string> = {
   work: 'Work',
   soul: 'Soul',
 };
-
-function formatLongDate(logDate: string): string {
-  try {
-    // Noon UTC keeps the calendar day stable whatever the viewer's timezone.
-    return new Intl.DateTimeFormat('en-US', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC',
-    }).format(new Date(`${logDate}T12:00:00Z`));
-  } catch {
-    return logDate;
-  }
-}
 
 /**
  * "Today": what the Check-In tab shows once today's check-in is locked. One glance

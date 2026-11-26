@@ -1,5 +1,4 @@
 import { Lightbulb } from 'lucide-react';
-import { useReducedMotion } from 'motion/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Pillar } from '../api/types';
 import { useAuth } from '../features/auth/AuthContext';
@@ -62,7 +61,6 @@ export function FeatureTip({
   className = '',
 }: FeatureTipProps) {
   const { user } = useAuth();
-  const reduceMotion = useReducedMotion();
   const [seen, setSeen] = useState(() => hasSeen(user?.id, id));
   const [open, setOpen] = useState(() => autoOpen && !hasSeen(user?.id, id));
 
@@ -95,7 +93,6 @@ export function FeatureTip({
           side="bottom"
           sideOffset={8}
           collisionPadding={{ top: 84, right: 12, bottom: 92, left: 12 }}
-          transition={reduceMotion ? { duration: 0 } : undefined}
           aria-label={title}
           className="w-[min(24rem,calc(100vw-1.5rem))] rounded-none border-0 bg-transparent p-0 shadow-none"
           data-testid={`tip-${id}-popover`}

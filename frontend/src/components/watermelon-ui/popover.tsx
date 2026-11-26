@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Popover as PopoverPrime } from 'radix-ui';
-import { AnimatePresence, motion, type HTMLMotionProps } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 type PopoverProps = PopoverPrimitiveProps;
@@ -60,7 +59,7 @@ type PopoverContextType = {
   setIsOpen: (isOpen: boolean) => void;
 };
 
-const [PopoverProvider, usePopover] = getStrictContext<PopoverContextType>('PopoverContext');
+const [PopoverProvider] = getStrictContext<PopoverContextType>('PopoverContext');
 
 type PopoverPrimitiveProps = React.ComponentProps<typeof PopoverPrime.Root>;
 
@@ -71,8 +70,10 @@ function PopoverPrimitive(props: PopoverPrimitiveProps) {
     onChange: props?.onOpenChange,
   });
 
+  const contextValue = React.useMemo(() => ({ isOpen, setIsOpen }), [isOpen, setIsOpen]);
+
   return (
-    <PopoverProvider value={{ isOpen, setIsOpen }}>
+    <PopoverProvider value={contextValue}>
       <PopoverPrime.Root data-slot="popover" {...props} onOpenChange={setIsOpen} />
     </PopoverProvider>
   );
@@ -84,78 +85,21 @@ function PopoverTriggerPrimitive(props: PopoverTriggerPrimitiveProps) {
   return <PopoverPrime.Trigger data-slot="popover-trigger" {...props} />;
 }
 
-type PopoverPortalPrimitiveProps = Omit<
-  React.ComponentProps<typeof PopoverPrime.Portal>,
-  'forceMount'
->;
+type PopoverPortalPrimitiveProps = React.ComponentProps<typeof PopoverPrime.Portal>;
 
 function PopoverPortalPrimitive(props: PopoverPortalPrimitiveProps) {
-  const { isOpen } = usePopover();
-
-  return (
-    <AnimatePresence>
-      {isOpen && <PopoverPrime.Portal forceMount data-slot="popover-portal" {...props} />}
-    </AnimatePresence>
-  );
+  return <PopoverPrime.Portal data-slot="popover-portal" {...props} />;
 }
 
-type PopoverContentPrimitiveProps = Omit<
-  React.ComponentProps<typeof PopoverPrime.Content>,
-  'forceMount' | 'asChild'
-> &
-  HTMLMotionProps<'div'>;
+type PopoverContentPrimitiveProps = React.ComponentProps<typeof PopoverPrime.Content>;
 
-function PopoverContentPrimitive({
-  onOpenAutoFocus,
-  onCloseAutoFocus,
-  onEscapeKeyDown,
-  onPointerDownOutside,
-  onFocusOutside,
-  onInteractOutside,
-  align,
-  alignOffset,
-  side,
-  sideOffset,
-  avoidCollisions,
-  collisionBoundary,
-  collisionPadding,
-  arrowPadding,
-  sticky,
-  hideWhenDetached,
-  transition = { type: 'spring', stiffness: 300, damping: 25 },
-  ...props
-}: PopoverContentPrimitiveProps) {
+function PopoverContentPrimitive({ className, ...props }: PopoverContentPrimitiveProps) {
   return (
     <PopoverPrime.Content
-      asChild
-      forceMount
-      align={align}
-      alignOffset={alignOffset}
-      side={side}
-      sideOffset={sideOffset}
-      avoidCollisions={avoidCollisions}
-      collisionBoundary={collisionBoundary}
-      collisionPadding={collisionPadding}
-      arrowPadding={arrowPadding}
-      sticky={sticky}
-      hideWhenDetached={hideWhenDetached}
-      onOpenAutoFocus={onOpenAutoFocus}
-      onCloseAutoFocus={onCloseAutoFocus}
-      onEscapeKeyDown={onEscapeKeyDown}
-      onPointerDownOutside={onPointerDownOutside}
-      onInteractOutside={onInteractOutside}
-      onFocusOutside={onFocusOutside}
-    >
-      <motion.div
-        key="popover-content"
-        data-slot="popover-content"
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.5 }}
-        transition={transition}
-        {...props}
-      />
-    </PopoverPrime.Content>
+      data-slot="popover-content"
+      className={cn('k-popover', className)}
+      {...props}
+    />
   );
 }
 

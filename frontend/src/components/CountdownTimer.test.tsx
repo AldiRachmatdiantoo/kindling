@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BreathingPacer, getBreathingPhase, pickBreathingPattern } from './BreathingPacer';
+import {
+  BREATHING_PATTERNS,
+  getBreathingPhase,
+  pickBreathingPattern,
+} from './breathingPatterns';
 import { CountdownTimer } from './CountdownTimer';
 
 describe('CountdownTimer', () => {
@@ -76,40 +80,14 @@ describe('CountdownTimer', () => {
   });
 });
 
-describe('BreathingPacer (4-7-8)', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('cycles through Breathe in (4s), Hold (7s), and Breathe out (8s)', () => {
+describe('breathingPatterns', () => {
+  it('cycles 4-7-8 through Breathe in (4s), Hold (7s), and Breathe out (8s)', () => {
     expect(getBreathingPhase(0).phase.name).toBe('Breathe in');
     expect(getBreathingPhase(4).phase.name).toBe('Hold');
     expect(getBreathingPhase(11).phase.name).toBe('Breathe out');
     expect(getBreathingPhase(19).phase.name).toBe('Breathe in');
-
-    render(<BreathingPacer durationSeconds={38} />);
-    expect(screen.getByTestId('breathing-phase')).toHaveTextContent('Ready');
-
-    fireEvent.click(screen.getByTestId('breathing-toggle'));
-    expect(screen.getByTestId('breathing-phase')).toHaveTextContent('Breathe in');
-
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-    expect(screen.getByTestId('breathing-phase')).toHaveTextContent('Hold');
-
-    act(() => {
-      vi.advanceTimersByTime(7000);
-    });
-    expect(screen.getByTestId('breathing-phase')).toHaveTextContent('Breathe out');
   });
-});
 
-describe('BreathingPacer patterns', () => {
   it('reads the technique from the cope card text', () => {
     expect(pickBreathingPattern('4-7-8 Breathing')).toBe('4-7-8');
     expect(pickBreathingPattern('Box Breathing 4-4-4-4')).toBe('box');
@@ -122,16 +100,12 @@ describe('BreathingPacer patterns', () => {
     expect(getBreathingPhase(8, 'box').phase.name).toBe('Breathe out');
     expect(getBreathingPhase(12, 'box').phase.name).toBe('Hold');
     expect(getBreathingPhase(16, 'box').phase.name).toBe('Breathe in');
+    expect(BREATHING_PATTERNS.box.label).toBe('4-4-4-4');
   });
 
   it('paces slow breathing as in 4, out 6', () => {
     expect(getBreathingPhase(3, 'slow').phase.name).toBe('Breathe in');
     expect(getBreathingPhase(4, 'slow')).toMatchObject({ phaseRemaining: 6 });
     expect(getBreathingPhase(10, 'slow').phase.name).toBe('Breathe in');
-  });
-
-  it('labels the pacer with the chosen rhythm', () => {
-    render(<BreathingPacer durationSeconds={64} pattern="box" />);
-    expect(screen.getByRole('heading', { name: 'Breathing Pacer (4-4-4-4)' })).toBeInTheDocument();
   });
 });
