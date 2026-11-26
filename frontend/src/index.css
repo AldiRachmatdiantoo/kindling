@@ -54,6 +54,13 @@
     scrollbar-gutter: stable;
     background-color: var(--color-cream);
   }
+  /* Below md the bottom tab bar spans the screen; a visible scrollbar would cut a strip off
+     its right end. Hide it there: the width stays 0 either way, so nothing jumps. */
+  @media (width < 48rem) {
+    html {
+      scrollbar-width: none;
+    }
+  }
   /* While a dimmed dialog locks scrolling, the empty gutter takes the dimmed page color. */
   html:has(.k-dim-backdrop) {
     background-color: color-mix(in srgb, #000 70%, var(--color-cream));
