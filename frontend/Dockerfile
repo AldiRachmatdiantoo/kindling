@@ -1,8 +1,15 @@
 # syntax=docker/dockerfile:1
-# Placeholder static web + NGINX image for Modul 1.
-# In Modul 5, a Node/Vite build stage will compile React TS assets into /usr/share/nginx/html.
 
-FROM nginx:1.27-alpine
+FROM node:22-alpine AS builder
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+FROM nginx:1.27-alpine AS runtime
 COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/default.conf
-COPY frontend/index.html /usr/share/nginx/html/index.html
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 EXPOSE 80
