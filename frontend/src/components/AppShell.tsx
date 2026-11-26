@@ -1,5 +1,5 @@
 import { CalendarCheck, HeartHandshake, LogOut, Sun, Trophy, User } from 'lucide-react';
-import { useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
 import { WelcomeTourProvider } from '../features/onboarding/WelcomeTour';
@@ -18,7 +18,7 @@ export function AppShell() {
 
 function AppShellLayout() {
   const { user, logout } = useAuth();
-  const { status } = useTodayStatus();
+  const { status, mood } = useTodayStatus();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,6 +58,17 @@ function AppShellLayout() {
   const canAutoStart =
     status !== 'unknown' && (location.pathname !== '/checkin' || status === 'done');
   const firstName = user?.full_name?.trim().split(/\s+/)[0] ?? '';
+
+  // Adaptive atmosphere: today's energy mode tints the whole app (see the mood block in
+  // index.css). Signed-out pages never carry it.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (mood) root.dataset.mood = mood;
+    else delete root.dataset.mood;
+    return () => {
+      delete root.dataset.mood;
+    };
+  }, [mood]);
 
   // A new tab starts at its top, not wherever the previous page was scrolled to.
   useLayoutEffect(() => {

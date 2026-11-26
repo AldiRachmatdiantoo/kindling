@@ -76,6 +76,9 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('welcome-tour')).toHaveCount(0);
 
     await expect(page.getByTestId('calibration-tier-badge')).toContainText('Gentle Mode');
+    // Adaptive atmosphere: the whole app takes on the gentle mood and Ember quotes the reading
+    await expect(page.locator('html')).toHaveAttribute('data-mood', 'gentle');
+    await expect(page.getByTestId('mood-greeting')).toContainText('physical energy is at 0%');
     await expect(page.getByTestId('score-physical_exhaustion')).toContainText('100');
     await expect(page.getByTestId('score-work_exhaustion')).toContainText('100');
 
@@ -102,6 +105,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('win-level-physical')).toContainText('Level 0');
     await page.getByTestId('recalibrate-physical').click();
     await expect(page.getByTestId('win-level-physical')).toContainText('Level 1');
+    await expect(page.getByTestId('win-recal-physical')).toContainText('Made lighter 1x · No penalty');
+    await expect(page.getByTestId('win-previous-physical')).toBeVisible();
 
     // 7. Toggle all 3 wins to completed
     // Each Done pops a mascot celebration; the third one shows the whole crew. Tap to close.

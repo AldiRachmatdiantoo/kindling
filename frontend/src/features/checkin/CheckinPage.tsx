@@ -64,7 +64,7 @@ function acknowledgement(question: CheckinQuestion, value: number): Sympathy {
 
 export function CheckinPage() {
   const { user } = useAuth();
-  const { setStatus } = useTodayStatus();
+  const { setStatus, reportLog } = useTodayStatus();
   const firstName = user?.full_name?.trim().split(/\s+/)[0] ?? '';
   const navigate = useNavigate();
 
@@ -91,7 +91,7 @@ export function CheckinPage() {
         if (!active) return;
         // Already checked in: show the Today overview instead of bouncing to /wins.
         setTodayLog(log);
-        setStatus('done');
+        reportLog(log);
         setCheckingExisting(false);
       })
       .catch((err) => {
@@ -106,7 +106,7 @@ export function CheckinPage() {
     return () => {
       active = false;
     };
-  }, [setStatus, lookupAttempt]);
+  }, [setStatus, reportLog, lookupAttempt]);
 
   const goToStep = (next: number) => {
     setDirection(next < step ? 'prev' : 'next');
@@ -177,7 +177,7 @@ export function CheckinPage() {
       const idempotencyKey = generateIdempotencyKey();
       const log = await checkinApi.submit(parsed.data, idempotencyKey);
       if (user) clearCheckinDefer(user.id);
-      setStatus('done');
+      reportLog(log);
       navigate('/cope', { state: { dailyLog: log }, replace: true });
     } catch (err) {
       if (err instanceof ApiError) {

@@ -12,7 +12,7 @@ import { FeatureTip } from '../../components/FeatureTip';
 import { GuidedBrainDump } from '../../components/GuidedBrainDump';
 import { Mascot } from '../../components/Mascot';
 import { SafetyBanner } from '../../components/SafetyBanner';
-import { TIER_META, TIER_MOOD } from '../today/tier';
+import { moodGreeting, TIER_META, TIER_MOOD } from '../today/tier';
 import { useTodayStatus } from '../today/TodayStatus';
 import { PageLoading } from '../../components/PageLoading';
 import { Button } from '@/components/watermelon-ui/button';
@@ -26,7 +26,7 @@ const TOOL_ICON = {
 const COPE_CARD_BG = ['bg-mint', 'bg-lavender', 'bg-sky'];
 
 export function CopePage() {
-  const { setStatus } = useTodayStatus();
+  const { setStatus, reportLog } = useTodayStatus();
   const location = useLocation();
   const initialLog = (location.state as { dailyLog?: DailyLog } | null)?.dailyLog ?? null;
 
@@ -54,7 +54,7 @@ export function CopePage() {
       .then((log) => {
         if (!active) return;
         setDailyLog(log);
-        setStatus('done');
+        reportLog(log);
         if (log.positive_cope_chosen) {
           const matched = log.cope_options.find((c) => c.title === log.positive_cope_chosen);
           if (matched) setActiveOption(matched);
@@ -76,7 +76,7 @@ export function CopePage() {
     return () => {
       active = false;
     };
-  }, [dailyLog, activeOption, setStatus]);
+  }, [dailyLog, activeOption, setStatus, reportLog]);
 
   // After a pick, bring the tool into view: on a phone it opens below the fold.
   const toolRef = useRef<HTMLDivElement>(null);
@@ -192,6 +192,12 @@ export function CopePage() {
           </span>
         </div>
 
+        <p
+          className="max-w-3xl font-serif text-lg leading-snug font-semibold text-ink sm:text-xl"
+          data-testid="mood-greeting"
+        >
+          {moodGreeting(dailyLog.calibration_tier, dailyLog.scores)}
+        </p>
         <p className="max-w-3xl text-sm leading-relaxed text-ink" data-testid="diagnostic-summary">
           {dailyLog.diagnostic_summary}
         </p>

@@ -1,4 +1,12 @@
-import { Check, Feather, HeartHandshake, Lightbulb, Scissors, Trophy } from 'lucide-react';
+import {
+  Check,
+  Feather,
+  HeartHandshake,
+  Lightbulb,
+  RefreshCw,
+  Scissors,
+  Trophy,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, generateIdempotencyKey } from '../../api/client';
@@ -40,7 +48,7 @@ const RECALIBRATED_WHY =
 const pillars: Pillar[] = ['physical', 'work', 'soul'];
 
 export function WinsPage() {
-  const { setStatus } = useTodayStatus();
+  const { setStatus, reportLog } = useTodayStatus();
 
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +58,8 @@ export function WinsPage() {
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const celebrationId = useRef(0);
   const [shrunkPillar, setShrunkPillar] = useState<Pillar | null>(null);
+  // What each goal said before its last "Still too heavy", shown struck through under the new one.
+  const [previousTitle, setPreviousTitle] = useState<Partial<Record<Pillar, string>>>({});
 
   const [togglingPillar, setTogglingPillar] = useState<Pillar | null>(null);
   const [recalibratingPillar, setRecalibratingPillar] = useState<Pillar | null>(null);
@@ -65,7 +75,7 @@ export function WinsPage() {
       .then((log) => {
         if (!active) return;
         setDailyLog(log);
-        setStatus('done');
+        reportLog(log);
         if (log.wins_data.work.main_task) {
           setTaskInput(log.wins_data.work.main_task);
         }
@@ -89,7 +99,7 @@ export function WinsPage() {
     return () => {
       active = false;
     };
-  }, [setStatus]);
+  }, [setStatus, reportLog]);
 
   const handleToggle = async (pillar: Pillar) => {
     if (!dailyLog) return;
@@ -134,11 +144,24 @@ export function WinsPage() {
     if (!dailyLog) return;
     setError(null);
     setRecalibratingPillar(pillar);
+    const oldTitle = dailyLog.wins_data[pillar].title;
 
     try {
       const idempotencyKey = generateIdempotencyKey();
-      const res = await winsApi.recalibrate(dailyLog.log_date, pillar, idempotencyKey);
+      // Hold the "re-calibrating" beat a moment even on a fast server, so the change reads
+      // as the goal being reworked, not a text swap.
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+      const [res] = await Promise.all([
+        winsApi.recalibrate(dailyLog.log_date, pillar, idempotencyKey),
+        new Promise((resolve) => window.setTimeout(resolve, reduce ? 0 : 700)),
+      ]);
       setShrunkPillar(pillar);
+      if (
+        !(pillar === 'work' && dailyLog.wins_data.work.micro_step) &&
+        res.new_title !== oldTitle
+      ) {
+        setPreviousTitle((prev) => ({ ...prev, [pillar]: oldTitle }));
+      }
 
       setDailyLog((prev) => {
         if (!prev) return prev;
@@ -345,7 +368,8 @@ export function WinsPage() {
             <article
               key={pillar}
               data-testid={`win-card-${pillar}`}
-              className={`flex flex-col gap-4 rounded-3xl border-[1.5px] border-ink p-5 ${meta.bg}`}
+              className={`relative flex flex-col gap-4 overflow-hidden rounded-3xl border-[1.5px] border-ink p-5 ${meta.bg} ${isRecalibrating ? 'k-recal' : ''}`}
+              aria-busy={isRecalibrating || undefined}
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2">
@@ -363,7 +387,11 @@ export function WinsPage() {
                 </span>
               </div>
 
-              <div>
+              <div
+                key={item.level}
+                className={shrunkPillar === pillar ? 'k-shrink-in' : undefined}
+                data-testid={`win-goal-${pillar}`}
+              >
                 <h2
                   className={`text-xl leading-snug font-bold ${
                     item.completed ? 'text-ink-soft line-through' : 'text-ink'
@@ -372,7 +400,22 @@ export function WinsPage() {
                 >
                   {item.title}
                 </h2>
+                {previousTitle[pillar] && item.level > 0 && (
+                  <p className="mt-1 text-xs text-ink-soft" data-testid={`win-previous-${pillar}`}>
+                    <span className="sr-only">Was: </span>
+                    <s>{previousTitle[pillar]}</s>
+                  </p>
+                )}
                 <p className="mt-1 text-xs text-ink-soft">{meta.subtitle}</p>
+                {item.level > 0 && (
+                  <span
+                    className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-2.5 py-1 text-[11px] font-semibold text-ink"
+                    data-testid={`win-recal-${pillar}`}
+                  >
+                    <Feather className="h-3.5 w-3.5" aria-hidden="true" />
+                    Made lighter {item.level}x · No penalty
+                  </span>
+                )}
               </div>
 
               {item.why_this && (
@@ -545,7 +588,14 @@ export function WinsPage() {
                     data-testid={`recalibrate-${pillar}`}
                     className="w-full"
                   >
-                    {isRecalibrating ? 'Adjusting your goal...' : 'Still too heavy'}
+                    {isRecalibrating ? (
+                      <>
+                        <RefreshCw className="k-spin-slow h-4 w-4" aria-hidden="true" />
+                        Re-calibrating...
+                      </>
+                    ) : (
+                      'Still too heavy'
+                    )}
                   </Button>
                 )}
               </div>

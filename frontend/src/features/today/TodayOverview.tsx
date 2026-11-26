@@ -4,7 +4,7 @@ import type { DailyLog, Pillar } from '../../api/types';
 import { FeatureTip } from '../../components/FeatureTip';
 import { Mascot } from '../../components/Mascot';
 import { SafetyBanner } from '../../components/SafetyBanner';
-import { TIER_META, TIER_MOOD } from './tier';
+import { moodGreeting, TIER_META, TIER_MOOD } from './tier';
 import { Button } from '@/components/watermelon-ui/button';
 
 const PILLAR_LABEL: Record<Pillar, string> = {
@@ -58,6 +58,12 @@ export function TodayOverview({ log }: { log: DailyLog }) {
             {tier.label}
           </span>
         </div>
+        <p
+          className="max-w-3xl font-serif text-lg leading-snug font-semibold text-ink sm:text-xl"
+          data-testid="mood-greeting"
+        >
+          {moodGreeting(log.calibration_tier, log.scores)}
+        </p>
         <p className="max-w-2xl text-sm leading-relaxed text-ink">{log.diagnostic_summary}</p>
         <p className="text-xs text-ink-soft">{tier.desc}</p>
       </section>
