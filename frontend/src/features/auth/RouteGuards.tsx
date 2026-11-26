@@ -4,12 +4,12 @@ import { useAuth } from './AuthContext';
 function FullPageLoader() {
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-stone-50"
+      className="flex min-h-screen items-center justify-center bg-cream"
       data-testid="auth-loading"
     >
       <div className="flex flex-col items-center gap-3">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-        <p className="text-sm text-stone-500">Memuat sesi Kindling...</p>
+        <div className="k-spinner" />
+        <p className="text-sm text-ink-soft">Memuat sesi Kindling...</p>
       </div>
     </div>
   );

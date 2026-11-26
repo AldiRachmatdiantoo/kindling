@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Clock, HeartHandshake, PenLine, Timer, Wind } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock, Leaf, PenLine, Play, Timer, Wind } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../api/client';
@@ -13,17 +13,17 @@ import { SafetyBanner } from '../../components/SafetyBanner';
 const TIER_META: Record<CalibrationTier, { label: string; badgeClass: string; desc: string }> = {
   gentle: {
     label: 'Gentle Mode',
-    badgeClass: 'bg-sky-100 text-sky-800 border-sky-200',
+    badgeClass: 'bg-sky',
     desc: 'Target diperkecil semaksimal mungkin agar sistem sarafmu bisa pulih.',
   },
   balanced: {
     label: 'Balanced Mode',
-    badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
+    badgeClass: 'bg-lavender',
     desc: 'Target ringan-sedang untuk menjaga ritme tanpa memicu kelelahan.',
   },
   standard: {
     label: 'Standard Mode',
-    badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    badgeClass: 'bg-mint',
     desc: 'Energimu cukup stabil untuk melangkah dengan target harian normal.',
   },
 };
@@ -33,6 +33,8 @@ const TOOL_ICON = {
   timer: Timer,
   brain_dump: PenLine,
 } as const;
+
+const COPE_CARD_BG = ['bg-mint', 'bg-lavender', 'bg-sky'];
 
 export function CopePage() {
   const location = useLocation();
@@ -102,19 +104,16 @@ export function CopePage() {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center" data-testid="cope-loading">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+        <div className="k-spinner" />
       </div>
     );
   }
 
   if (!dailyLog) {
     return (
-      <div className="rounded-2xl border border-stone-200 bg-white p-8 text-center">
-        <p className="text-sm text-stone-600">{error || 'Belum ada check-in untuk hari ini.'}</p>
-        <Link
-          to="/checkin"
-          className="mt-4 inline-flex rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
-        >
+      <div className="k-card mx-auto max-w-md p-8 text-center">
+        <p className="text-sm text-ink-soft">{error || 'Belum ada check-in untuk hari ini.'}</p>
+        <Link to="/checkin" className="k-btn-primary mt-5">
           Mulai Check-In
         </Link>
       </div>
@@ -128,115 +127,99 @@ export function CopePage() {
       label: 'Physical Exhaustion',
       value: dailyLog.scores.physical_exhaustion,
       hint: 'Makin tinggi = makin lelah',
-      barColor: 'bg-rose-500',
+      barColor: 'bg-primary',
     },
     {
       key: 'work_exhaustion',
       label: 'Work Exhaustion',
       value: dailyLog.scores.work_exhaustion,
       hint: 'Makin tinggi = makin terkuras',
-      barColor: 'bg-amber-500',
+      barColor: 'bg-lavender-strong',
     },
     {
       key: 'disengagement',
       label: 'Disengagement',
       value: dailyLog.scores.disengagement,
       hint: 'Makin tinggi = makin berjarak',
-      barColor: 'bg-violet-500',
+      barColor: 'bg-lime-dark',
     },
     {
       key: 'soul_wellbeing',
       label: 'Soul Well-Being',
       value: dailyLog.scores.soul_wellbeing,
       hint: 'Makin tinggi = makin baik',
-      barColor: 'bg-emerald-500',
+      barColor: 'bg-mint-strong',
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {dailyLog.safety_flag && <SafetyBanner />}
 
-      <section className="space-y-4 rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="k-card space-y-4 p-6 sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-stone-400">
-              Hasil Kalibrasi · {dailyLog.log_date}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">
-              Peta Energimu Hari Ini
-            </h1>
+            <p className="text-xs font-semibold text-ink-faint">Hasil Kalibrasi · {dailyLog.log_date}</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink">Peta Energimu Hari Ini</h1>
           </div>
           <span
-            className={`inline-flex items-center rounded-full border px-3.5 py-1 text-xs font-semibold ${tierInfo.badgeClass}`}
+            className={`k-chip ${tierInfo.badgeClass}`}
             data-testid="calibration-tier-badge"
           >
+            <Leaf className="h-3.5 w-3.5" />
             {tierInfo.label}
           </span>
         </div>
 
-        <p className="text-sm leading-relaxed text-stone-700" data-testid="diagnostic-summary">
+        <p className="max-w-3xl text-sm leading-relaxed text-ink" data-testid="diagnostic-summary">
           {dailyLog.diagnostic_summary}
         </p>
-        <p className="text-xs text-stone-500">{tierInfo.desc}</p>
+        <p className="text-xs text-ink-soft">{tierInfo.desc}</p>
 
-        <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 pt-1 lg:grid-cols-4">
           {scoreCards.map((item) => (
             <div
               key={item.key}
-              className="rounded-xl border border-stone-200/80 bg-stone-50/70 p-4"
+              className="rounded-2xl border-[1.5px] border-ink bg-cream p-4"
               data-testid={`score-${item.key}`}
             >
-              <div className="flex items-baseline justify-between">
-                <span className="text-xs font-medium text-stone-600">{item.label}</span>
-                <span className="text-xl font-bold text-stone-900">{item.value}</span>
-              </div>
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-stone-200">
+              <span className="block text-xs font-semibold text-ink-soft">{item.label}</span>
+              <span className="mt-1 block font-serif text-3xl font-bold text-ink">{item.value}</span>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink/10">
                 <div
                   className={`h-full rounded-full ${item.barColor}`}
                   style={{ width: `${Math.min(100, Math.max(0, item.value))}%` }}
                 />
               </div>
-              <p className="mt-1.5 text-[11px] text-stone-500">{item.hint}</p>
+              <p className="mt-1.5 text-[11px] text-ink-faint">{item.hint}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <DisclaimerBanner />
-
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700">
-              <HeartHandshake className="h-4 w-4" />
-              Choose Your Own Positive Cope
-            </div>
-            <h2 className="mt-0.5 text-xl font-bold text-stone-900">
-              Pilih 1 Momen Pemulihan Sebelum Mulai
-            </h2>
-            <p className="text-sm text-stone-600">
+            <p className="text-xs font-semibold text-ink-faint">Choose Your Own Positive Cope</p>
+            <h2 className="mt-0.5 text-2xl font-bold text-ink">Pilih 1 Momen Pemulihan</h2>
+            <p className="mt-1 text-sm text-ink-soft">
               Pulihkan sistem sarafmu dulu — atau langsung lanjut ke 3 Daily Wins jika sudah siap.
             </p>
           </div>
-          <Link
-            to="/wins"
-            data-testid="skip-to-wins"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-stone-800"
-          >
-            Lanjut ke Wins
+          <Link to="/wins" data-testid="skip-to-wins" className="k-btn-secondary">
+            Lewati &amp; Lanjut ke 3 Wins
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
 
         {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <div className="k-error" role="alert">
             {error}
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-3">
-          {dailyLog.cope_options.map((option) => {
+        <div className="grid gap-3 md:grid-cols-3">
+          {dailyLog.cope_options.map((option, index) => {
             const Icon = TOOL_ICON[option.tool_type];
             const isSelected =
               activeOption?.id === option.id || dailyLog.positive_cope_chosen === option.title;
@@ -249,38 +232,40 @@ export function CopePage() {
                 disabled={savingId !== null}
                 onClick={() => handleChooseCope(option)}
                 data-testid={`cope-card-${option.id}`}
-                className={`flex flex-col justify-between rounded-2xl border p-5 text-left transition-all ${
-                  isSelected
-                    ? 'border-sky-500 bg-sky-50/70 ring-2 ring-sky-500/20'
-                    : 'border-stone-200 bg-white hover:border-amber-300 hover:shadow-xs'
-                }`}
+                aria-pressed={isSelected}
+                className={`flex flex-col justify-between gap-4 rounded-3xl border-[1.5px] border-ink p-5 text-left transition-transform hover:-translate-y-0.5 disabled:cursor-wait ${
+                  COPE_CARD_BG[index % COPE_CARD_BG.length]
+                } ${isSelected ? 'ring-4 ring-primary/40' : ''}`}
               >
                 <div className="space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-0.5 text-[11px] font-medium text-stone-600">
+                  <div className="flex items-center gap-2">
+                    <span className="k-chip capitalize">
                       <Icon className="h-3.5 w-3.5" />
                       {option.brief_cope_category.replace(/_/g, ' ')}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-stone-500">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-ink-soft">
                       <Clock className="h-3.5 w-3.5" />
                       {minutes} mnt
                     </span>
                   </div>
-                  <h3 className="text-base font-semibold text-stone-900">{option.title}</h3>
-                  <p className="text-xs leading-relaxed text-stone-600">{option.guidance}</p>
+                  <h3 className="text-xl leading-snug font-bold text-ink">{option.title}</h3>
+                  <p className="text-xs leading-relaxed text-ink-soft">{option.guidance}</p>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between pt-2 text-xs font-semibold">
+                <div className="flex items-center justify-between text-sm font-bold">
                   {savingId === option.id ? (
-                    <span className="text-amber-700">Menyimpan...</span>
+                    <span className="text-ink-soft">Menyimpan...</span>
                   ) : isSelected ? (
-                    <span className="inline-flex items-center gap-1 text-sky-700">
+                    <span className="inline-flex items-center gap-1.5 text-ink">
                       <CheckCircle2 className="h-4 w-4" />
                       Dipilih hari ini
                     </span>
                   ) : (
-                    <span className="text-amber-700">Pilih &amp; jalankan →</span>
+                    <span className="text-ink-soft">Pilih &amp; jalankan</span>
                   )}
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border-[1.5px] border-ink bg-lime">
+                    <Play className="h-4 w-4" />
+                  </span>
                 </div>
               </button>
             );
@@ -312,6 +297,8 @@ export function CopePage() {
           </div>
         )}
       </section>
+
+      <DisclaimerBanner />
     </div>
   );
 }

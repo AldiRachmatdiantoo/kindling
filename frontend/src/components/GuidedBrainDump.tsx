@@ -18,15 +18,15 @@ export function GuidedBrainDump({ durationSeconds, guidance }: GuidedBrainDumpPr
 
   return (
     <div
-      className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50/40 p-5"
+      className="k-card space-y-4 bg-lavender/50 p-5"
       data-testid="guided-brain-dump"
     >
-      <div className="flex items-center gap-2 text-amber-950">
-        <PenLine className="h-5 w-5 text-amber-700" />
-        <h3 className="text-base font-semibold">Guided Brain-Dump</h3>
+      <div className="flex items-center gap-2 text-ink">
+        <PenLine className="h-5 w-5 text-lavender-strong" />
+        <h3 className="text-lg font-bold">Guided Brain-Dump</h3>
       </div>
 
-      {guidance && <p className="text-xs leading-relaxed text-stone-600">{guidance}</p>}
+      {guidance && <p className="text-xs leading-relaxed text-ink-soft">{guidance}</p>}
 
       <CountdownTimer
         durationSeconds={durationSeconds}
@@ -44,10 +44,10 @@ export function GuidedBrainDump({ durationSeconds, guidance }: GuidedBrainDumpPr
           }}
           data-testid="guided-brain-dump-input"
           placeholder="Tulis semua yang ada di kepalamu sekarang, tanpa perlu rapi..."
-          className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+          className="k-input"
         />
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-xs text-stone-500">
+          <span className="text-xs text-ink-soft">
             {clearedNotice
               ? 'Catatan sudah dilepaskan dari layar.'
               : 'Hanya ada di layarmu — tekan Lepaskan kapan pun selesai.'}
@@ -56,7 +56,7 @@ export function GuidedBrainDump({ durationSeconds, guidance }: GuidedBrainDumpPr
             type="button"
             onClick={handleRelease}
             data-testid="guided-brain-dump-clear"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-100"
+            className="k-btn-secondary shrink-0 px-3 py-1.5 text-xs"
           >
             <Eraser className="h-3.5 w-3.5" />
             Lepaskan &amp; Bersihkan

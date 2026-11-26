@@ -36,17 +36,14 @@ export function ProfilePage() {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center" data-testid="profile-loading">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+        <div className="k-spinner" />
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div
-        className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800"
-        data-testid="profile-error"
-      >
+      <div className="k-error p-6" data-testid="profile-error">
         {error || 'Data profil tidak tersedia.'}
       </div>
     );
@@ -58,83 +55,89 @@ export function ProfilePage() {
       label: 'Total Hari Aktif',
       value: data.milestones.total_active_days,
       icon: Flame,
-      color: 'text-amber-700 bg-amber-50',
+      bg: 'bg-white',
     },
     {
       key: 'total_complete_days',
       label: 'Hari 3/3 Wins',
       value: data.milestones.total_complete_days,
       icon: Award,
-      color: 'text-emerald-700 bg-emerald-50',
+      bg: 'bg-lavender',
     },
     {
       key: 'total_recovery_days',
       label: 'Hari Pemulihan',
       value: data.milestones.total_recovery_days,
       icon: HeartHandshake,
-      color: 'text-sky-700 bg-sky-50',
+      bg: 'bg-sky',
     },
     {
       key: 'total_daily_wins',
       label: 'Total Daily Wins',
       value: data.milestones.total_daily_wins,
       icon: Sparkles,
-      color: 'text-violet-700 bg-violet-50',
+      bg: 'bg-mint',
     },
   ];
 
+  const initials =
+    (user?.full_name || 'Kindling')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'K';
+
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <section className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <span
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-lime font-serif text-xl font-bold text-ink"
+            aria-hidden="true"
+          >
+            {initials}
+          </span>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-stone-400">
-              Profil &amp; Jejak Pemulihan
-            </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">
+            <p className="text-xs font-semibold text-ink-faint">Profil &amp; Jejak Pemulihan</p>
+            <h1 className="text-3xl font-bold tracking-tight text-ink">
               {user?.full_name || 'Pengguna Kindling'}
             </h1>
-            <p className="text-sm text-stone-500">
-              {user?.email} · Zona waktu: {user?.timezone || 'Asia/Jakarta'}
+            <p className="text-sm text-ink-soft">
+              {user?.email} · {user?.timezone || 'Asia/Jakarta'}
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2 text-xs text-stone-600">
-            <CalendarHeart className="h-4 w-4 text-amber-600" />
-            Tanpa reset streak — istirahat adalah bagian dari proses.
-          </div>
+        </div>
+        <div className="flex items-start gap-2 rounded-2xl border-[1.5px] border-ink bg-mint px-4 py-2.5 text-xs leading-relaxed font-medium text-ink">
+          <CalendarHeart className="mt-0.5 h-4 w-4 shrink-0 text-mint-strong" />
+          Tanpa reset streak — istirahat adalah bagian dari proses.
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map(({ key, label, value, icon: Icon, color }) => (
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {statCards.map(({ key, label, value, icon: Icon, bg }) => (
           <div
             key={key}
-            className="rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs"
+            className={`rounded-3xl border-[1.5px] border-ink p-5 ${bg}`}
             data-testid={`stat-${key}`}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-stone-500">{label}</span>
-              <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${color}`}>
-                <Icon className="h-4 w-4" />
-              </span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-ink-soft">{label}</span>
+              <Icon className="h-4 w-4 shrink-0 text-ink" />
             </div>
-            <p className="mt-3 text-3xl font-bold tracking-tight text-stone-900">{value}</p>
-            <p className="mt-1 text-[11px] text-stone-400">Akumulasi seumur hidup</p>
+            <p className="mt-2 font-serif text-4xl font-bold tracking-tight text-ink">{value}</p>
+            <p className="mt-1 text-[11px] text-ink-faint">Akumulasi seumur hidup</p>
           </div>
         ))}
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-stone-200/80 bg-white p-6 shadow-xs">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold text-stone-900">
-              Anti-Burnout Heatmap (365 Hari)
-            </h2>
-            <p className="text-xs text-stone-500">
-              Rentang {data.range.from} hingga {data.range.to}. Kotak abu-abu menandakan hari
-              istirahat, bukan kegagalan.
-            </p>
-          </div>
+      <section className="k-card space-y-4 p-6">
+        <div>
+          <h2 className="text-2xl font-bold text-ink">Jejak 365 Hari</h2>
+          <p className="mt-1 text-xs text-ink-soft">
+            Rentang {data.range.from} hingga {data.range.to}. Kotak kosong menandakan hari
+            istirahat, bukan kegagalan.
+          </p>
         </div>
 
         <HeatmapGrid from={data.range.from} to={data.range.to} days={data.days} />

@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { formatSecondsMMSS } from '../utils/date';
 
 const BREATH_PHASES = [
-  { name: 'Tarik Napas', duration: 4, hint: 'Tarik napas pelan lewat hidung', scale: 'scale-110 bg-sky-100 border-sky-400' },
-  { name: 'Tahan', duration: 7, hint: 'Tahan dengan lembut tanpa tegang', scale: 'scale-110 bg-amber-100 border-amber-400' },
-  { name: 'Hembuskan', duration: 8, hint: 'Hembuskan perlahan lewat mulut', scale: 'scale-95 bg-emerald-100 border-emerald-400' },
+  { name: 'Tarik Napas', duration: 4, hint: 'Tarik napas pelan lewat hidung', scale: 'scale-110 bg-sky' },
+  { name: 'Tahan', duration: 7, hint: 'Tahan dengan lembut tanpa tegang', scale: 'scale-110 bg-lavender' },
+  { name: 'Hembuskan', duration: 8, hint: 'Hembuskan perlahan lewat mulut', scale: 'scale-95 bg-mint' },
 ] as const;
 
 const CYCLE_TOTAL = 19; // 4 + 7 + 8 seconds
@@ -63,37 +63,37 @@ export function BreathingPacer({ durationSeconds, guidance }: BreathingPacerProp
 
   return (
     <div
-      className="rounded-2xl border border-sky-200 bg-sky-50/50 p-6"
+      className="k-card bg-sky/40 p-6"
       data-testid="breathing-pacer"
     >
       <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sky-900">
-          <Wind className="h-5 w-5 text-sky-600" />
-          <h3 className="text-base font-semibold">Breathing Pacer (4-7-8)</h3>
+        <div className="flex items-center gap-2 text-ink">
+          <Wind className="h-5 w-5 text-sky-strong" />
+          <h3 className="text-lg font-bold">Breathing Pacer (4-7-8)</h3>
         </div>
-        <span className="font-mono text-sm font-semibold text-sky-800" data-testid="breathing-remaining">
+        <span className="k-chip font-mono tabular-nums" data-testid="breathing-remaining">
           {formatSecondsMMSS(remaining)}
         </span>
       </div>
 
-      {guidance && <p className="mb-5 text-xs text-stone-600">{guidance}</p>}
+      {guidance && <p className="mb-5 text-xs text-ink-soft">{guidance}</p>}
 
       <div className="flex flex-col items-center py-4">
         <div
-          className={`flex h-40 w-40 flex-col items-center justify-center rounded-full border-2 transition-all duration-700 ${
-            running ? phase.scale : 'scale-100 border-sky-200 bg-white'
+          className={`flex h-40 w-40 flex-col items-center justify-center rounded-full border-[1.5px] border-ink transition-all duration-700 ${
+            running ? phase.scale : 'scale-100 bg-white'
           }`}
         >
-          <span className="text-lg font-bold text-stone-900" data-testid="breathing-phase">
+          <span className="font-serif text-xl font-bold text-ink" data-testid="breathing-phase">
             {isFinished ? 'Selesai' : running ? phase.name : 'Siap'}
           </span>
           {!isFinished && (
-            <span className="mt-1 font-mono text-2xl font-semibold text-stone-700">
+            <span className="mt-1 font-mono text-2xl font-semibold text-ink-soft">
               {running ? `${phaseRemaining}d` : '4-7-8'}
             </span>
           )}
         </div>
-        <p className="mt-4 text-center text-sm text-stone-600">
+        <p className="mt-4 text-center text-sm text-ink-soft">
           {isFinished
             ? 'Sesi pernapasan selesai. Rasakan bahumu sedikit lebih turun.'
             : running
@@ -114,7 +114,7 @@ export function BreathingPacer({ durationSeconds, guidance }: BreathingPacerProp
             }
           }}
           data-testid="breathing-toggle"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-700"
+          className="k-btn-primary px-5 py-2"
         >
           {running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           {running ? 'Jeda' : isFinished ? 'Ulangi' : 'Mulai'}
@@ -123,7 +123,7 @@ export function BreathingPacer({ durationSeconds, guidance }: BreathingPacerProp
           type="button"
           onClick={handleReset}
           data-testid="breathing-reset"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
+          className="k-btn-secondary px-4 py-2"
         >
           <RotateCcw className="h-4 w-4" />
           Reset

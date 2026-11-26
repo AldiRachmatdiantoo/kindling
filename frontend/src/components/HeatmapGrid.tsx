@@ -9,10 +9,10 @@ export interface HeatmapGridProps {
 }
 
 const LEVEL_STYLES: Record<HeatmapLevel, string> = {
-  rest: 'bg-stone-200 hover:ring-stone-400',
-  recovery: 'bg-sky-400 hover:ring-sky-600',
-  steady: 'bg-emerald-300 hover:ring-emerald-500',
-  complete: 'bg-emerald-600 hover:ring-emerald-800',
+  rest: 'bg-ink/10 hover:ring-ink/40',
+  recovery: 'bg-lavender-strong hover:ring-ink',
+  steady: 'bg-mint-strong/45 hover:ring-ink',
+  complete: 'bg-mint-strong hover:ring-ink',
 };
 
 const LEVEL_LABELS: Record<HeatmapLevel, string> = {
@@ -75,7 +75,7 @@ export function HeatmapGrid({ from, to, days }: HeatmapGridProps) {
                     onMouseEnter={() => setSelectedDay(cell)}
                     onFocus={() => setSelectedDay(cell)}
                     onClick={() => setSelectedDay(cell)}
-                    className={`h-3.5 w-3.5 rounded-[3px] transition-all hover:ring-2 focus:outline-none focus:ring-2 ${LEVEL_STYLES[cell.level]}`}
+                    className={`h-3.5 w-3.5 rounded-full transition-all hover:ring-2 focus:outline-none focus:ring-2 focus:ring-primary ${LEVEL_STYLES[cell.level]}`}
                   />
                 );
               })}
@@ -84,8 +84,8 @@ export function HeatmapGrid({ from, to, days }: HeatmapGridProps) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-stone-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-h-[20px] text-xs text-stone-600" data-testid="heatmap-detail">
+      <div className="flex flex-col gap-3 border-t-[1.5px] border-ink/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-h-[20px] text-xs text-ink-soft" data-testid="heatmap-detail">
           {selectedDay ? (
             <span>
               <strong>{selectedDay.date}</strong> · {LEVEL_LABELS[selectedDay.level]}
@@ -97,10 +97,10 @@ export function HeatmapGrid({ from, to, days }: HeatmapGridProps) {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-stone-500">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-ink-soft">
           {(['rest', 'recovery', 'steady', 'complete'] as HeatmapLevel[]).map((lvl) => (
             <span key={lvl} className="inline-flex items-center gap-1.5">
-              <span className={`inline-block h-3 w-3 rounded-[3px] ${LEVEL_STYLES[lvl].split(' ')[0]}`} />
+              <span className={`inline-block h-3 w-3 rounded-full ${LEVEL_STYLES[lvl].split(' ')[0]}`} />
               {lvl === 'rest'
                 ? 'Rest'
                 : lvl === 'recovery'
