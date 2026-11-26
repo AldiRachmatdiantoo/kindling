@@ -59,6 +59,17 @@ export function RegisterPage() {
       navigate('/checkin', { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.details && typeof err.details === 'object') {
+          const backendErrors: Record<string, string> = {};
+          for (const [key, value] of Object.entries(err.details)) {
+            if (typeof value === 'string' && value.trim()) {
+              backendErrors[key] = value;
+            }
+          }
+          if (Object.keys(backendErrors).length > 0) {
+            setFieldErrors(backendErrors);
+          }
+        }
         setFormError(err.message);
       } else {
         setFormError("We couldn't create your account just now. Please try again in a moment.");
@@ -107,10 +118,14 @@ export function RegisterPage() {
             onChange={(e) => setFullName(e.target.value)}
             data-testid="register-fullname"
             placeholder="Alex Morgan"
+            aria-invalid={fieldErrors.full_name ? true : undefined}
+            aria-describedby={fieldErrors.full_name ? 'register-name-error' : undefined}
             className="k-input"
           />
           {fieldErrors.full_name && (
-            <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.full_name}</p>
+            <p id="register-name-error" className="mt-1 text-xs font-medium text-peach-strong">
+              {fieldErrors.full_name}
+            </p>
           )}
         </div>
 
@@ -126,10 +141,14 @@ export function RegisterPage() {
             onChange={(e) => setEmail(e.target.value)}
             data-testid="register-email"
             placeholder="you@example.com"
+            aria-invalid={fieldErrors.email ? true : undefined}
+            aria-describedby={fieldErrors.email ? 'register-email-error' : undefined}
             className="k-input"
           />
           {fieldErrors.email && (
-            <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.email}</p>
+            <p id="register-email-error" className="mt-1 text-xs font-medium text-peach-strong">
+              {fieldErrors.email}
+            </p>
           )}
         </div>
 
@@ -145,10 +164,14 @@ export function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             data-testid="register-password"
             placeholder="At least 10 characters"
+            aria-invalid={fieldErrors.password ? true : undefined}
+            aria-describedby={fieldErrors.password ? 'register-password-error' : undefined}
             className="k-input"
           />
           {fieldErrors.password && (
-            <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.password}</p>
+            <p id="register-password-error" className="mt-1 text-xs font-medium text-peach-strong">
+              {fieldErrors.password}
+            </p>
           )}
         </div>
 
@@ -163,8 +186,19 @@ export function RegisterPage() {
             onChange={(e) => setTimezone(e.target.value)}
             data-testid="register-timezone"
             placeholder="Asia/Jakarta"
+            aria-invalid={fieldErrors.timezone ? true : undefined}
+            aria-describedby={fieldErrors.timezone ? 'register-timezone-error' : undefined}
             className="k-input"
           />
+          {fieldErrors.timezone && (
+            <p
+              id="register-timezone-error"
+              data-testid="register-timezone-error"
+              className="mt-1 text-xs font-medium text-peach-strong"
+            >
+              {fieldErrors.timezone}
+            </p>
+          )}
         </div>
 
         <div className="rounded-2xl border-[1.5px] border-ink bg-lavender p-4">
@@ -174,6 +208,8 @@ export function RegisterPage() {
               checked={aiConsent}
               onChange={(e) => setAiConsent(e.target.checked)}
               data-testid="register-ai-consent"
+              aria-invalid={fieldErrors.ai_consent ? true : undefined}
+              aria-describedby={fieldErrors.ai_consent ? 'register-consent-error' : undefined}
               className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
             />
             <span>
@@ -184,6 +220,7 @@ export function RegisterPage() {
           </label>
           {fieldErrors.ai_consent && (
             <p
+              id="register-consent-error"
               className="mt-1.5 text-xs font-medium text-peach-strong"
               data-testid="register-consent-error"
             >

@@ -24,6 +24,7 @@ import { MascotBubble } from '../../components/MascotBubble';
 import { useTodayStatus } from '../today/TodayStatus';
 import { isRecoverySkipped, skipRecovery } from '../today/recovery';
 import { aiNoteText } from '../today/aiNote';
+import { useAuth } from '../auth/AuthContext';
 import { CountdownTimer } from '../../components/CountdownTimer';
 import { PageLoading } from '../../components/PageLoading';
 import { Button } from '@/components/watermelon-ui/button';
@@ -60,15 +61,24 @@ const holdMorph = () => {
 };
 
 // Each sliced step gets its own focus timer, so the next step starts fresh.
-const timerKey = (date: string, pillar: Pillar, stepsDone = 0) =>
-  pillar === 'work' ? `${date}:win:work-focus:${stepsDone}` : `${date}:win:${pillar}`;
+const timerKey = (userId: string, date: string, pillar: Pillar, stepsDone = 0) =>
+  pillar === 'work'
+    ? `${userId}:${date}:win:work-focus:${stepsDone}`
+    : `${userId}:${date}:win:${pillar}`;
 
 // Details start folded so all three goals fit on one screen; a timer still running from
 // earlier keeps its card open, so the user lands back where they were.
-function initialOpenDetails(date: string, stepsDone = 0): Record<Pillar, boolean> {
+function initialOpenDetails(
+  userId: string | undefined,
+  date: string,
+  stepsDone = 0,
+): Record<Pillar, boolean> {
+  if (!userId) return { physical: false, work: false, soul: false };
   const running = (pillar: Pillar) => {
     try {
-      const raw = sessionStorage.getItem(`kindling:timer:${timerKey(date, pillar, stepsDone)}`);
+      const raw = sessionStorage.getItem(
+        `kindling:timer:${timerKey(userId, date, pillar, stepsDone)}`,
+      );
       return Boolean(raw && JSON.parse(raw).running);
     } catch {
       return false;
@@ -78,6 +88,7 @@ function initialOpenDetails(date: string, stepsDone = 0): Record<Pillar, boolean
 }
 
 export function WinsPage() {
+  const { user } = useAuth();
   const { setStatus, reportLog } = useTodayStatus();
 
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(null);
@@ -126,8 +137,10 @@ export function WinsPage() {
       .then((log) => {
         if (!active) return;
         setDailyLog(log);
-        setRecoverySkipped(isRecoverySkipped(log.log_date));
-        setOpenDetails(initialOpenDetails(log.log_date, log.wins_data.work.steps_done ?? 0));
+        setRecoverySkipped(user ? isRecoverySkipped(user.id, log.log_date) : false);
+        setOpenDetails(
+          initialOpenDetails(user?.id, log.log_date, log.wins_data.work.steps_done ?? 0),
+        );
         reportLog(log);
         if (log.wins_data.work.main_task) {
           setTaskInput(log.wins_data.work.main_task);
@@ -152,7 +165,7 @@ export function WinsPage() {
     return () => {
       active = false;
     };
-  }, [setStatus, reportLog]);
+  }, [setStatus, reportLog, user?.id]);
 
   const handleToggle = async (pillar: Pillar) => {
     if (!dailyLog) return;
@@ -422,7 +435,7 @@ export function WinsPage() {
                 size="sm"
                 data-testid="wins-skip-recovery"
                 onClick={() => {
-                  skipRecovery(dailyLog.log_date);
+                  if (user) skipRecovery(user.id, dailyLog.log_date);
                   setRecoverySkipped(true);
                 }}
               >
@@ -662,7 +675,7 @@ export function WinsPage() {
                     durationSeconds={item.duration_seconds}
                     title={pillar === 'physical' ? 'Move timer' : 'Me-time timer'}
                     testIdPrefix={`win-timer-${pillar}`}
-                    persistKey={timerKey(dailyLog.log_date, pillar)}
+                    persistKey={user ? timerKey(user.id, dailyLog.log_date, pillar) : undefined}
                     compact
                   />
                 ) : null}
@@ -739,11 +752,16 @@ export function WinsPage() {
                           durationSeconds={dailyLog.wins_data.work.duration_seconds ?? 300}
                           title="Focus Timer"
                           testIdPrefix="focus"
-                          persistKey={timerKey(
-                            dailyLog.log_date,
-                            'work',
-                            dailyLog.wins_data.work.steps_done ?? 0,
-                          )}
+                          persistKey={
+                            user
+                              ? timerKey(
+                                  user.id,
+                                  dailyLog.log_date,
+                                  'work',
+                                  dailyLog.wins_data.work.steps_done ?? 0,
+                                )
+                              : undefined
+                          }
                           onComplete={handleFocusComplete}
                           compact
                         />

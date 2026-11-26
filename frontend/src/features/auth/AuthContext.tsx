@@ -1,7 +1,16 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ApiError, setUnauthorizedHandler } from '../../api/client';
 import { authApi } from '../../api/endpoints';
 import type { User } from '../../api/types';
+import { clearUserTimers } from '../../components/useClockTimer';
 
 interface AuthContextValue {
   user: User | null;
@@ -19,6 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [unreachable, setUnreachable] = useState(false);
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = user?.id ?? null;
 
   const refreshUser = useCallback(async (): Promise<User | null> => {
     try {
@@ -59,9 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const logout = useCallback(async () => {
+    const activeUserId = userIdRef.current;
     try {
       await authApi.logout();
+    } catch {
+      // Even if the server is unreachable or the session already expired,
+      // clear local auth state so the user is still signed out cleanly.
     } finally {
+      if (activeUserId) {
+        clearUserTimers(activeUserId);
+      }
       setUser(null);
     }
   }, []);

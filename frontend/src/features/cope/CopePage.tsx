@@ -24,6 +24,7 @@ import { moodGreeting, TIER_META, TIER_MOOD } from '../today/tier';
 import { useTodayStatus } from '../today/TodayStatus';
 import { skipRecovery } from '../today/recovery';
 import { aiNoteText } from '../today/aiNote';
+import { useAuth } from '../auth/AuthContext';
 import { PageLoading } from '../../components/PageLoading';
 import { Button } from '@/components/watermelon-ui/button';
 
@@ -36,6 +37,7 @@ const TOOL_ICON = {
 const COPE_CARD_BG = ['bg-mint', 'bg-lavender', 'bg-sky'];
 
 export function CopePage() {
+  const { user } = useAuth();
   const { setStatus, reportLog } = useTodayStatus();
   const location = useLocation();
   const navigate = useNavigate();
@@ -284,7 +286,7 @@ export function CopePage() {
               size="sm"
               data-testid="skip-recovery"
               onClick={() => {
-                skipRecovery(dailyLog.log_date);
+                if (user) skipRecovery(user.id, dailyLog.log_date);
                 navigate('/wins');
               }}
             >
@@ -389,7 +391,11 @@ export function CopePage() {
         {activeOption && roomOpen && (
           <FocusRoom
             option={activeOption}
-            persistKey={`${dailyLog.log_date}:cope:${activeOption.id}`}
+            persistKey={
+              user
+                ? `${user.id}:${dailyLog.log_date}:cope:${activeOption.id}`
+                : `${dailyLog.log_date}:cope:${activeOption.id}`
+            }
             onClose={() => {
               setRoomOpen(false);
               // The picked card was disabled while saving, so focus returns here instead.

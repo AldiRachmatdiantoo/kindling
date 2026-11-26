@@ -9,7 +9,28 @@ interface TimerState {
 }
 
 const IDLE: TimerState = { running: false, startAt: 0, elapsed: 0 };
-const storageKey = (key: string) => `kindling:timer:${key}`;
+const TIMER_PREFIX = 'kindling:timer:';
+const storageKey = (key: string) => `${TIMER_PREFIX}${key}`;
+
+/** Removes all persisted timers belonging to a specific user from sessionStorage. */
+export function clearUserTimers(userId: string): void {
+  if (!userId) return;
+  const userPrefix = `${TIMER_PREFIX}${userId}:`;
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(userPrefix)) {
+        keysToRemove.push(key);
+      }
+    }
+    for (const key of keysToRemove) {
+      sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Storage blocked: nothing to clear.
+  }
+}
 
 function load(key: string | undefined, duration: number): TimerState {
   if (!key) return IDLE;

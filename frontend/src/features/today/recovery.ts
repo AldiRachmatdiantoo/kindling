@@ -1,18 +1,21 @@
 // The 3 Daily Wins open after one recovery moment. Skipping it is allowed (no pressure), and
-// that choice only lasts for the day it was made.
-const skipKey = (logDate: string) => `kindling:recovery-skipped:${logDate}`;
+// that choice only lasts for the day it was made and never leaks across accounts.
+const skipKey = (userId: string, logDate: string) =>
+  `kindling:recovery-skipped:${userId}:${logDate}`;
 
-export function isRecoverySkipped(logDate: string): boolean {
+export function isRecoverySkipped(userId: string, logDate: string): boolean {
+  if (!userId) return false;
   try {
-    return localStorage.getItem(skipKey(logDate)) === '1';
+    return localStorage.getItem(skipKey(userId, logDate)) === '1';
   } catch {
     return false;
   }
 }
 
-export function skipRecovery(logDate: string): void {
+export function skipRecovery(userId: string, logDate: string): void {
+  if (!userId) return;
   try {
-    localStorage.setItem(skipKey(logDate), '1');
+    localStorage.setItem(skipKey(userId, logDate), '1');
   } catch {
     // Storage blocked: the skip still applies for this visit through component state.
   }

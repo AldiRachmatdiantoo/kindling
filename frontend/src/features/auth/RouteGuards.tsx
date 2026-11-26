@@ -28,7 +28,9 @@ function SessionUnreachable() {
         data-testid="session-unreachable"
       >
         <p className="font-semibold">Kindling can't reach the server right now.</p>
-        <p className="mt-1 text-sm">You're still signed in. Give it a moment, then try again.</p>
+        <p className="mt-1 text-sm">
+          We couldn't check your session just now. Give it a moment, then try again.
+        </p>
         <Button
           variant="secondary"
           className="mt-4"

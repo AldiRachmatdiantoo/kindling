@@ -44,6 +44,17 @@ export function LoginPage() {
       navigate(fromPath, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.details && typeof err.details === 'object') {
+          const backendErrors: Record<string, string> = {};
+          for (const [key, value] of Object.entries(err.details)) {
+            if (typeof value === 'string' && value.trim()) {
+              backendErrors[key] = value;
+            }
+          }
+          if (Object.keys(backendErrors).length > 0) {
+            setFieldErrors(backendErrors);
+          }
+        }
         setFormError(err.message);
       } else {
         setFormError("We couldn't reach the server. Give it a moment and try again.");
@@ -92,10 +103,14 @@ export function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             data-testid="login-email"
             placeholder="you@example.com"
+            aria-invalid={fieldErrors.email ? true : undefined}
+            aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
             className="k-input"
           />
           {fieldErrors.email && (
-            <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.email}</p>
+            <p id="login-email-error" className="mt-1 text-xs font-medium text-peach-strong">
+              {fieldErrors.email}
+            </p>
           )}
         </div>
 
@@ -111,10 +126,14 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             data-testid="login-password"
             placeholder="••••••••••"
+            aria-invalid={fieldErrors.password ? true : undefined}
+            aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
             className="k-input"
           />
           {fieldErrors.password && (
-            <p className="mt-1 text-xs font-medium text-peach-strong">{fieldErrors.password}</p>
+            <p id="login-password-error" className="mt-1 text-xs font-medium text-peach-strong">
+              {fieldErrors.password}
+            </p>
           )}
         </div>
 
