@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: Kindling API
-  version: 0.3.0
+  version: 0.4.0
   description: >
     Holistic Self-Calibration & Anti-Burnout API ("Small sparks, steady fire.").
-    Updated incrementally per module (currently Modul 1–3: Health, Core, Auth, Check-In & AI).
+    Updated incrementally per module (currently Modul 1–4: Health, Core, Auth, Check-In & AI, 3 Daily Wins, Profile Heatmap).
 servers:
   - url: http://localhost/api/v1
     description: Local Docker Compose via NGINX load balancer
@@ -474,6 +474,273 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /wins/{date}/slice-task:
+    post:
+      summary: Slice a work task into a 5–10 minute micro-step via AI Task Slicer (AI rate limited 10/min/user)
+      operationId: sliceWorkTask
+      tags: [Wins]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: UUID identifying this mutation for idempotent replay (PRD §7.0)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SliceTaskRequest"
+      responses:
+        "200":
+          description: Task sliced into a micro-step and saved to wins_data.work
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SliceTaskData"
+        "400":
+          description: Validation error (main_task, date format, or Idempotency-Key)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Check-in log not found for date (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Idempotency key currently processing (IDEMPOTENCY_IN_PROGRESS)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Date out of range (DATE_OUT_OF_RANGE) or key reused with different body (IDEMPOTENCY_KEY_REUSED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: AI rate limit exceeded (10 req/min/user)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /wins/{date}/recalibrate:
+    post:
+      summary: Dynamically lower the scale of a daily win pillar by one level (0 -> 3) using lock-free AI + FOR UPDATE version check (AI rate limited 10/min/user)
+      operationId: recalibrateWin
+      tags: [Wins]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: UUID identifying this mutation for idempotent replay (PRD §7.0)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecalibrateRequest"
+      responses:
+        "200":
+          description: Pillar recalibrated to a gentler level and completed reset to false
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RecalibrateData"
+        "400":
+          description: Validation error (pillar, date format, or Idempotency-Key)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Check-in log not found for date (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Concurrent level modification (CONCURRENT_MODIFICATION) or key processing (IDEMPOTENCY_IN_PROGRESS)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Already at level 3 (MIN_LEVEL_REACHED), date out of range (DATE_OUT_OF_RANGE), or key reused with different body (IDEMPOTENCY_KEY_REUSED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: AI rate limit exceeded (10 req/min/user)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /wins/{date}/toggle:
+    patch:
+      summary: Transactionally toggle a daily win pillar completion status and recompute wins_completed_count
+      operationId: toggleWin
+      tags: [Wins]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleWinRequest"
+      responses:
+        "200":
+          description: Win pillar toggled and wins_completed_count recomputed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ToggleWinData"
+        "400":
+          description: Validation error (pillar, completed, or date format)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Check-in log not found for date (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Date out of range (DATE_OUT_OF_RANGE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /profile/heatmap:
+    get:
+      summary: Get 365-day anti-burnout heatmap (in user's timezone) and lifetime cumulative milestones
+      operationId: getProfileHeatmap
+      tags: [Profile]
+      security:
+        - AccessTokenCookie: []
+      responses:
+        "200":
+          description: 365-day heatmap entries and lifetime milestones
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/HeatmapData"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   securitySchemes:
     AccessTokenCookie:
@@ -700,6 +967,134 @@ components:
         positive_cope_chosen:
           type: string
           example: "Pernapasan 4-7-8"
+    SliceTaskRequest:
+      type: object
+      required: [main_task]
+      properties:
+        main_task:
+          type: string
+          minLength: 1
+          maxLength: 300
+          example: "Menyelesaikan laporan praktikum jaringan komputer bab 3"
+    SliceTaskData:
+      type: object
+      required: [main_task, micro_step, duration_seconds]
+      properties:
+        main_task:
+          type: string
+        micro_step:
+          type: string
+          maxLength: 240
+        duration_seconds:
+          type: integer
+          minimum: 300
+          maximum: 600
+    RecalibrateRequest:
+      type: object
+      required: [pillar]
+      properties:
+        pillar:
+          type: string
+          enum: [physical, work, soul]
+    RecalibrateData:
+      type: object
+      required: [pillar, new_title, level]
+      properties:
+        pillar:
+          type: string
+          enum: [physical, work, soul]
+        new_title:
+          type: string
+          maxLength: 80
+        level:
+          type: integer
+          minimum: 1
+          maximum: 3
+        duration_seconds:
+          type: integer
+          minimum: 60
+          maximum: 600
+    ToggleWinRequest:
+      type: object
+      required: [pillar, completed]
+      properties:
+        pillar:
+          type: string
+          enum: [physical, work, soul]
+        completed:
+          type: boolean
+    ToggleWinData:
+      type: object
+      required: [pillar, completed, wins_completed_count]
+      properties:
+        pillar:
+          type: string
+          enum: [physical, work, soul]
+        completed:
+          type: boolean
+        wins_completed_count:
+          type: integer
+          minimum: 0
+          maximum: 3
+    HeatmapRange:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          format: date
+          example: "2025-11-27"
+        to:
+          type: string
+          format: date
+          example: "2026-11-26"
+    ProfileMilestones:
+      type: object
+      required: [total_active_days, total_complete_days, total_recovery_days, total_daily_wins]
+      properties:
+        total_active_days:
+          type: integer
+          minimum: 0
+        total_complete_days:
+          type: integer
+          minimum: 0
+        total_recovery_days:
+          type: integer
+          minimum: 0
+        total_daily_wins:
+          type: integer
+          minimum: 0
+    HeatmapDay:
+      type: object
+      required: [date, level, wins_count, cope_chosen]
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2026-11-26"
+        level:
+          type: string
+          enum: [rest, recovery, steady, complete]
+        wins_count:
+          type: integer
+          minimum: 0
+          maximum: 3
+        cope_chosen:
+          type: string
+          nullable: true
+          example: "Pernapasan 4-7-8"
+    HeatmapData:
+      type: object
+      required: [range, milestones, days]
+      properties:
+        range:
+          $ref: "#/components/schemas/HeatmapRange"
+        milestones:
+          $ref: "#/components/schemas/ProfileMilestones"
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeatmapDay"
     Meta:
       type: object
       required: [request_id]

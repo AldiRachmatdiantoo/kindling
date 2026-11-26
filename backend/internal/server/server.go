@@ -13,6 +13,8 @@ import (
 	"github.com/kindling/backend/internal/config"
 	"github.com/kindling/backend/internal/features/auth"
 	"github.com/kindling/backend/internal/features/checkin"
+	"github.com/kindling/backend/internal/features/profile"
+	"github.com/kindling/backend/internal/features/wins"
 	"github.com/kindling/backend/internal/middleware"
 	"github.com/kindling/backend/internal/shared"
 	"github.com/kindling/backend/pkg/ai"
@@ -135,6 +137,24 @@ func NewHandler(deps Dependencies) http.Handler {
 		aiRateLimitMW := middleware.RateLimitByUser(deps.Limiter, deps.Logger, "ai", 10, time.Minute)
 		checkinIdemMW := middleware.Idempotency(idemStore, "POST:/checkin", deps.Logger)
 		checkin.RegisterRoutes(apiMux, checkinHandler, authMW, aiRateLimitMW, checkinIdemMW)
+
+		winsRepo := wins.NewPostgresRepository(deps.Pool)
+		winsSvc := wins.NewService(winsRepo, aiProvider, deps.Logger)
+		if deps.Clock != nil {
+			winsSvc.WithClock(deps.Clock)
+		}
+		winsHandler := wins.NewHandler(winsSvc)
+		sliceTaskIdemMW := middleware.Idempotency(idemStore, "POST:/wins/slice-task", deps.Logger)
+		recalibrateIdemMW := middleware.Idempotency(idemStore, "POST:/wins/recalibrate", deps.Logger)
+		wins.RegisterRoutes(apiMux, winsHandler, authMW, aiRateLimitMW, sliceTaskIdemMW, recalibrateIdemMW)
+
+		profileRepo := profile.NewPostgresRepository(deps.Pool)
+		profileSvc := profile.NewService(profileRepo)
+		if deps.Clock != nil {
+			profileSvc.WithClock(deps.Clock)
+		}
+		profileHandler := profile.NewHandler(profileSvc)
+		profile.RegisterRoutes(apiMux, profileHandler, authMW)
 	}
 
 	csrfMW := middleware.CSRF(
