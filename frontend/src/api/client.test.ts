@@ -33,7 +33,7 @@ describe('apiRequest wrapper', () => {
         success: true,
         data: { ok: true },
         meta: { request_id: 'req-1' },
-      })
+      }),
     );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -54,7 +54,7 @@ describe('apiRequest wrapper', () => {
     expect(headers.get('X-CSRF-Token')).toBe('csrf-abc-123');
     expect(headers.get('Content-Type')).toBe('application/json');
     expect(headers.get('Idempotency-Key')).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
   });
 
@@ -64,10 +64,10 @@ describe('apiRequest wrapper', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        jsonResponse({ success: true, data: { user: { id: '1' } }, meta: { request_id: 'r1' } })
+        jsonResponse({ success: true, data: { user: { id: '1' } }, meta: { request_id: 'r1' } }),
       )
       .mockResolvedValueOnce(
-        jsonResponse({ success: true, data: { user: { id: '1' } }, meta: { request_id: 'r2' } })
+        jsonResponse({ success: true, data: { user: { id: '1' } }, meta: { request_id: 'r2' } }),
       );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -114,7 +114,7 @@ describe('apiRequest wrapper', () => {
               error: { code: 'UNAUTHENTICATED', message: 'Expired' },
               meta: { request_id: 'e1' },
             },
-            401
+            401,
           );
         }
         return jsonResponse({
@@ -133,7 +133,7 @@ describe('apiRequest wrapper', () => {
               error: { code: 'UNAUTHENTICATED', message: 'Expired' },
               meta: { request_id: 'e2' },
             },
-            401
+            401,
           );
         }
         return jsonResponse({
@@ -174,12 +174,12 @@ describe('apiRequest wrapper', () => {
       if (url === '/api/v1/auth/refresh') {
         return jsonResponse(
           { success: false, error: { code: 'UNAUTHENTICATED', message: 'Refresh expired' } },
-          401
+          401,
         );
       }
       return jsonResponse(
         { success: false, error: { code: 'UNAUTHENTICATED', message: 'Access expired' } },
-        401
+        401,
       );
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -187,5 +187,38 @@ describe('apiRequest wrapper', () => {
     await expect(apiRequest('/checkin/today')).rejects.toBeInstanceOf(ApiError);
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2); // original + 1 refresh attempt
+  });
+  it('waits out a short 429 on a read and retries it once, without signing anyone out', async () => {
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    const busy = new Response(
+      JSON.stringify({ success: false, error: { code: 'RATE_LIMITED', message: 'Slow down' } }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '1' } },
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(busy)
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { ok: true } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiRequest<{ ok: boolean }>('/profile/heatmap')).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it('does not wait on a long 429 and surfaces it as an ApiError', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ success: false, error: { code: 'RATE_LIMITED', message: 'x' } }),
+        {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '45' },
+        },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiRequest('/profile/heatmap')).rejects.toMatchObject({ status: 429 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

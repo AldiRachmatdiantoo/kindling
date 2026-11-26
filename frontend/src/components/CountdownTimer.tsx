@@ -1,6 +1,8 @@
 import { CheckCircle2, Pause, Play, RotateCcw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useClockTimer } from './useClockTimer';
 import { formatSecondsMMSS } from '../utils/date';
+import { Button } from '@/components/watermelon-ui/button';
 
 export interface CountdownTimerProps {
   durationSeconds: number;
@@ -10,6 +12,8 @@ export interface CountdownTimerProps {
   testIdPrefix?: string;
   /** Stacks the display above the controls for narrow containers such as a win card. */
   compact?: boolean;
+  /** Keeps the timer running across page changes. Make it unique per activity and day. */
+  persistKey?: string;
 }
 
 export function CountdownTimer({
@@ -19,31 +23,11 @@ export function CountdownTimer({
   onComplete,
   testIdPrefix = 'countdown',
   compact = false,
+  persistKey,
 }: CountdownTimerProps) {
   const safeDuration = Math.max(1, Math.floor(durationSeconds));
-  const [remaining, setRemaining] = useState(safeDuration);
-  const [running, setRunning] = useState(false);
-
-  useEffect(() => {
-    setRemaining(Math.max(1, Math.floor(durationSeconds)));
-    setRunning(false);
-  }, [durationSeconds]);
-
-  useEffect(() => {
-    if (!running || remaining <= 0) return;
-
-    const timerId = window.setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          setRunning(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(timerId);
-  }, [running, remaining]);
+  const { elapsed, running, start, pause, reset } = useClockTimer(safeDuration, persistKey);
+  const remaining = safeDuration - elapsed;
 
   useEffect(() => {
     if (remaining === 0) {
@@ -51,22 +35,11 @@ export function CountdownTimer({
     }
   }, [remaining, onComplete]);
 
-  const progress = Math.min(100, Math.round(((safeDuration - remaining) / safeDuration) * 100));
+  const progress = Math.min(100, Math.round((elapsed / safeDuration) * 100));
   const isFinished = remaining === 0;
 
-  const handleToggle = () => {
-    if (isFinished) {
-      setRemaining(safeDuration);
-      setRunning(true);
-      return;
-    }
-    setRunning((prev) => !prev);
-  };
-
-  const handleReset = () => {
-    setRunning(false);
-    setRemaining(safeDuration);
-  };
+  const handleToggle = () => (running ? pause() : start());
+  const handleReset = reset;
 
   return (
     <div
@@ -95,39 +68,33 @@ export function CountdownTimer({
               className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-mint-strong"
               data-testid={`${testIdPrefix}-completed`}
             >
-              <CheckCircle2 className="h-4 w-4" />
-              Sesi selesai! Kerja bagus memberi ruang untuk dirimu.
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              Time's up. Nice work making room for yourself.
             </p>
           ) : (
             <p className="mt-1 text-xs text-ink-soft">
-              {running ? 'Sedang berjalan...' : 'Siap dimulai kapan pun kamu nyaman.'}
+              {running ? 'Running...' : 'Start whenever you feel ready.'}
             </p>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleToggle}
-            data-testid={`${testIdPrefix}-toggle`}
-            className="k-btn-primary px-4 py-2"
-          >
-            {running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            {running ? 'Jeda' : isFinished ? 'Ulangi' : 'Mulai'}
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            data-testid={`${testIdPrefix}-reset`}
-            className="k-btn-secondary px-3 py-2"
-          >
-            <RotateCcw className="h-4 w-4" />
+          <Button onClick={handleToggle} data-testid={`${testIdPrefix}-toggle`}>
+            {running ? (
+              <Pause className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Play className="h-4 w-4" aria-hidden="true" />
+            )}
+            {running ? 'Pause' : isFinished ? 'Again' : 'Start'}
+          </Button>
+          <Button onClick={handleReset} data-testid={`${testIdPrefix}-reset`} variant="secondary">
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
             Reset
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full border-[1.5px] border-ink bg-white">
+      <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full border-[1.5px] border-ink bg-surface">
         <div
           className="h-full rounded-full bg-lime transition-all duration-300"
           style={{ width: `${progress}%` }}

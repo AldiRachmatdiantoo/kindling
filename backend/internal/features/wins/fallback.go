@@ -7,17 +7,17 @@ func BuildSliceTaskFallback(tier ai.CalibrationTier) ai.SliceTaskOutput {
 	switch tier {
 	case ai.TierGentle:
 		return ai.SliceTaskOutput{
-			MicroStep:       "Buka bahan tugasmu dan kerjakan bagian pembuka paling kecil selama 5 menit tanpa mengejar sempurna.",
+			MicroStep:       "Open your task and work on the smallest first piece for 5 minutes. Done beats perfect.",
 			DurationSeconds: 300,
 		}
 	case ai.TierStandard:
 		return ai.SliceTaskOutput{
-			MicroStep:       "Siapkan ruang kerja dan kerjakan langkah pertama tugasmu selama 10 menit dengan fokus tenang.",
+			MicroStep:       "Set up your workspace and give the first step of your task 10 calm, focused minutes.",
 			DurationSeconds: 600,
 		}
 	default: // TierBalanced
 		return ai.SliceTaskOutput{
-			MicroStep:       "Buka dokumen tugasmu dan selesaikan satu potongan kecil pertama selama 7 menit saja.",
+			MicroStep:       "Open your task doc and finish one small first piece in just 7 minutes.",
 			DurationSeconds: 420,
 		}
 	}
@@ -36,16 +36,16 @@ func BuildRecalibrateFallback(pillar string, targetLevel int) ai.RecalibrateOutp
 	switch pillar {
 	case PillarPhysical:
 		titles := []string{
-			"Jalan santai 5 menit atau peregangan ringan",
-			"Berdiri, minum segelas air, dan regangkan bahu 2 menit",
-			"Tarik napas dalam 3 kali sambil melemaskan pundak",
+			"Take a 5-minute stroll or do a light stretch",
+			"Stand up, drink some water, and stretch your shoulders for 2 minutes",
+			"Take 3 deep breaths and let your shoulders drop",
 		}
 		return ai.RecalibrateOutput{NewTitle: titles[level-1]}
 	case PillarWork:
 		titles := []string{
-			"Kerjakan 1 langkah kecil selama 5 menit saja",
-			"Buka file tugas dan tulis 1 poin atau kalimat awal",
-			"Lihat judul tugas selama 1 menit lalu simpan untuk nanti",
+			"Work on one small step for just 5 minutes",
+			"Open the task file and write one bullet or opening line",
+			"Look at the task title for 1 minute, then save it for later",
 		}
 		durations := []int{300, 180, 60}
 		dur := durations[level-1]
@@ -55,9 +55,9 @@ func BuildRecalibrateFallback(pillar string, targetLevel int) ai.RecalibrateOutp
 		}
 	default: // PillarSoul
 		titles := []string{
-			"Dengarkan 1 lagu favorit tanpa gangguan selama 5 menit",
-			"Pejamkan mata 2 menit dan beri izin diri untuk beristirahat",
-			"Tarik napas pelan dan akui bahwa hari ini kamu sudah cukup berusaha",
+			"Listen to one favorite song for 5 minutes, undisturbed",
+			"Close your eyes for 2 minutes and let yourself rest",
+			"Breathe slowly and remind yourself you have done enough today",
 		}
 		return ai.RecalibrateOutput{NewTitle: titles[level-1]}
 	}

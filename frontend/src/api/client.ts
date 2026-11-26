@@ -21,7 +21,7 @@ export class ApiError extends Error {
     code: string,
     message: string,
     details?: Record<string, unknown>,
-    requestId?: string
+    requestId?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -116,16 +116,23 @@ export interface ApiRequestOptions {
   _retried?: boolean;
 }
 
+const RATE_LIMITED_MESSAGE =
+  'Kindling is getting a lot of requests right now. Give it a few seconds, then try again.';
+
 async function parseErrorResponse(response: Response): Promise<ApiError> {
+  if (response.status === 429) {
+    // Shown to people as-is, so it uses Kindling's voice instead of the server's.
+    return new ApiError(429, 'RATE_LIMITED', RATE_LIMITED_MESSAGE);
+  }
   try {
     const json = (await response.json()) as Partial<ApiErrorEnvelope>;
     if (json && json.error) {
       return new ApiError(
         response.status,
         json.error.code || 'INTERNAL',
-        json.error.message || 'Terjadi kesalahan pada server.',
+        json.error.message || 'Something went wrong on our side. Please try again.',
         json.error.details,
-        json.meta?.request_id
+        json.meta?.request_id,
       );
     }
   } catch {
@@ -134,7 +141,7 @@ async function parseErrorResponse(response: Response): Promise<ApiError> {
   return new ApiError(
     response.status,
     response.status === 401 ? 'UNAUTHENTICATED' : 'INTERNAL',
-    response.statusText || 'Permintaan gagal diproses.'
+    response.statusText || "That request didn't go through. Please try again.",
   );
 }
 
@@ -179,6 +186,16 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     }
     unauthorizedHandler?.();
     throw await parseErrorResponse(response);
+  }
+
+  // Too many requests: when the server says the wait is short, wait it out and try a read
+  // once more instead of failing the page.
+  if (response.status === 429 && method === 'GET' && !options._retried) {
+    const waitSecs = Number(response.headers.get('Retry-After') ?? '1');
+    if (Number.isFinite(waitSecs) && waitSecs <= 3) {
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0.5, waitSecs) * 1000));
+      return apiRequest<T>(path, { ...options, idempotencyKey, _retried: true });
+    }
   }
 
   if (!response.ok) {

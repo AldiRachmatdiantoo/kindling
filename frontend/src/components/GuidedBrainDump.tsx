@@ -1,13 +1,16 @@
 import { Eraser, PenLine } from 'lucide-react';
 import { useState } from 'react';
 import { CountdownTimer } from './CountdownTimer';
+import { Button } from '@/components/watermelon-ui/button';
 
 export interface GuidedBrainDumpProps {
   durationSeconds: number;
   guidance?: string;
+  /** Keeps the writing timer running across page changes. The text itself is never stored. */
+  persistKey?: string;
 }
 
-export function GuidedBrainDump({ durationSeconds, guidance }: GuidedBrainDumpProps) {
+export function GuidedBrainDump({ durationSeconds, guidance, persistKey }: GuidedBrainDumpProps) {
   const [draft, setDraft] = useState('');
   const [clearedNotice, setClearedNotice] = useState(false);
 
@@ -17,12 +20,9 @@ export function GuidedBrainDump({ durationSeconds, guidance }: GuidedBrainDumpPr
   };
 
   return (
-    <div
-      className="k-card space-y-4 bg-lavender/50 p-5"
-      data-testid="guided-brain-dump"
-    >
+    <div className="k-card space-y-4 bg-lavender/50 p-5" data-testid="guided-brain-dump">
       <div className="flex items-center gap-2 text-ink">
-        <PenLine className="h-5 w-5 text-lavender-strong" />
+        <PenLine className="h-5 w-5 text-lavender-strong" aria-hidden="true" />
         <h3 className="text-lg font-bold">Guided Brain-Dump</h3>
       </div>
 
@@ -30,8 +30,9 @@ export function GuidedBrainDump({ durationSeconds, guidance }: GuidedBrainDumpPr
 
       <CountdownTimer
         durationSeconds={durationSeconds}
-        subtitle="Tulis tanpa menyunting. Tulisan di kotak ini tidak disimpan ke server."
+        subtitle="Write without editing. Nothing in this box is saved to our servers."
         testIdPrefix="brain-dump-timer"
+        persistKey={persistKey}
       />
 
       <div>
@@ -43,24 +44,25 @@ export function GuidedBrainDump({ durationSeconds, guidance }: GuidedBrainDumpPr
             if (clearedNotice) setClearedNotice(false);
           }}
           data-testid="guided-brain-dump-input"
-          placeholder="Tulis semua yang ada di kepalamu sekarang, tanpa perlu rapi..."
+          placeholder="Write down everything on your mind right now. It doesn't have to be neat..."
           className="k-input"
         />
         <div className="mt-2 flex items-center justify-between">
           <span className="text-xs text-ink-soft">
             {clearedNotice
-              ? 'Catatan sudah dilepaskan dari layar.'
-              : 'Hanya ada di layarmu — tekan Lepaskan kapan pun selesai.'}
+              ? 'Gone. Your notes have been cleared from the screen.'
+              : "This only lives on your screen. Press Let it go whenever you're done."}
           </span>
-          <button
-            type="button"
+          <Button
             onClick={handleRelease}
             data-testid="guided-brain-dump-clear"
-            className="k-btn-secondary shrink-0 px-3 py-1.5 text-xs"
+            variant="secondary"
+            size="sm"
+            className="shrink-0"
           >
-            <Eraser className="h-3.5 w-3.5" />
-            Lepaskan &amp; Bersihkan
-          </button>
+            <Eraser className="h-3.5 w-3.5" aria-hidden="true" />
+            Let it go
+          </Button>
         </div>
       </div>
     </div>

@@ -327,8 +327,8 @@ func TestCheckinModule_Integration(t *testing.T) {
 			Data checkin.CopeUpdateResponse `json:"data"`
 		}
 		_ = json.Unmarshal(recCope.Body.Bytes(), &copeEnv)
-		if copeEnv.Data.PositiveCopeChosen != "Pernapasan 4-7-8" {
-			t.Fatalf("expected positive_cope_chosen='Pernapasan 4-7-8', got %q", copeEnv.Data.PositiveCopeChosen)
+		if copeEnv.Data.PositiveCopeChosen != "4-7-8 Breathing" {
+			t.Fatalf("expected positive_cope_chosen='4-7-8 Breathing', got %q", copeEnv.Data.PositiveCopeChosen)
 		}
 
 		// Invalid cope_option_id -> 400 VALIDATION_ERROR.
@@ -423,7 +423,7 @@ func TestCheckinModule_Integration(t *testing.T) {
 			Data checkin.DailyLogResponse `json:"data"`
 		}
 		_ = json.Unmarshal(rec.Body.Bytes(), &env)
-		expectedFallback := checkin.BuildCheckinFallback(ai.TierGentle)
+		expectedFallback := checkin.BuildCheckinFallback(ai.TierGentle, ai.Scores{})
 		if env.Data.DiagnosticSummary != expectedFallback.DiagnosticSummary {
 			t.Fatalf("expected fallback diagnostic_summary, got %q", env.Data.DiagnosticSummary)
 		}

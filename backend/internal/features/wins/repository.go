@@ -199,6 +199,9 @@ func (r *PostgresRepository) ApplyRecalibration(
 			winsData.Physical.Title = cleanTitle
 			winsData.Physical.Level = newLevel
 			winsData.Physical.Completed = false
+			winsData.Physical.WhyThis = RecalibratedWhyThis
+			winsData.Physical.Steps = nil
+			winsData.Physical.DurationSeconds = nil
 		case PillarWork:
 			winsData.Work.Level = newLevel
 			winsData.Work.Completed = false
@@ -215,11 +218,16 @@ func (r *PostgresRepository) ApplyRecalibration(
 				}
 			} else {
 				winsData.Work.Title = cleanTitle
+				winsData.Work.WhyThis = RecalibratedWhyThis
+				winsData.Work.Steps = nil
 			}
 		case PillarSoul:
 			winsData.Soul.Title = cleanTitle
 			winsData.Soul.Level = newLevel
 			winsData.Soul.Completed = false
+			winsData.Soul.WhyThis = RecalibratedWhyThis
+			winsData.Soul.Steps = nil
+			winsData.Soul.DurationSeconds = nil
 		}
 
 		updatedJSON, err := json.Marshal(winsData)

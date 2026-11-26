@@ -280,11 +280,29 @@ func checkinResponseSchema() map[string]any {
 				"type":     "OBJECT",
 				"required": []string{"physical", "work", "soul"},
 				"properties": map[string]any{
-					"physical": map[string]any{"type": "STRING"},
-					"work":     map[string]any{"type": "STRING"},
-					"soul":     map[string]any{"type": "STRING"},
+					"physical": winPlanSchema(),
+					"work":     winPlanSchema(),
+					"soul":     winPlanSchema(),
 				},
 			},
+		},
+	}
+}
+
+func winPlanSchema() map[string]any {
+	return map[string]any{
+		"type":     "OBJECT",
+		"required": []string{"title", "why_this", "steps", "duration_seconds"},
+		"properties": map[string]any{
+			"title":    map[string]any{"type": "STRING"},
+			"why_this": map[string]any{"type": "STRING"},
+			"steps": map[string]any{
+				"type":     "ARRAY",
+				"minItems": WinStepsCount,
+				"maxItems": WinStepsCount,
+				"items":    map[string]any{"type": "STRING"},
+			},
+			"duration_seconds": map[string]any{"type": "INTEGER"},
 		},
 	}
 }

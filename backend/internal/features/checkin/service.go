@@ -85,7 +85,7 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 	isFallback := false
 	if aiErr != nil {
 		isFallback = true
-		aiOut = BuildCheckinFallback(tier)
+		aiOut = BuildCheckinFallback(tier, scores)
 		if s.logger != nil {
 			// NFR-06: never log brain_dump, fun_cope_input, or LLM output.
 			s.logger.Warn("ai checkin generation failed; using deterministic fallback",
@@ -120,16 +120,18 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 	}
 
 	winsData := WinsData{
-		Physical: WinItem{Title: strings.TrimSpace(aiOut.Wins.Physical), Level: 0, Completed: false},
+		Physical: newWinItem(aiOut.Wins.Physical),
 		Work: WorkWinItem{
-			Title:           strings.TrimSpace(aiOut.Wins.Work),
+			Title:           strings.TrimSpace(aiOut.Wins.Work.Title),
+			WhyThis:         strings.TrimSpace(aiOut.Wins.Work.WhyThis),
+			Steps:           trimSteps(aiOut.Wins.Work.Steps),
 			Level:           0,
 			Completed:       false,
 			MainTask:        nil,
 			MicroStep:       nil,
-			DurationSeconds: nil,
+			DurationSeconds: intPtr(aiOut.Wins.Work.DurationSeconds),
 		},
-		Soul: WinItem{Title: strings.TrimSpace(aiOut.Wins.Soul), Level: 0, Completed: false},
+		Soul: newWinItem(aiOut.Wins.Soul),
 	}
 
 	rawAnswersJSON, err := json.Marshal(answers)
@@ -270,4 +272,30 @@ func clampLatencyMs(d time.Duration) int32 {
 		return math.MaxInt32
 	}
 	return int32(ms)
+}
+
+func newWinItem(w ai.WinPlan) WinItem {
+	return WinItem{
+		Title:           strings.TrimSpace(w.Title),
+		WhyThis:         strings.TrimSpace(w.WhyThis),
+		Steps:           trimSteps(w.Steps),
+		DurationSeconds: intPtr(w.DurationSeconds),
+	}
+}
+
+func trimSteps(steps []string) []string {
+	out := make([]string, 0, len(steps))
+	for _, st := range steps {
+		if t := strings.TrimSpace(st); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func intPtr(v int) *int {
+	if v <= 0 {
+		return nil
+	}
+	return &v
 }

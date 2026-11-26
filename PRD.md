@@ -185,12 +185,38 @@ Backend hanya mengembalikan tanggal yang punya log; frontend mengisi tanggal kos
 **`wins_data`**
 ```json
 {
-  "physical": { "title": "string", "level": 0, "completed": false },
-  "work":     { "title": "string", "level": 0, "completed": false,
-                "main_task": null, "micro_step": null, "duration_seconds": null },
-  "soul":     { "title": "string", "level": 0, "completed": false }
+  "physical": {
+    "title": "Take a 10-minute walk and get some fresh air",
+    "why_this": "Your physical exhaustion is at 89 today. Gentle movement gets your blood flowing without draining what's left.",
+    "steps": ["Put on your shoes and head outside", "Walk at an easy pace with your phone in your pocket"],
+    "duration_seconds": 600,
+    "level": 0, "completed": false
+  },
+  "work": {
+    "title": "Pick 1 task and break it into a 5-minute step",
+    "why_this": "Work exhaustion is at 75, so focus is thin. Starting with just 5 minutes gets you past that stuck feeling without asking too much.",
+    "steps": ["Type the one task on your mind into the slicer below", "Work on the tiny step it gives you until the timer rings"],
+    "duration_seconds": 300,
+    "level": 0, "completed": false,
+    "main_task": null, "micro_step": null
+  },
+  "soul": {
+    "title": "Put screens away 20 minutes before bed tonight",
+    "why_this": "Your well-being score is 25 today. Your mind needs a break from constant input so rest can actually restore you.",
+    "steps": ["Turn on Do Not Disturb before you get ready for bed", "Leave your phone somewhere you can't reach from bed"],
+    "duration_seconds": 1200,
+    "level": 0, "completed": false
+  }
 }
 ```
+Setiap kartu pilar dibuat **siap eksekusi tanpa berpikir** (mengurangi *decision fatigue*):
+- `title`: aksi utama, ≤ 80 karakter.
+- `why_this`: 1–2 kalimat (≤ 240 karakter) yang **menyebut skor terkait** hari ini (physical → `physical_exhaustion`, work → `work_exhaustion`/`disengagement`, soul → `soul_wellbeing`), supaya pengguna tahu target ini dibuat untuk kondisinya.
+- `steps`: **tepat 2** langkah mikro konkret (masing-masing ≤ 120 karakter).
+- `duration_seconds`: panjang timer aktivitas di kartu (60–3600 detik). Untuk `work`, nilai awalnya panjang rencana dan diganti durasi `micro_step` setelah AI Task Slicer dipakai.
+
+Setelah recalibrate, `why_this` diganti kalimat tetap ("You asked for something lighter…"), `steps` dikosongkan, dan `duration_seconds` pilar physical/soul menjadi `null` (timer disembunyikan), karena alasan dan langkah lama tidak lagi cocok dengan target yang lebih kecil. Log lama yang belum punya `why_this`/`steps` tetap valid; kartu cukup menampilkan judulnya.
+
 `level` 0 = target awal, 3 = paling ringan. `wins_completed_count` **selalu** dihitung ulang dari `wins_data` dalam statement UPDATE yang sama.
 
 **`cope_options`** (tepat 3 elemen)
@@ -471,10 +497,18 @@ Response `200`:
   ],
   "positive_cope_chosen": null,
   "wins_data": {
-    "physical": { "title": "Jalan santai 10 menit tanpa ponsel", "level": 0, "completed": false },
-    "work": { "title": "Pilih 1 tugas untuk dipecah menjadi langkah 5 menit", "level": 0, "completed": false,
-              "main_task": null, "micro_step": null, "duration_seconds": null },
-    "soul": { "title": "Matikan layar 30 menit sebelum tidur", "level": 0, "completed": false }
+    "physical": { "title": "Take a 10-minute walk and get some fresh air",
+                  "why_this": "Your physical exhaustion is at 89 today. ...",
+                  "steps": ["Put on your shoes and head outside", "Walk at an easy pace with your phone in your pocket"],
+                  "duration_seconds": 600, "level": 0, "completed": false },
+    "work": { "title": "Pick 1 task and break it into a 5-minute step",
+              "why_this": "Work exhaustion is at 75, so focus is thin. ...",
+              "steps": ["Type the one task on your mind into the slicer below", "Work on the tiny step it gives you until the timer rings"],
+              "duration_seconds": 300, "level": 0, "completed": false, "main_task": null, "micro_step": null },
+    "soul": { "title": "Put screens away 20 minutes before bed tonight",
+              "why_this": "Your well-being score is 25 today. ...",
+              "steps": ["Turn on Do Not Disturb before you get ready for bed", "Leave your phone somewhere you can't reach from bed"],
+              "duration_seconds": 1200, "level": 0, "completed": false }
   },
   "wins_completed_count": 0
 }
@@ -524,8 +558,8 @@ type AiProvider interface {
 ### 8.2 Prompt Guard & Validasi Output
 - Teks pengguna dibungkus delimiter XML, mis. `<user_brain_dump>…</user_brain_dump>`; karakter `<` dan `>` di dalam input di-escape. System prompt menyatakan isi tag adalah data, bukan instruksi.
 - Input ke LLM hanya: skor, tier, `fun_cope_input`, `brain_dump` (terpotong 2.000 karakter), `main_task`. Tidak ada email/nama.
-- Output divalidasi ketat di Go: tepat 3 cope option, enum kategori & tool sesuai §2.2, durasi dalam rentang, panjang judul ≤ 80, guidance ≤ 240. Gagal validasi = error → fallback.
-- **Fallback deterministik** (`checkin/fallback.go`): template per `calibration_tier` & pilar. Setiap pemakaian fallback mencatat `is_fallback = true` di `ai_audit_logs`. Response ke pengguna tetap `200`.
+- Output divalidasi ketat di Go: tepat 3 cope option, enum kategori & tool sesuai §2.2, durasi dalam rentang, panjang judul ≤ 80, guidance ≤ 240. Setiap win wajib punya `title` ≤ 80, `why_this` tidak kosong ≤ 240, tepat 2 `steps` (≤ 120), dan `duration_seconds` 60–3600 (§5.1). Gagal validasi = error → fallback.
+- **Fallback deterministik** (`checkin/fallback.go`): template per `calibration_tier` & pilar; win diambil dari `ai.PlanWins` sehingga `why_this` tetap menyebut skor hari itu. Setiap pemakaian fallback mencatat `is_fallback = true` di `ai_audit_logs`. Response ke pengguna tetap `200`.
 
 ### 8.3 Alur Recalibrate (menghindari lock selama panggilan LLM)
 1. `WithUserTx`: baca `wins_data` (tanpa lock) → ambil `title` & `level` pilar. Jika `level = 3` → `422 MIN_LEVEL_REACHED`.

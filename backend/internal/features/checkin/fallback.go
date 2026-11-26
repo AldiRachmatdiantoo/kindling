@@ -3,27 +3,28 @@ package checkin
 import "github.com/kindling/backend/pkg/ai"
 
 // BuildCheckinFallback returns a deterministic, schema-valid template per calibration_tier (PRD §8.2).
-func BuildCheckinFallback(tier ai.CalibrationTier) ai.CheckinOutput {
+// The wins still explain themselves from today's scores.
+func BuildCheckinFallback(tier ai.CalibrationTier, scores ai.Scores) ai.CheckinOutput {
 	switch tier {
 	case ai.TierGentle:
 		return ai.CheckinOutput{
-			DiagnosticSummary: "Energimu sedang sangat terbatas hari ini. Tidak apa-apa melambat—cukup pilih satu jeda pemulihan dan langkah paling kecil.",
+			DiagnosticSummary: "Your energy is really limited today, and slowing down is okay. Just pick one recovery break and the smallest possible steps.",
 			CopeOptions: []ai.CopeOption{
 				{
 					ID:                "cope_1",
-					Title:             "Jeda Santai Tanpa Target 5 Menit",
+					Title:             "A 5-Minute Easy Break, No Goals",
 					BriefCopeCategory: "self_distraction",
 					ToolType:          ai.ToolTimer,
 					DurationSeconds:   300,
-					Guidance:          "Beri dirimu izin 5 menit untuk melakukan hal ringan yang kamu sukai tanpa tuntutan hasil.",
+					Guidance:          "Give yourself 5 minutes to do something easy you enjoy, with nothing to prove.",
 				},
 				{
 					ID:                "cope_2",
-					Title:             "Pernapasan 4-7-8",
+					Title:             "4-7-8 Breathing",
 					BriefCopeCategory: "acceptance",
 					ToolType:          ai.ToolBreathing,
 					DurationSeconds:   180,
-					Guidance:          "Tarik napas 4 detik, tahan 7 detik, lalu hembuskan perlahan selama 8 detik.",
+					Guidance:          "Breathe in for 4 seconds, hold for 7, then slowly breathe out for 8.",
 				},
 				{
 					ID:                "cope_3",
@@ -31,27 +32,23 @@ func BuildCheckinFallback(tier ai.CalibrationTier) ai.CheckinOutput {
 					BriefCopeCategory: "venting",
 					ToolType:          ai.ToolBrainDump,
 					DurationSeconds:   300,
-					Guidance:          "Tulis apa pun yang sedang memenuhi kepalamu tanpa perlu rapi atau disunting.",
+					Guidance:          "Write whatever is filling your head. It does not need to be neat or edited.",
 				},
 			},
-			Wins: ai.WinsTitles{
-				Physical: "Minum segelas air putih dan regangkan tubuh 3 menit",
-				Work:     "Pilih 1 tugas untuk dipecah menjadi langkah mikro 5 menit",
-				Soul:     "Jauhkan layar 20 menit sebelum tidur malam ini",
-			},
+			Wins: ai.PlanWins(tier, scores, 0),
 		}
 
 	case ai.TierBalanced:
 		return ai.CheckinOutput{
-			DiagnosticSummary: "Ada tanda kelelahan atau rasa berjarak hari ini, namun kamu masih punya ruang untuk bergerak pelan dengan target ringan-sedang.",
+			DiagnosticSummary: "There are some signs of fatigue today, but you still have room to move gently with light-to-moderate goals.",
 			CopeOptions: []ai.CopeOption{
 				{
 					ID:                "cope_1",
-					Title:             "Waktu Santai Terukur 8 Menit",
+					Title:             "8 Minutes of Me Time",
 					BriefCopeCategory: "positive_reframing",
 					ToolType:          ai.ToolTimer,
 					DurationSeconds:   480,
-					Guidance:          "Ambil jeda singkat dengan aktivitas menyenangkan untuk mengembalikan rasa kendali.",
+					Guidance:          "Take a short break with something fun to get that sense of control back.",
 				},
 				{
 					ID:                "cope_2",
@@ -59,58 +56,50 @@ func BuildCheckinFallback(tier ai.CalibrationTier) ai.CheckinOutput {
 					BriefCopeCategory: "acceptance",
 					ToolType:          ai.ToolBreathing,
 					DurationSeconds:   180,
-					Guidance:          "Tarik 4 detik, tahan 4 detik, hembuskan 4 detik, tahan 4 detik secara tenang.",
+					Guidance:          "Breathe in for 4, hold for 4, out for 4, hold for 4, nice and calm.",
 				},
 				{
 					ID:                "cope_3",
-					Title:             "Brain Dump & Satu Prioritas",
+					Title:             "Brain Dump and One Priority",
 					BriefCopeCategory: "planning",
 					ToolType:          ai.ToolBrainDump,
 					DurationSeconds:   300,
-					Guidance:          "Tuangkan isi pikiranmu, lalu tandai satu hal kecil saja yang paling masuk akal hari ini.",
+					Guidance:          "Empty out your thoughts, then mark the one small thing that makes the most sense today.",
 				},
 			},
-			Wins: ai.WinsTitles{
-				Physical: "Jalan santai 10 menit tanpa melihat ponsel",
-				Work:     "Selesaikan 1 blok fokus ringan 10 menit pada satu tugas",
-				Soul:     "Catat 2 hal sederhana yang membuatmu sedikit lega hari ini",
-			},
+			Wins: ai.PlanWins(tier, scores, 0),
 		}
 
 	default: // ai.TierStandard
 		return ai.CheckinOutput{
-			DiagnosticSummary: "Kondisimu cukup stabil hari ini. Jaga ritme yang sehat dengan jeda singkat dan tiga kemenangan harian yang seimbang.",
+			DiagnosticSummary: "You are fairly steady today. Keep a healthy rhythm with short breaks and three balanced daily wins.",
 			CopeOptions: []ai.CopeOption{
 				{
 					ID:                "cope_1",
-					Title:             "Jeda Pemulihan Ringan 5 Menit",
+					Title:             "A Light 5-Minute Recovery Break",
 					BriefCopeCategory: "active_coping",
 					ToolType:          ai.ToolTimer,
 					DurationSeconds:   300,
-					Guidance:          "Nikmati jeda singkat sebelum memulai agar fokus tetap jernih dan tidak terburu-buru.",
+					Guidance:          "Enjoy a short pause before you start so your focus stays clear and unhurried.",
 				},
 				{
 					ID:                "cope_2",
-					Title:             "Pernapasan Reset Fokus",
+					Title:             "Focus Reset Breathing",
 					BriefCopeCategory: "acceptance",
 					ToolType:          ai.ToolBreathing,
 					DurationSeconds:   120,
-					Guidance:          "Tarik dan hembuskan napas perlahan selama 2 menit untuk menyelaraskan ritme tubuh.",
+					Guidance:          "Breathe slowly in and out for 2 minutes to get your body back in rhythm.",
 				},
 				{
 					ID:                "cope_3",
-					Title:             "Catatan Niat Harian",
+					Title:             "Daily Intention Note",
 					BriefCopeCategory: "planning",
 					ToolType:          ai.ToolBrainDump,
 					DurationSeconds:   240,
-					Guidance:          "Tulis singkat prioritas utamamu dan hal baik yang ingin kamu jaga hari ini.",
+					Guidance:          "Jot down your top priority and one good thing you want to protect today.",
 				},
 			},
-			Wins: ai.WinsTitles{
-				Physical: "Gerak tubuh atau jalan cepat 20 menit hari ini",
-				Work:     "Selesaikan 1 sesi fokus terarah pada tugas prioritas utama",
-				Soul:     "Luangkan 15 menit waktu tenang untuk refleksi atau hobi favorit",
-			},
+			Wins: ai.PlanWins(tier, scores, 0),
 		}
 	}
 }

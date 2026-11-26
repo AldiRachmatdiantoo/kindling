@@ -58,6 +58,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     // Redirects to /checkin
     await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('checkin-form')).toBeVisible();
+    // A friendly intro explains the questions before the first one appears
+    await expect(page.getByTestId('checkin-intro')).toBeVisible();
 
     // 2. Click Demo Preset A and submit
     await page.getByTestId('preset-a-button').click();
@@ -66,6 +68,13 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
 
     // Redirects to /cope with gentle tier & scores
     await expect(page).toHaveURL(/\/cope$/);
+
+    // First visit to the dashboard: Ember's welcome tour, skippable
+    await expect(page.getByTestId('welcome-tour')).toBeVisible();
+    await expect(page.getByTestId('welcome-step')).toContainText('1/6');
+    await page.getByTestId('welcome-skip').click();
+    await expect(page.getByTestId('welcome-tour')).toHaveCount(0);
+
     await expect(page.getByTestId('calibration-tier-badge')).toContainText('Gentle Mode');
     await expect(page.getByTestId('score-physical_exhaustion')).toContainText('100');
     await expect(page.getByTestId('score-work_exhaustion')).toContainText('100');
@@ -74,7 +83,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     const firstCopeCard = page.getByTestId('cope-card-cope_1');
     await expect(firstCopeCard).toBeVisible();
     await firstCopeCard.click();
-    await expect(firstCopeCard).toContainText('Dipilih hari ini');
+    await expect(firstCopeCard).toContainText('Picked for today');
     await expect(page.getByTestId('active-cope-tool')).toBeVisible();
 
     // 4. Navigate to /wins
@@ -95,13 +104,23 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('win-level-physical')).toContainText('Level 1');
 
     // 7. Toggle all 3 wins to completed
+    // Each Done pops a mascot celebration; the third one shows the whole crew. Tap to close.
+    const celebration = page.getByTestId('win-celebration');
     await page.getByTestId('win-toggle-physical').click();
+    await expect(celebration).toHaveAttribute('data-kind', 'win');
+    await celebration.click();
+    await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('1 / 3');
 
     await page.getByTestId('win-toggle-work').click();
+    await celebration.click();
+    await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('2 / 3');
 
     await page.getByTestId('win-toggle-soul').click();
+    await expect(celebration).toHaveAttribute('data-kind', 'all');
+    await celebration.click();
+    await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('3 / 3');
 
     // 8. Open /profile and verify today's heatmap square is level "complete"
@@ -117,6 +136,51 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('stat-total_active_days')).toContainText('1');
     await expect(page.getByTestId('stat-total_complete_days')).toContainText('1');
     await expect(page.getByTestId('stat-total_daily_wins')).toContainText('3');
+
+    // 9. After checking in, the first tab becomes "Today" and opens the day overview
+    await expect(page.getByTestId('nav-checkin')).toContainText('Today');
+    await page.getByTestId('nav-checkin').click();
+    await expect(page).toHaveURL(/\/checkin$/);
+    await expect(page.getByTestId('today-summary')).toBeVisible();
+    await expect(page.getByTestId('today-wins-count')).toContainText('3 / 3');
+  });
+
+  test('"Answer later" skips the check-in, lands on the dashboard, and the choice survives "/"', async ({
+    page,
+  }) => {
+    const email = uniqueEmail('e2e-defer');
+
+    await page.goto('/register');
+    await page.getByTestId('register-fullname').fill('Defer Flow User');
+    await page.getByTestId('register-email').fill(email);
+    await page.getByTestId('register-password').fill('DeferPassw0rd123!');
+    await page.getByTestId('register-timezone').fill('Asia/Jakarta');
+    await page.getByTestId('register-ai-consent').check();
+    await page.getByTestId('register-submit').click();
+
+    await expect(page).toHaveURL(/\/checkin$/);
+    await page.getByTestId('checkin-answer-later').click();
+
+    await expect(page).toHaveURL(/\/wins$/);
+
+    // The welcome tour can be stepped through to the end
+    await expect(page.getByTestId('welcome-tour')).toBeVisible();
+    for (let i = 0; i < 6; i++) await page.getByTestId('welcome-next').click();
+    await expect(page.getByTestId('welcome-tour')).toHaveCount(0);
+
+    await expect(page.getByTestId('wins-pending')).toBeVisible();
+
+    await page.getByTestId('nav-cope').click();
+    await expect(page.getByTestId('cope-pending')).toBeVisible();
+
+    // The home route respects the deferral instead of forcing the wizard again
+    await page.getByTestId('brand-logo').click();
+    await expect(page).toHaveURL(/\/wins$/);
+
+    // Answering later is still one click away
+    await page.getByTestId('wins-pending-start').click();
+    await expect(page).toHaveURL(/\/checkin$/);
+    await expect(page.getByTestId('checkin-form')).toBeVisible();
   });
 
   test('transparent token refresh after access token expires rotates cookies and keeps session alive', async ({

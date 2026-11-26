@@ -112,25 +112,48 @@ func ValidateCheckinOutput(out CheckinOutput) error {
 		}
 	}
 
-	if err := validateWinTitle("physical", out.Wins.Physical); err != nil {
+	if err := validateWinPlan("physical", out.Wins.Physical); err != nil {
 		return err
 	}
-	if err := validateWinTitle("work", out.Wins.Work); err != nil {
+	if err := validateWinPlan("work", out.Wins.Work); err != nil {
 		return err
 	}
-	if err := validateWinTitle("soul", out.Wins.Soul); err != nil {
+	if err := validateWinPlan("soul", out.Wins.Soul); err != nil {
 		return err
 	}
 	return nil
 }
 
-func validateWinTitle(pillar, raw string) error {
-	t := strings.TrimSpace(raw)
+// validateWinPlan checks one card is ready to run: a title, a reason, exactly 2 steps, a duration.
+func validateWinPlan(pillar string, w WinPlan) error {
+	t := strings.TrimSpace(w.Title)
 	if t == "" {
-		return fmt.Errorf("wins.%s is empty", pillar)
+		return fmt.Errorf("wins.%s.title is empty", pillar)
 	}
 	if utf8.RuneCountInString(t) > MaxTitleRunes {
-		return fmt.Errorf("wins.%s exceeds %d runes", pillar, MaxTitleRunes)
+		return fmt.Errorf("wins.%s.title exceeds %d runes", pillar, MaxTitleRunes)
+	}
+	why := strings.TrimSpace(w.WhyThis)
+	if why == "" {
+		return fmt.Errorf("wins.%s.why_this is empty", pillar)
+	}
+	if utf8.RuneCountInString(why) > MaxWhyThisRunes {
+		return fmt.Errorf("wins.%s.why_this exceeds %d runes", pillar, MaxWhyThisRunes)
+	}
+	if len(w.Steps) != WinStepsCount {
+		return fmt.Errorf("wins.%s.steps must have exactly %d items", pillar, WinStepsCount)
+	}
+	for i, step := range w.Steps {
+		st := strings.TrimSpace(step)
+		if st == "" {
+			return fmt.Errorf("wins.%s.steps[%d] is empty", pillar, i)
+		}
+		if utf8.RuneCountInString(st) > MaxWinStepRunes {
+			return fmt.Errorf("wins.%s.steps[%d] exceeds %d runes", pillar, i, MaxWinStepRunes)
+		}
+	}
+	if w.DurationSeconds < MinWinDurationSeconds || w.DurationSeconds > MaxWinDurationSeconds {
+		return fmt.Errorf("wins.%s.duration_seconds %d out of range [%d,%d]", pillar, w.DurationSeconds, MinWinDurationSeconds, MaxWinDurationSeconds)
 	}
 	return nil
 }

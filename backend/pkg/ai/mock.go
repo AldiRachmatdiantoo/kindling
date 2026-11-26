@@ -23,31 +23,19 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 		strings.TrimSpace(in.BrainDump),
 	)
 
-	funTitle := "Jeda Menyenangkan Tanpa Target 10 Menit"
-	funGuidance := "Lakukan aktivitas santai favoritmu selama 10 menit tanpa rasa bersalah atau tuntutan hasil."
+	funTitle := "A 10-Minute Fun Break, No Goals Attached"
+	funGuidance := "Spend 10 minutes on your favorite easy activity. No guilt, no need to get anything out of it."
 	if clean := strings.TrimSpace(in.FunCopeInput); clean != "" {
 		short := TruncateRunes(clean, 45)
-		funTitle = TruncateRunes("Sesi Santai: "+short, MaxTitleRunes)
-		funGuidance = TruncateRunes("Nikmati aktivitas ini selama beberapa menit untuk memulihkan sistem saraf sebelum mulai bekerja.", MaxGuidanceRunes)
+		funTitle = TruncateRunes("Chill Time: "+short, MaxTitleRunes)
+		funGuidance = TruncateRunes("Enjoy this for a few minutes to give your nervous system a reset before you start working.", MaxGuidanceRunes)
 	}
 
 	switch in.CalibrationTier {
 	case TierGentle:
 		summaries := []string{
-			"Kelelahan fisik atau kerjamu sedang tinggi. Hari ini cukup ambil langkah paling kecil dan beri ruang untuk pulih.",
-			"Energimu sedang di titik rendah, dan itu sepenuhnya wajar. Fokus hari ini adalah menjaga percikan tetap menyala tanpa memaksa diri.",
-		}
-		wins := []WinsTitles{
-			{
-				Physical: "Minum segelas air dan regangkan bahu 3 menit",
-				Work:     "Pilih 1 tugas untuk dipecah menjadi langkah 5 menit",
-				Soul:     "Matikan layar 20 menit sebelum tidur malam ini",
-			},
-			{
-				Physical: "Jalan santai 5 menit tanpa ponsel di sekitar rumah",
-				Work:     "Buka dokumen tugas dan tulis 1 kalimat pembuka saja",
-				Soul:     "Dengarkan 1 lagu yang menenangkan tanpa multitasking",
-			},
+			"Your physical or work exhaustion is running high. Today, the smallest steps are plenty, and recovery comes first.",
+			"Your energy is running low, and that is completely okay. Today is about keeping the spark alive without pushing yourself.",
 		}
 		return CheckinOutput{
 			DiagnosticSummary: summaries[seed%uint64(len(summaries))],
@@ -62,11 +50,11 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 				},
 				{
 					ID:                "cope_2",
-					Title:             "Pernapasan 4-7-8",
+					Title:             "4-7-8 Breathing",
 					BriefCopeCategory: "acceptance",
 					ToolType:          ToolBreathing,
 					DurationSeconds:   180,
-					Guidance:          "Tarik napas 4 detik, tahan 7 detik, hembuskan perlahan 8 detik.",
+					Guidance:          "Breathe in for 4 seconds, hold for 7, then slowly breathe out for 8.",
 				},
 				{
 					ID:                "cope_3",
@@ -74,28 +62,16 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 					BriefCopeCategory: "venting",
 					ToolType:          ToolBrainDump,
 					DurationSeconds:   300,
-					Guidance:          "Tuangkan semua beban pikiran tanpa disunting agar kepala terasa lebih ringan.",
+					Guidance:          "Pour out everything on your mind, unedited, so your head feels lighter.",
 				},
 			},
-			Wins: wins[seed%uint64(len(wins))],
+			Wins: PlanWins(in.CalibrationTier, in.Scores, seed),
 		}, nil
 
 	case TierBalanced:
 		summaries := []string{
-			"Energimu cukup untuk bergerak pelan, meski ada tanda kelelahan atau rasa berjarak. Mulai dari jeda singkat lalu satu langkah ringan.",
-			"Ritme hari ini cocok untuk target ringan-sedang. Pulihkan fokus sejenak agar langkah kecil terasa lebih bermakna.",
-		}
-		wins := []WinsTitles{
-			{
-				Physical: "Jalan santai 10 menit sambil menghirup udara segar",
-				Work:     "Selesaikan 1 blok fokus ringan 10 menit pada tugas utama",
-				Soul:     "Tulis 2 hal kecil yang kamu syukuri hari ini",
-			},
-			{
-				Physical: "Peregangan tubuh ringan 10 menit di sela aktivitas",
-				Work:     "Rapikan daftar prioritas dan kerjakan langkah pertama 10 menit",
-				Soul:     "Hubungi singkat teman atau keluarga yang membuatmu nyaman",
-			},
+			"You have enough energy to move slowly, even with some signs of fatigue. Start with a short break, then one light step.",
+			"Today suits light-to-moderate goals. Take a moment to reset your focus so small steps feel more meaningful.",
 		}
 		return CheckinOutput{
 			DiagnosticSummary: summaries[seed%uint64(len(summaries))],
@@ -114,36 +90,24 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 					BriefCopeCategory: "acceptance",
 					ToolType:          ToolBreathing,
 					DurationSeconds:   180,
-					Guidance:          "Tarik 4 detik, tahan 4 detik, hembuskan 4 detik, tahan 4 detik untuk menenangkan ritme.",
+					Guidance:          "Breathe in for 4, hold for 4, out for 4, hold for 4 to settle your rhythm.",
 				},
 				{
 					ID:                "cope_3",
-					Title:             "Brain Dump & Pilah Beban",
+					Title:             "Brain Dump and Sort It Out",
 					BriefCopeCategory: "planning",
 					ToolType:          ToolBrainDump,
 					DurationSeconds:   300,
-					Guidance:          "Tulis apa yang mengganjal, lalu tandai satu hal saja yang paling penting hari ini.",
+					Guidance:          "Write down what is bugging you, then mark the one thing that matters most today.",
 				},
 			},
-			Wins: wins[seed%uint64(len(wins))],
+			Wins: PlanWins(in.CalibrationTier, in.Scores, seed),
 		}, nil
 
 	default: // TierStandard
 		summaries := []string{
-			"Kondisimu relatif stabil hari ini. Manfaatkan ritme yang nyaman ini untuk menyelesaikan 3 kemenangan harian secara seimbang.",
-			"Energimu terjaga dengan baik. Tetap sisipkan jeda singkat agar konsistensi hari ini terasa ringan dan berkelanjutan.",
-		}
-		wins := []WinsTitles{
-			{
-				Physical: "Olahraga ringan atau jalan cepat 20 menit",
-				Work:     "Selesaikan 1 sesi fokus mendalam pada prioritas utama hari ini",
-				Soul:     "Luangkan 15 menit refleksi tenang atau membaca bacaan favorit",
-			},
-			{
-				Physical: "Aktivitas gerak 20 menit dan cukupi hidrasi harian",
-				Work:     "Tuntaskan 1 milestone utama dengan jeda istirahat teratur",
-				Soul:     "Nikmati 15 menit waktu santai bebas gawai di sore atau malam hari",
-			},
+			"You are fairly steady today. Use this comfortable rhythm to work through your 3 daily wins in balance.",
+			"Your energy is holding up well. Still, slip in short breaks so today feels light and easy to keep up.",
 		}
 		return CheckinOutput{
 			DiagnosticSummary: summaries[seed%uint64(len(summaries))],
@@ -158,22 +122,22 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 				},
 				{
 					ID:                "cope_2",
-					Title:             "Pernapasan Reset Fokus",
+					Title:             "Focus Reset Breathing",
 					BriefCopeCategory: "acceptance",
 					ToolType:          ToolBreathing,
 					DurationSeconds:   120,
-					Guidance:          "Ambil napas perlahan selama 2 menit untuk menjaga kejernihan sebelum mulai.",
+					Guidance:          "Breathe slowly for 2 minutes to clear your head before you start.",
 				},
 				{
 					ID:                "cope_3",
-					Title:             "Catatan Niat Harian",
+					Title:             "Daily Intention Note",
 					BriefCopeCategory: "planning",
 					ToolType:          ToolBrainDump,
 					DurationSeconds:   240,
-					Guidance:          "Tulis singkat apa yang ingin kamu rasakan dan selesaikan hari ini.",
+					Guidance:          "Jot down how you want to feel and what you want to finish today.",
 				},
 			},
-			Wins: wins[seed%uint64(len(wins))],
+			Wins: PlanWins(in.CalibrationTier, in.Scores, seed),
 		}, nil
 	}
 }
@@ -187,7 +151,7 @@ func (m *MockAiProvider) SliceTask(_ context.Context, in SliceTaskInput) (SliceT
 	case TierStandard:
 		duration = 600
 	}
-	step := fmt.Sprintf("Buka bahan untuk \"%s\" dan kerjakan bagian pembuka paling kecil selama %d menit tanpa mengejar sempurna.", clean, duration/60)
+	step := fmt.Sprintf("Open what you need for \"%s\" and work on the smallest first piece for %d minutes. Done beats perfect.", clean, duration/60)
 	return SliceTaskOutput{
 		MicroStep:       TruncateRunes(step, MaxMicroStepRunes),
 		DurationSeconds: duration,
@@ -207,16 +171,16 @@ func (m *MockAiProvider) Recalibrate(_ context.Context, in RecalibrateInput) (Re
 	switch in.Pillar {
 	case "physical":
 		titles := []string{
-			"Jalan santai 5 menit atau peregangan ringan",
-			"Berdiri, minum segelas air, dan regangkan bahu 2 menit",
-			"Tarik napas dalam 3 kali sambil melemaskan pundak",
+			"Take a 5-minute stroll or do a light stretch",
+			"Stand up, drink some water, and stretch your shoulders for 2 minutes",
+			"Take 3 deep breaths and let your shoulders drop",
 		}
 		title = titles[level-1]
 	case "work":
 		titles := []string{
-			"Kerjakan 1 langkah kecil selama 5 menit saja",
-			"Buka file tugas dan tulis 1 poin atau kalimat awal",
-			"Lihat judul tugas selama 1 menit lalu simpan untuk nanti",
+			"Work on one small step for just 5 minutes",
+			"Open the task file and write one bullet or opening line",
+			"Look at the task title for 1 minute, then save it for later",
 		}
 		title = titles[level-1]
 		dur := []int{300, 180, 60}[level-1]
@@ -226,9 +190,9 @@ func (m *MockAiProvider) Recalibrate(_ context.Context, in RecalibrateInput) (Re
 		}, nil
 	default: // soul
 		titles := []string{
-			"Dengarkan 1 lagu favorit tanpa gangguan selama 5 menit",
-			"Pejamkan mata 2 menit dan beri izin diri untuk beristirahat",
-			"Tarik napas pelan dan akui bahwa hari ini kamu sudah cukup berusaha",
+			"Listen to one favorite song for 5 minutes, undisturbed",
+			"Close your eyes for 2 minutes and let yourself rest",
+			"Breathe slowly and remind yourself you have done enough today",
 		}
 		title = titles[level-1]
 	}

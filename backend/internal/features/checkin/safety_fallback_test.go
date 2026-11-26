@@ -36,7 +36,7 @@ func TestBuildCheckinFallback_AllTiersValid(t *testing.T) {
 	tiers := []ai.CalibrationTier{ai.TierGentle, ai.TierBalanced, ai.TierStandard}
 	for _, tier := range tiers {
 		t.Run(string(tier), func(t *testing.T) {
-			out := BuildCheckinFallback(tier)
+			out := BuildCheckinFallback(tier, ai.Scores{PhysicalExhaustion: 89, WorkExhaustion: 75, Disengagement: 50, SoulWellbeing: 25})
 			if err := ai.ValidateCheckinOutput(out); err != nil {
 				t.Fatalf("fallback for tier %q failed validation: %v", tier, err)
 			}

@@ -81,6 +81,12 @@ export interface CopeOption {
 
 export interface WinItem {
   title: string;
+  /** Why this win fits today, quoting the matching check-in score. Missing on older logs. */
+  why_this?: string;
+  /** Two concrete micro-steps to start without deciding anything. Missing on older logs. */
+  steps?: string[];
+  /** Length of the activity timer; null once the goal was made smaller. */
+  duration_seconds?: number | null;
   level: number;
   completed: boolean;
 }

@@ -115,21 +115,28 @@ func parseStrictInt(raw json.RawMessage) (int, bool) {
 	return v, true
 }
 
-// WinItem represents the physical or soul win JSONB object (PRD §5.1).
+// WinItem represents the physical or soul win JSONB object (PRD §5.1). why_this, steps and
+// duration_seconds make the card ready to run; older rows may not have them.
 type WinItem struct {
-	Title     string `json:"title"`
-	Level     int    `json:"level"`
-	Completed bool   `json:"completed"`
+	Title           string   `json:"title"`
+	WhyThis         string   `json:"why_this,omitempty"`
+	Steps           []string `json:"steps,omitempty"`
+	DurationSeconds *int     `json:"duration_seconds"`
+	Level           int      `json:"level"`
+	Completed       bool     `json:"completed"`
 }
 
 // WorkWinItem represents the work win JSONB object with AI Task Slicer fields (PRD §5.1).
+// duration_seconds is the focus timer: the plan's length at first, the micro-step's once sliced.
 type WorkWinItem struct {
-	Title           string  `json:"title"`
-	Level           int     `json:"level"`
-	Completed       bool    `json:"completed"`
-	MainTask        *string `json:"main_task"`
-	MicroStep       *string `json:"micro_step"`
-	DurationSeconds *int    `json:"duration_seconds"`
+	Title           string   `json:"title"`
+	WhyThis         string   `json:"why_this,omitempty"`
+	Steps           []string `json:"steps,omitempty"`
+	Level           int      `json:"level"`
+	Completed       bool     `json:"completed"`
+	MainTask        *string  `json:"main_task"`
+	MicroStep       *string  `json:"micro_step"`
+	DurationSeconds *int     `json:"duration_seconds"`
 }
 
 // WinsData matches the wins_data JSONB structure in PRD §5.1 & §7.3.
