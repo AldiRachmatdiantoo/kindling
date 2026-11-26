@@ -3,6 +3,7 @@ package checkin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -25,7 +26,16 @@ type Service struct {
 	aiProvider ai.AiProvider
 	logger     *slog.Logger
 	now        func() time.Time
+	budget     shared.AIBudget
 }
+
+// WithAIBudget caps the user's AI calls per day; nil means no cap.
+func (s *Service) WithAIBudget(b shared.AIBudget) *Service {
+	s.budget = b
+	return s
+}
+
+var errDailyAILimit = errors.New("daily ai limit reached")
 
 func NewService(repo Repository, aiProvider ai.AiProvider, logger *slog.Logger) *Service {
 	if aiProvider == nil {
@@ -71,20 +81,32 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 
 	// Call AI provider outside any DB transaction (PRD §8.1–8.2).
 	start := time.Now()
-	aiOut, aiErr := s.aiProvider.GenerateCheckin(ctx, ai.CheckinInput{
-		Scores:          scores,
-		CalibrationTier: tier,
-		BrainDump:       req.BrainDump,
-		FunCopeInput:    req.FunCopeInput,
-	})
-	if aiErr == nil {
-		aiErr = ai.ValidateCheckinOutput(aiOut)
+	var (
+		aiOut  ai.CheckinOutput
+		aiErr  error
+		aiNote string
+	)
+	if s.budget != nil && !s.budget.Take(ctx, userID, parsedDate) {
+		aiErr, aiNote = errDailyAILimit, shared.AINoteDailyLimit
+	} else {
+		aiOut, aiErr = s.aiProvider.GenerateCheckin(ctx, ai.CheckinInput{
+			Scores:          scores,
+			CalibrationTier: tier,
+			BrainDump:       req.BrainDump,
+			FunCopeInput:    req.FunCopeInput,
+		})
+		if aiErr == nil {
+			aiErr = ai.ValidateCheckinOutput(aiOut)
+		}
 	}
 	latencyMs := clampLatencyMs(time.Since(start))
 
 	isFallback := false
 	if aiErr != nil {
 		isFallback = true
+		if aiNote == "" {
+			aiNote = shared.AINoteUnavailable
+		}
 		aiOut = BuildCheckinFallback(tier, scores)
 		if s.logger != nil {
 			// NFR-06: never log brain_dump, fun_cope_input, or LLM output.
@@ -174,7 +196,12 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 		return DailyLogResponse{}, err
 	}
 
-	return mapDailyLogToResponse(row)
+	resp, err := mapDailyLogToResponse(row)
+	if err != nil {
+		return DailyLogResponse{}, err
+	}
+	resp.AINote = aiNote
+	return resp, nil
 }
 
 func (s *Service) GetByDate(ctx context.Context, userID uuid.UUID, dateStr string) (DailyLogResponse, error) {

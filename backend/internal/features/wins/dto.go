@@ -52,6 +52,8 @@ type WorkWinItem struct {
 	MainTask        *string  `json:"main_task"`
 	MicroStep       *string  `json:"micro_step"`
 	DurationSeconds *int     `json:"duration_seconds"`
+	// StepsDone counts micro-steps finished before the current one (progressive slicing).
+	StepsDone int `json:"steps_done,omitempty"`
 }
 
 // WinsData matches the wins_data JSONB structure in PRD §5.1.
@@ -98,6 +100,8 @@ func (w WinsData) PillarTarget(pillar string) (currentTitle string, level int, i
 // SliceTaskRequest is the payload for POST /api/v1/wins/{date}/slice-task (PRD §7.4).
 type SliceTaskRequest struct {
 	MainTask string `json:"main_task"`
+	// NextStep asks for the step after the current micro-step, which the user just finished.
+	NextStep bool `json:"next_step,omitempty"`
 }
 
 // Validate checks main_task is non-empty and at most 300 characters.
@@ -121,6 +125,9 @@ type SliceTaskResponse struct {
 	MainTask        string `json:"main_task"`
 	MicroStep       string `json:"micro_step"`
 	DurationSeconds int    `json:"duration_seconds"`
+	StepsDone       int    `json:"steps_done"`
+	// AINote is set when the template replaced the AI answer: "daily_limit" or "unavailable".
+	AINote string `json:"ai_note,omitempty"`
 }
 
 // RecalibrateRequest is the payload for POST /api/v1/wins/{date}/recalibrate (PRD §7.4).
@@ -145,6 +152,7 @@ type RecalibrateResponse struct {
 	NewTitle        string `json:"new_title"`
 	Level           int    `json:"level"`
 	DurationSeconds *int   `json:"duration_seconds,omitempty"`
+	AINote          string `json:"ai_note,omitempty"`
 }
 
 // ToggleWinRequest is the payload for PATCH /api/v1/wins/{date}/toggle (PRD §7.4).

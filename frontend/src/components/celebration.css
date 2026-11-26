@@ -300,3 +300,8 @@
     display: none;
   }
 }
+
+/* The reserved scrollbar gutter sits outside the fixed overlay; paint it to match. */
+html:has(.kc-overlay) {
+  background-color: #15132a;
+}

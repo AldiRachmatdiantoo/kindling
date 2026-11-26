@@ -28,7 +28,7 @@ function buildExpiredJwt(): string {
       iat: nowSec - 3600,
       exp: nowSec - 60,
       jti: 'expired-e2e-token',
-    })
+    }),
   ).toString('base64url');
   const signature = crypto
     .createHmac('sha256', 'expired-test-signature')
@@ -82,7 +82,9 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('score-physical_exhaustion')).toContainText('100');
     await expect(page.getByTestId('score-work_exhaustion')).toContainText('100');
 
-    // 3. Choose a positive cope option
+    // 3. Choose a positive cope option. The 3 Wins stay locked until one is picked.
+    await expect(page.getByTestId('skip-to-wins')).toHaveCount(0);
+    await expect(page.getByTestId('skip-recovery')).toBeVisible();
     const firstCopeCard = page.getByTestId('cope-card-cope_1');
     await expect(firstCopeCard).toBeVisible();
     await firstCopeCard.click();
@@ -98,9 +100,22 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page).toHaveURL(/\/wins$/);
     await expect(page.getByTestId('wins-progress-badge')).toContainText('0 / 3');
 
-    // 5. Slice task on Work Win
+    // 5. Slice task on Work Win: details start folded so all three goals fit on one screen
+    await expect(page.getByTestId('win-details-work')).toBeHidden();
+    await page.getByTestId('win-details-toggle-work').click();
+    await expect(page.getByTestId('win-details-toggle-work')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     await page.getByTestId('slice-task-input').fill('Menyusun ringkasan modul laporan akhir');
     await page.getByTestId('slice-task-submit').click();
+    // The slicing moment plays in the middle of the screen, shows the step, then waits for a tap
+    const morph = page.getByTestId('task-morph');
+    await expect(morph).toHaveAttribute('data-kind', 'slice');
+    await expect(morph).toHaveAttribute('data-phase', 'done');
+    await expect(page.getByTestId('task-morph-result')).toContainText('Step 1');
+    await page.getByTestId('task-morph-close').click();
+    await expect(morph).toHaveCount(0);
     await expect(page.getByTestId('work-micro-step-box')).toBeVisible();
     await expect(page.getByTestId('work-micro-step')).not.toBeEmpty();
     await expect(page.getByTestId('focus-timer')).toBeVisible();
@@ -108,8 +123,14 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     // 6. Recalibrate one pillar (physical: Level 0 -> Level 1)
     await expect(page.getByTestId('win-level-physical')).toContainText('Level 0');
     await page.getByTestId('recalibrate-physical').click();
+    await expect(morph).toHaveAttribute('data-kind', 'shrink');
+    await expect(morph).toHaveAttribute('data-phase', 'done');
+    await page.getByTestId('task-morph-close').click();
+    await expect(morph).toHaveCount(0);
     await expect(page.getByTestId('win-level-physical')).toContainText('Level 1');
-    await expect(page.getByTestId('win-recal-physical')).toContainText('Made lighter 1x · No penalty');
+    await expect(page.getByTestId('win-recal-physical')).toContainText(
+      'Made lighter 1x · No penalty',
+    );
     await expect(page.getByTestId('win-previous-physical')).toBeVisible();
 
     // 7. Toggle all 3 wins to completed
@@ -238,7 +259,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
 
     // 4. Listen for automatic POST /api/v1/auth/refresh triggered by 401
     const refreshResponsePromise = page.waitForResponse(
-      (res) => res.url().includes('/api/v1/auth/refresh') && res.request().method() === 'POST'
+      (res) => res.url().includes('/api/v1/auth/refresh') && res.request().method() === 'POST',
     );
 
     // Trigger authenticated API call by navigating to /profile

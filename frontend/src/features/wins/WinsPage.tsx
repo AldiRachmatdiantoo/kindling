@@ -1,24 +1,29 @@
 import {
   Check,
+  ChevronDown,
   Feather,
   HeartHandshake,
   Lightbulb,
+  Lock,
   RefreshCw,
   Scissors,
   Trophy,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, generateIdempotencyKey } from '../../api/client';
 import { checkinApi, winsApi } from '../../api/endpoints';
 import { sliceTaskSchema } from '../../api/schemas';
 import type { DailyLog, Pillar } from '../../api/types';
 import { CelebrationOverlay, type Celebration } from '../../components/CelebrationOverlay';
+import { TaskMorphOverlay, type TaskMorph } from '../../components/TaskMorphOverlay';
 import { CheckinPending } from '../../components/CheckinPending';
 import { FeatureTip } from '../../components/FeatureTip';
 import { Mascot, PILLAR_MASCOT } from '../../components/Mascot';
 import { MascotBubble } from '../../components/MascotBubble';
 import { useTodayStatus } from '../today/TodayStatus';
+import { isRecoverySkipped, skipRecovery } from '../today/recovery';
+import { aiNoteText } from '../today/aiNote';
 import { CountdownTimer } from '../../components/CountdownTimer';
 import { PageLoading } from '../../components/PageLoading';
 import { Button } from '@/components/watermelon-ui/button';
@@ -47,6 +52,31 @@ const RECALIBRATED_WHY =
 
 const pillars: Pillar[] = ['physical', 'work', 'soul'];
 
+// The shrink/slice moment plays at least this long, even on a fast server, so the change reads
+// as the goal being reworked rather than a text swap.
+const holdMorph = () => {
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  return new Promise((resolve) => window.setTimeout(resolve, reduce ? 0 : 2200));
+};
+
+// Each sliced step gets its own focus timer, so the next step starts fresh.
+const timerKey = (date: string, pillar: Pillar, stepsDone = 0) =>
+  pillar === 'work' ? `${date}:win:work-focus:${stepsDone}` : `${date}:win:${pillar}`;
+
+// Details start folded so all three goals fit on one screen; a timer still running from
+// earlier keeps its card open, so the user lands back where they were.
+function initialOpenDetails(date: string, stepsDone = 0): Record<Pillar, boolean> {
+  const running = (pillar: Pillar) => {
+    try {
+      const raw = sessionStorage.getItem(`kindling:timer:${timerKey(date, pillar, stepsDone)}`);
+      return Boolean(raw && JSON.parse(raw).running);
+    } catch {
+      return false;
+    }
+  };
+  return { physical: running('physical'), work: running('work'), soul: running('soul') };
+}
+
 export function WinsPage() {
   const { setStatus, reportLog } = useTodayStatus();
 
@@ -54,12 +84,27 @@ export function WinsPage() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recoverySkipped, setRecoverySkipped] = useState(false);
   const [justCompleted, setJustCompleted] = useState<Pillar | null>(null);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const celebrationId = useRef(0);
+  const [morph, setMorph] = useState<TaskMorph | null>(null);
+  const morphId = useRef(0);
+  const startMorph = (m: Omit<TaskMorph, 'id' | 'to'>) => {
+    morphId.current += 1;
+    setMorph({ ...m, id: morphId.current, to: null });
+  };
+  const finishMorph = (to: string, label?: string, note?: string) =>
+    setMorph((m) => (m ? { ...m, to, ...(label ? { label } : {}), ...(note ? { note } : {}) } : m));
   const [shrunkPillar, setShrunkPillar] = useState<Pillar | null>(null);
   // What each goal said before its last "Still too heavy", shown struck through under the new one.
   const [previousTitle, setPreviousTitle] = useState<Partial<Record<Pillar, string>>>({});
+
+  const [openDetails, setOpenDetails] = useState<Record<Pillar, boolean>>({
+    physical: false,
+    work: false,
+    soul: false,
+  });
 
   const [togglingPillar, setTogglingPillar] = useState<Pillar | null>(null);
   const [recalibratingPillar, setRecalibratingPillar] = useState<Pillar | null>(null);
@@ -67,6 +112,12 @@ export function WinsPage() {
   const [taskInput, setTaskInput] = useState('');
   const [taskError, setTaskError] = useState<string | null>(null);
   const [slicing, setSlicing] = useState(false);
+  // The micro-step whose focus block is finished; the choice "next step or win here" shows for it.
+  const [finishedStep, setFinishedStep] = useState<string | null>(null);
+  const currentMicroStep = dailyLog?.wins_data.work.micro_step ?? null;
+  const handleFocusComplete = useCallback(() => {
+    if (currentMicroStep) setFinishedStep(currentMicroStep);
+  }, [currentMicroStep]);
 
   useEffect(() => {
     let active = true;
@@ -75,6 +126,8 @@ export function WinsPage() {
       .then((log) => {
         if (!active) return;
         setDailyLog(log);
+        setRecoverySkipped(isRecoverySkipped(log.log_date));
+        setOpenDetails(initialOpenDetails(log.log_date, log.wins_data.work.steps_done ?? 0));
         reportLog(log);
         if (log.wins_data.work.main_task) {
           setTaskInput(log.wins_data.work.main_task);
@@ -145,16 +198,16 @@ export function WinsPage() {
     setError(null);
     setRecalibratingPillar(pillar);
     const oldTitle = dailyLog.wins_data[pillar].title;
+    const workStep = pillar === 'work' ? dailyLog.wins_data.work.micro_step : null;
+    startMorph({ kind: 'shrink', pillar, from: workStep || oldTitle });
 
     try {
       const idempotencyKey = generateIdempotencyKey();
-      // Hold the "re-calibrating" beat a moment even on a fast server, so the change reads
-      // as the goal being reworked, not a text swap.
-      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
       const [res] = await Promise.all([
         winsApi.recalibrate(dailyLog.log_date, pillar, idempotencyKey),
-        new Promise((resolve) => window.setTimeout(resolve, reduce ? 0 : 700)),
+        holdMorph(),
       ]);
+      finishMorph(res.new_title, `Level ${res.level}`, aiNoteText(res.ai_note));
       setShrunkPillar(pillar);
       if (
         !(pillar === 'work' && dailyLog.wins_data.work.micro_step) &&
@@ -209,11 +262,56 @@ export function WinsPage() {
         };
       });
     } catch (err) {
+      setMorph(null);
       setError(
         err instanceof ApiError ? err.message : "We couldn't shrink that goal just now. Try again?",
       );
     } finally {
       setRecalibratingPillar(null);
+    }
+  };
+
+  const sliceNextStep = async () => {
+    if (!dailyLog?.wins_data.work.main_task) return;
+    setTaskError(null);
+    setError(null);
+    setSlicing(true);
+    startMorph({ kind: 'slice', pillar: 'work', from: dailyLog.wins_data.work.main_task });
+    try {
+      const [res] = await Promise.all([
+        winsApi.sliceTask(
+          dailyLog.log_date,
+          dailyLog.wins_data.work.main_task,
+          generateIdempotencyKey(),
+          true,
+        ),
+        holdMorph(),
+      ]);
+      finishMorph(res.micro_step, `Step ${res.steps_done + 1}`, aiNoteText(res.ai_note));
+      setFinishedStep(null);
+      setDailyLog((prev) =>
+        prev
+          ? {
+              ...prev,
+              wins_data: {
+                ...prev.wins_data,
+                work: {
+                  ...prev.wins_data.work,
+                  micro_step: res.micro_step,
+                  duration_seconds: res.duration_seconds,
+                  steps_done: res.steps_done,
+                },
+              },
+            }
+          : prev,
+      );
+    } catch (err) {
+      setMorph(null);
+      setTaskError(
+        err instanceof ApiError ? err.message : "We couldn't find the next step. Try again?",
+      );
+    } finally {
+      setSlicing(false);
     }
   };
 
@@ -230,9 +328,14 @@ export function WinsPage() {
     }
 
     setSlicing(true);
+    startMorph({ kind: 'slice', pillar: 'work', from: parsed.data.main_task });
     try {
       const idempotencyKey = generateIdempotencyKey();
-      const res = await winsApi.sliceTask(dailyLog.log_date, parsed.data.main_task, idempotencyKey);
+      const [res] = await Promise.all([
+        winsApi.sliceTask(dailyLog.log_date, parsed.data.main_task, idempotencyKey),
+        holdMorph(),
+      ]);
+      finishMorph(res.micro_step, `Step ${res.steps_done + 1}`, aiNoteText(res.ai_note));
       setDailyLog((prev) => {
         if (!prev) return prev;
         return {
@@ -244,11 +347,13 @@ export function WinsPage() {
               main_task: res.main_task,
               micro_step: res.micro_step,
               duration_seconds: res.duration_seconds,
+              steps_done: res.steps_done,
             },
           },
         };
       });
     } catch (err) {
+      setMorph(null);
       setTaskError(
         err instanceof ApiError ? err.message : "We couldn't break that task down. Try again?",
       );
@@ -286,9 +391,77 @@ export function WinsPage() {
     );
   }
 
+  if (!dailyLog.positive_cope_chosen && !recoverySkipped) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-xs font-semibold text-ink-faint">
+            Your 3 Daily Wins · {dailyLog.log_date}
+          </p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink">Recovery first</h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            Your wins are ready. They open after one short recovery moment.
+          </p>
+        </div>
+
+        <MascotBubble
+          mood="calm"
+          title="Settle first, then do"
+          className="max-w-2xl"
+          testId="wins-locked"
+          actions={
+            <>
+              <Button asChild>
+                <Link to="/cope" data-testid="wins-locked-go-cope">
+                  <HeartHandshake className="h-4 w-4" aria-hidden="true" />
+                  Pick a recovery moment
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="wins-skip-recovery"
+                onClick={() => {
+                  skipRecovery(dailyLog.log_date);
+                  setRecoverySkipped(true);
+                }}
+              >
+                Skip recovery today
+              </Button>
+            </>
+          }
+        >
+          <p>
+            A few minutes of breathing, a hobby, or a brain dump calms your nervous system, so the
+            wins after it feel lighter. Pick whichever one you like.
+          </p>
+        </MascotBubble>
+
+        <ul className="grid gap-3 sm:grid-cols-3" aria-label="Waiting for you">
+          {pillars.map((pillar) => (
+            <li
+              key={pillar}
+              className={`flex items-center gap-3 rounded-3xl border-[1.5px] border-dashed border-ink p-4 ${PILLAR_META[pillar].bg}`}
+            >
+              <Mascot pillar={pillar} mood="calm" className="h-11 w-10 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold text-ink">
+                  {PILLAR_META[pillar].label}
+                </span>
+                <span className="block text-xs text-ink-soft">{PILLAR_META[pillar].subtitle}</span>
+              </span>
+              <Lock className="h-4 w-4 shrink-0 text-ink" aria-label="Locked" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
+      <TaskMorphOverlay morph={morph} onClose={() => setMorph(null)} />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -363,12 +536,13 @@ export function WinsPage() {
           const isToggling = togglingPillar === pillar;
           const isRecalibrating = recalibratingPillar === pillar;
           const isMaxGentle = item.level >= 3;
+          const isOpen = openDetails[pillar];
 
           return (
             <article
               key={pillar}
               data-testid={`win-card-${pillar}`}
-              className={`relative flex flex-col gap-4 overflow-hidden rounded-3xl border-[1.5px] border-ink p-5 ${meta.bg} ${isRecalibrating ? 'k-recal' : ''}`}
+              className={`relative flex flex-col gap-3 overflow-hidden rounded-3xl border-[1.5px] border-ink p-4 sm:gap-4 sm:p-5 ${meta.bg} ${isRecalibrating ? 'k-recal' : ''}`}
               aria-busy={isRecalibrating || undefined}
             >
               <div className="flex items-center justify-between gap-3">
@@ -376,7 +550,7 @@ export function WinsPage() {
                   <Mascot
                     pillar={pillar}
                     mood={item.completed ? 'cheer' : 'happy'}
-                    className={`h-14 w-12 shrink-0 ${justCompleted === pillar && item.completed ? 'k-pop' : ''}`}
+                    className={`h-11 w-10 shrink-0 sm:h-14 sm:w-12 ${justCompleted === pillar && item.completed ? 'k-pop' : ''}`}
                   />
                   <span className="k-chip">
                     {PILLAR_MASCOT[pillar].name} · {meta.label}
@@ -393,7 +567,7 @@ export function WinsPage() {
                 data-testid={`win-goal-${pillar}`}
               >
                 <h2
-                  className={`text-xl leading-snug font-bold ${
+                  className={`text-lg leading-snug font-bold sm:text-xl ${
                     item.completed ? 'text-ink-soft line-through' : 'text-ink'
                   }`}
                   data-testid={`win-title-${pillar}`}
@@ -418,49 +592,212 @@ export function WinsPage() {
                 )}
               </div>
 
-              {item.why_this && (
-                <div
-                  className="rounded-2xl bg-surface/70 px-3.5 py-3"
-                  data-testid={`win-why-${pillar}`}
-                >
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink">
-                    <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
-                    Why this, today
-                  </span>
-                  <p className="mt-1 text-xs leading-relaxed text-ink-soft">{item.why_this}</p>
-                </div>
-              )}
-
-              {item.steps && item.steps.length > 0 && (
-                <div data-testid={`win-steps-${pillar}`}>
-                  <span className="text-[11px] font-bold text-ink">How to start</span>
-                  <ol className="mt-1.5 space-y-1.5">
-                    {item.steps.map((stepText, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm leading-snug text-ink">
-                        <span
-                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-surface text-[11px] font-bold"
-                          aria-hidden="true"
-                        >
-                          {i + 1}
-                        </span>
-                        <span>{stepText}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-
-              {pillar !== 'work' && !item.completed && item.duration_seconds ? (
-                <CountdownTimer
-                  durationSeconds={item.duration_seconds}
-                  title={pillar === 'physical' ? 'Move timer' : 'Me-time timer'}
-                  testIdPrefix={`win-timer-${pillar}`}
-                  persistKey={`${dailyLog.log_date}:win:${pillar}`}
-                  compact
+              <button
+                type="button"
+                onClick={() => setOpenDetails((prev) => ({ ...prev, [pillar]: !prev[pillar] }))}
+                aria-expanded={isOpen}
+                aria-controls={`win-details-${pillar}`}
+                data-testid={`win-details-toggle-${pillar}`}
+                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl bg-surface/70 px-3.5 py-2 text-left text-sm font-bold text-ink hover:bg-surface"
+              >
+                <span>
+                  {isOpen
+                    ? 'Hide details'
+                    : pillar === 'work'
+                      ? 'How to start · Task slicer'
+                      : item.duration_seconds && !item.completed
+                        ? 'How to start · Timer'
+                        : 'How to start'}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
                 />
-              ) : null}
+              </button>
 
-              {shrunkPillar === pillar && (
+              {/* Kept mounted while folded so a running timer keeps its place. */}
+              <div
+                id={`win-details-${pillar}`}
+                hidden={!isOpen}
+                className="space-y-4"
+                data-testid={`win-details-${pillar}`}
+              >
+                {item.why_this && (
+                  <div
+                    className="rounded-2xl bg-surface/70 px-3.5 py-3"
+                    data-testid={`win-why-${pillar}`}
+                  >
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink">
+                      <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
+                      Why this, today
+                    </span>
+                    <p className="mt-1 text-xs leading-relaxed text-ink-soft">{item.why_this}</p>
+                  </div>
+                )}
+
+                {item.steps && item.steps.length > 0 && (
+                  <div data-testid={`win-steps-${pillar}`}>
+                    <span className="text-[11px] font-bold text-ink">How to start</span>
+                    <ol className="mt-1.5 space-y-1.5">
+                      {item.steps.map((stepText, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2 text-sm leading-snug text-ink"
+                        >
+                          <span
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-surface text-[11px] font-bold"
+                            aria-hidden="true"
+                          >
+                            {i + 1}
+                          </span>
+                          <span>{stepText}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {pillar !== 'work' && !item.completed && item.duration_seconds ? (
+                  <CountdownTimer
+                    durationSeconds={item.duration_seconds}
+                    title={pillar === 'physical' ? 'Move timer' : 'Me-time timer'}
+                    testIdPrefix={`win-timer-${pillar}`}
+                    persistKey={timerKey(dailyLog.log_date, pillar)}
+                    compact
+                  />
+                ) : null}
+
+                {pillar === 'work' && (
+                  <div className="space-y-3 rounded-2xl border-[1.5px] border-ink bg-surface p-4">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+                      <Scissors className="h-3.5 w-3.5" aria-hidden="true" />
+                      AI Task Slicer (5–10 min)
+                    </div>
+
+                    <FeatureTip id="wins-slicer" title="Big task? Let's slice it" pillar="work">
+                      <p>
+                        Type the one task that feels heavy and tap Slice it. I'll turn it into a
+                        single step you can finish in 5 to 10 minutes.
+                      </p>
+                    </FeatureTip>
+
+                    <form
+                      onSubmit={handleSliceTask}
+                      className="flex gap-2"
+                      data-testid="slice-task-form"
+                    >
+                      <input
+                        type="text"
+                        maxLength={300}
+                        value={taskInput}
+                        onChange={(e) => setTaskInput(e.target.value)}
+                        data-testid="slice-task-input"
+                        aria-label="Task to break down"
+                        placeholder="One task that feels heavy..."
+                        className="k-input min-h-11 min-w-0 flex-1 rounded-full px-3.5 py-2 text-xs"
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={slicing}
+                        data-testid="slice-task-submit"
+                      >
+                        {slicing ? 'Slicing...' : 'Slice it'}
+                      </Button>
+                    </form>
+                    {taskError && (
+                      <p className="text-xs font-medium text-peach-strong">{taskError}</p>
+                    )}
+
+                    {dailyLog.wins_data.work.micro_step && (
+                      <div className="space-y-3" data-testid="work-micro-step-box">
+                        <div className="rounded-xl bg-lavender p-3">
+                          <span
+                            className="block text-[11px] font-bold text-lavender-strong"
+                            data-testid="work-step-number"
+                          >
+                            Step {(dailyLog.wins_data.work.steps_done ?? 0) + 1} · Your next tiny
+                            step
+                          </span>
+                          <p
+                            className="mt-1 text-xs leading-relaxed font-medium text-ink"
+                            data-testid="work-micro-step"
+                          >
+                            {dailyLog.wins_data.work.micro_step}
+                          </p>
+                        </div>
+
+                        <FeatureTip id="wins-timer" title="Just this one step" pillar="work">
+                          <p>
+                            Press Start on the focus timer and work on only this step. When it
+                            rings, you're allowed to stop: win here, or slice the next step.
+                          </p>
+                        </FeatureTip>
+
+                        <CountdownTimer
+                          key={dailyLog.wins_data.work.steps_done ?? 0}
+                          durationSeconds={dailyLog.wins_data.work.duration_seconds ?? 300}
+                          title="Focus Timer"
+                          testIdPrefix="focus"
+                          persistKey={timerKey(
+                            dailyLog.log_date,
+                            'work',
+                            dailyLog.wins_data.work.steps_done ?? 0,
+                          )}
+                          onComplete={handleFocusComplete}
+                          compact
+                        />
+
+                        {item.completed ? null : finishedStep ===
+                          dailyLog.wins_data.work.micro_step ? (
+                          <div
+                            className="k-shrink-in space-y-2 rounded-xl border-[1.5px] border-ink bg-lavender p-3"
+                            data-testid="work-step-choice"
+                            role="status"
+                          >
+                            <p className="text-xs font-bold text-ink">
+                              Step {(dailyLog.wins_data.work.steps_done ?? 0) + 1} done. Keep going,
+                              or call it a win?
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleToggle('work')}
+                                disabled={isToggling}
+                                data-testid="work-win-here"
+                              >
+                                <Trophy className="h-4 w-4" aria-hidden="true" />
+                                Win here for today
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={sliceNextStep}
+                                disabled={slicing}
+                                data-testid="work-next-step"
+                              >
+                                <Scissors className="h-4 w-4" aria-hidden="true" />
+                                {slicing ? 'Slicing...' : 'Slice the next step'}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setFinishedStep(dailyLog.wins_data.work.micro_step)}
+                            className="text-xs font-semibold text-ink-soft underline underline-offset-2 hover:text-ink"
+                            data-testid="work-step-finished-early"
+                          >
+                            Finished this step early?
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {shrunkPillar === pillar && !morph && (
                 <FeatureTip
                   autoOpen
                   id="wins-shrunk"
@@ -473,81 +810,6 @@ export function WinsPage() {
                     lightest level, resting counts as the win.
                   </p>
                 </FeatureTip>
-              )}
-
-              {pillar === 'work' && (
-                <div className="space-y-3 rounded-2xl border-[1.5px] border-ink bg-surface p-4">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
-                    <Scissors className="h-3.5 w-3.5" aria-hidden="true" />
-                    AI Task Slicer (5–10 min)
-                  </div>
-
-                  <FeatureTip id="wins-slicer" title="Big task? Let's slice it" pillar="work">
-                    <p>
-                      Type the one task that feels heavy and tap Slice it. I'll turn it into a
-                      single step you can finish in 5 to 10 minutes.
-                    </p>
-                  </FeatureTip>
-
-                  <form
-                    onSubmit={handleSliceTask}
-                    className="flex gap-2"
-                    data-testid="slice-task-form"
-                  >
-                    <input
-                      type="text"
-                      maxLength={300}
-                      value={taskInput}
-                      onChange={(e) => setTaskInput(e.target.value)}
-                      data-testid="slice-task-input"
-                      aria-label="Task to break down"
-                      placeholder="One task that feels heavy..."
-                      className="k-input min-h-11 min-w-0 flex-1 rounded-full px-3.5 py-2 text-xs"
-                    />
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={slicing}
-                      data-testid="slice-task-submit"
-                    >
-                      {slicing ? 'Slicing...' : 'Slice it'}
-                    </Button>
-                  </form>
-                  {taskError && (
-                    <p className="text-xs font-medium text-peach-strong">{taskError}</p>
-                  )}
-
-                  {dailyLog.wins_data.work.micro_step && (
-                    <div className="space-y-3" data-testid="work-micro-step-box">
-                      <div className="rounded-xl bg-lavender p-3">
-                        <span className="block text-[11px] font-bold text-lavender-strong">
-                          Your next tiny step
-                        </span>
-                        <p
-                          className="mt-1 text-xs leading-relaxed font-medium text-ink"
-                          data-testid="work-micro-step"
-                        >
-                          {dailyLog.wins_data.work.micro_step}
-                        </p>
-                      </div>
-
-                      <FeatureTip id="wins-timer" title="Just this one step" pillar="work">
-                        <p>
-                          Press Start on the focus timer and work on only this step. When it rings,
-                          you're allowed to stop. Then tap Mark as done.
-                        </p>
-                      </FeatureTip>
-
-                      <CountdownTimer
-                        durationSeconds={dailyLog.wins_data.work.duration_seconds ?? 300}
-                        title="Focus Timer"
-                        testIdPrefix="focus"
-                        persistKey={`${dailyLog.log_date}:win:work-focus`}
-                        compact
-                      />
-                    </div>
-                  )}
-                </div>
               )}
 
               <div className="mt-auto space-y-2 pt-1">

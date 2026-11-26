@@ -32,19 +32,39 @@ func (s *Service) WithClock(fn func() time.Time) *Service {
 	return s
 }
 
-func (s *Service) GetHeatmap(ctx context.Context, userID uuid.UUID) (HeatmapResponse, error) {
+// localToday is the user's calendar date, as a UTC midnight to match DATE columns.
+func (s *Service) localToday(ctx context.Context, userID uuid.UUID) (time.Time, error) {
 	tz, err := s.repo.GetUserTimezone(ctx, userID)
 	if err != nil {
-		return HeatmapResponse{}, err
+		return time.Time{}, err
 	}
-
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
 		loc = time.UTC
 	}
-
 	localNow := s.now().In(loc)
-	toDate := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, time.UTC)
+	return time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, time.UTC), nil
+}
+
+// GetInsights runs Pattern Discovery over the last 90 days of the user's own check-ins.
+func (s *Service) GetInsights(ctx context.Context, userID uuid.UUID) (InsightsResponse, error) {
+	toDate, err := s.localToday(ctx, userID)
+	if err != nil {
+		return InsightsResponse{}, err
+	}
+	fromDate := toDate.AddDate(0, 0, -(insightWindowDays - 1))
+	days, err := s.repo.GetInsightDays(ctx, userID, fromDate, toDate)
+	if err != nil {
+		return InsightsResponse{}, err
+	}
+	return DiscoverPatterns(days), nil
+}
+
+func (s *Service) GetHeatmap(ctx context.Context, userID uuid.UUID) (HeatmapResponse, error) {
+	toDate, err := s.localToday(ctx, userID)
+	if err != nil {
+		return HeatmapResponse{}, err
+	}
 	fromDate := toDate.AddDate(0, 0, -(heatmapWindowDays - 1))
 
 	data, err := s.repo.GetHeatmapAndMilestones(ctx, userID, fromDate, toDate)

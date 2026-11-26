@@ -9,6 +9,7 @@ import { Mascot } from '../../components/Mascot';
 import { useAuth } from '../auth/AuthContext';
 import { useWelcomeTour } from '../onboarding/WelcomeTour';
 import { PageLoading } from '../../components/PageLoading';
+import { PatternDiscovery } from './PatternDiscovery';
 import { DayDetail, RecentDays } from './DayHistory';
 import { Button } from '@/components/watermelon-ui/button';
 
@@ -153,6 +154,8 @@ export function ProfilePage() {
           </div>
         ))}
       </section>
+
+      <PatternDiscovery />
 
       <section className="k-card space-y-4 p-6">
         <div>

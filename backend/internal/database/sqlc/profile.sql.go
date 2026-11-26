@@ -82,3 +82,54 @@ func (q *Queries) GetProfileMilestones(ctx context.Context, userID uuid.UUID) (G
 	)
 	return i, err
 }
+
+const getInsightDays = `-- name: GetInsightDays :many
+SELECT log_date, scores, calibration_tier, positive_cope_chosen, wins_completed_count, wins_data
+FROM daily_logs
+WHERE user_id = $1
+  AND log_date >= $2
+  AND log_date <= $3
+ORDER BY log_date ASC
+`
+
+type GetInsightDaysParams struct {
+	UserID    uuid.UUID   `json:"user_id"`
+	LogDate   pgtype.Date `json:"log_date"`
+	LogDate_2 pgtype.Date `json:"log_date_2"`
+}
+
+type GetInsightDaysRow struct {
+	LogDate            pgtype.Date `json:"log_date"`
+	Scores             []byte      `json:"scores"`
+	CalibrationTier    string      `json:"calibration_tier"`
+	PositiveCopeChosen pgtype.Text `json:"positive_cope_chosen"`
+	WinsCompletedCount int16       `json:"wins_completed_count"`
+	WinsData           []byte      `json:"wins_data"`
+}
+
+func (q *Queries) GetInsightDays(ctx context.Context, arg GetInsightDaysParams) ([]GetInsightDaysRow, error) {
+	rows, err := q.db.Query(ctx, getInsightDays, arg.UserID, arg.LogDate, arg.LogDate_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetInsightDaysRow{}
+	for rows.Next() {
+		var i GetInsightDaysRow
+		if err := rows.Scan(
+			&i.LogDate,
+			&i.Scores,
+			&i.CalibrationTier,
+			&i.PositiveCopeChosen,
+			&i.WinsCompletedCount,
+			&i.WinsData,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

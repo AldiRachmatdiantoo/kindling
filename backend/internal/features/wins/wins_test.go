@@ -111,3 +111,24 @@ func TestFallbacksPassAiValidators(t *testing.T) {
 		}
 	}
 }
+
+func TestCapWorkDuration_ALighterGoalNeverGetsALongerTimer(t *testing.T) {
+	ptr := func(v int) *int { return &v }
+	cases := []struct {
+		name  string
+		in    *int
+		level int
+		want  int
+	}{
+		{"model returned too long for level 1", ptr(600), 1, 300},
+		{"within the level-1 limit is kept", ptr(240), 1, 240},
+		{"level 2 caps at 180", ptr(300), 2, 180},
+		{"level 3 caps at 60", ptr(120), 3, 60},
+		{"missing duration gets the level limit", nil, 2, 180},
+	}
+	for _, c := range cases {
+		if got := capWorkDuration(c.in, c.level); got == nil || *got != c.want {
+			t.Errorf("%s: got %v, want %d", c.name, got, c.want)
+		}
+	}
+}

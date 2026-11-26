@@ -2,6 +2,7 @@ package wins
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math"
 	"strings"
@@ -25,6 +26,23 @@ type Service struct {
 	aiProvider ai.AiProvider
 	logger     *slog.Logger
 	now        func() time.Time
+	budget     shared.AIBudget
+}
+
+// WithAIBudget caps the user's AI calls per day; nil means no cap.
+func (s *Service) WithAIBudget(b shared.AIBudget) *Service {
+	s.budget = b
+	return s
+}
+
+var errDailyAILimit = errors.New("daily ai limit reached")
+
+// takeAI reports whether today's AI budget allows one more call, with the note to send if not.
+func (s *Service) takeAI(ctx context.Context, userID uuid.UUID, day time.Time) (bool, string) {
+	if s.budget != nil && !s.budget.Take(ctx, userID, day) {
+		return false, shared.AINoteDailyLimit
+	}
+	return true, ""
 }
 
 func NewService(repo Repository, aiProvider ai.AiProvider, logger *slog.Logger) *Service {
@@ -69,21 +87,52 @@ func (s *Service) SliceTask(ctx context.Context, userID uuid.UUID, dateStr strin
 		return SliceTaskResponse{}, err
 	}
 
+	// Progressive slicing: the finished step is read from the server, never taken from the client.
+	in := ai.SliceTaskInput{CalibrationTier: snap.CalibrationTier, MainTask: mainTask, StepNumber: 1}
+	stepsDone := 0
+	if req.NextStep {
+		work := snap.WinsData.Work
+		if work.MicroStep == nil || strings.TrimSpace(*work.MicroStep) == "" {
+			return SliceTaskResponse{}, shared.ErrValidation("Slice a task first", map[string]any{
+				"next_step": "needs a current micro-step",
+			})
+		}
+		if work.MainTask != nil && strings.TrimSpace(*work.MainTask) != "" {
+			mainTask = strings.TrimSpace(*work.MainTask)
+			in.MainTask = mainTask
+		}
+		stepsDone = work.StepsDone + 1
+		in.PreviousStep = *work.MicroStep
+		in.StepNumber = stepsDone + 1
+	}
+
 	// Step 2: Call AI provider outside any DB transaction (PRD §8.1–8.2).
 	start := time.Now()
-	aiOut, aiErr := s.aiProvider.SliceTask(ctx, ai.SliceTaskInput{
-		CalibrationTier: snap.CalibrationTier,
-		MainTask:        mainTask,
-	})
-	if aiErr == nil {
-		aiErr = ai.ValidateSliceTaskOutput(aiOut)
+	var (
+		aiOut ai.SliceTaskOutput
+		aiErr error
+	)
+	allowed, aiNote := s.takeAI(ctx, userID, parsedDate)
+	if !allowed {
+		aiErr = errDailyAILimit
+	} else {
+		aiOut, aiErr = s.aiProvider.SliceTask(ctx, in)
+		if aiErr == nil {
+			aiErr = ai.ValidateSliceTaskOutput(aiOut)
+		}
 	}
 	latencyMs := clampLatencyMs(time.Since(start))
 
 	isFallback := false
 	if aiErr != nil {
 		isFallback = true
+		if aiNote == "" {
+			aiNote = shared.AINoteUnavailable
+		}
 		aiOut = BuildSliceTaskFallback(snap.CalibrationTier)
+		if req.NextStep {
+			aiOut = BuildNextStepFallback(snap.CalibrationTier)
+		}
 		if s.logger != nil {
 			// NFR-06: never log main_task or LLM output.
 			s.logger.Warn("ai slice-task failed; using deterministic fallback",
@@ -98,7 +147,7 @@ func (s *Service) SliceTask(ctx context.Context, userID uuid.UUID, dateStr strin
 	s.recordAuditLog(ctx, userID, auditEndpointSliceTask, latencyMs, isFallback)
 
 	microStep := strings.TrimSpace(aiOut.MicroStep)
-	if err := s.repo.SaveSlicedTask(ctx, userID, parsedDate, mainTask, microStep, aiOut.DurationSeconds); err != nil {
+	if err := s.repo.SaveSlicedTask(ctx, userID, parsedDate, mainTask, microStep, aiOut.DurationSeconds, stepsDone); err != nil {
 		return SliceTaskResponse{}, err
 	}
 
@@ -106,6 +155,8 @@ func (s *Service) SliceTask(ctx context.Context, userID uuid.UUID, dateStr strin
 		MainTask:        mainTask,
 		MicroStep:       microStep,
 		DurationSeconds: aiOut.DurationSeconds,
+		StepsDone:       stepsDone,
+		AINote:          aiNote,
 	}, nil
 }
 
@@ -147,20 +198,35 @@ func (s *Service) Recalibrate(ctx context.Context, userID uuid.UUID, dateStr str
 
 	// Step 2: Call AI provider OUTSIDE any DB transaction (PRD §8.3).
 	start := time.Now()
-	aiOut, aiErr := s.aiProvider.Recalibrate(ctx, ai.RecalibrateInput{
-		CalibrationTier: snap.CalibrationTier,
-		Pillar:          pillar,
-		CurrentTitle:    currentTitle,
-		TargetLevel:     targetLevel,
-	})
-	if aiErr == nil {
-		aiErr = ai.ValidateRecalibrateOutput(aiOut)
+	var (
+		aiOut ai.RecalibrateOutput
+		aiErr error
+	)
+	allowed, aiNote := s.takeAI(ctx, userID, parsedDate)
+	if !allowed {
+		aiErr = errDailyAILimit
+	} else {
+		aiOut, aiErr = s.aiProvider.Recalibrate(ctx, ai.RecalibrateInput{
+			CalibrationTier: snap.CalibrationTier,
+			Pillar:          pillar,
+			CurrentTitle:    currentTitle,
+			TargetLevel:     targetLevel,
+		})
+		if aiErr == nil {
+			aiErr = ai.ValidateRecalibrateOutput(aiOut)
+		}
 	}
 	latencyMs := clampLatencyMs(time.Since(start))
+	if aiErr == nil && pillar == PillarWork {
+		aiOut.DurationSeconds = capWorkDuration(aiOut.DurationSeconds, targetLevel)
+	}
 
 	isFallback := false
 	if aiErr != nil {
 		isFallback = true
+		if aiNote == "" {
+			aiNote = shared.AINoteUnavailable
+		}
 		aiOut = BuildRecalibrateFallback(pillar, targetLevel)
 		if s.logger != nil {
 			// NFR-06: never log user text or LLM output.
@@ -177,7 +243,7 @@ func (s *Service) Recalibrate(ctx context.Context, userID uuid.UUID, dateStr str
 	s.recordAuditLog(ctx, userID, auditEndpointRecalibrate, latencyMs, isFallback)
 
 	// Step 3: Locked FOR UPDATE write with optimistic level version check (PRD §8.3).
-	return s.repo.ApplyRecalibration(
+	resp, err := s.repo.ApplyRecalibration(
 		ctx,
 		userID,
 		parsedDate,
@@ -186,6 +252,11 @@ func (s *Service) Recalibrate(ctx context.Context, userID uuid.UUID, dateStr str
 		strings.TrimSpace(aiOut.NewTitle),
 		aiOut.DurationSeconds,
 	)
+	if err != nil {
+		return RecalibrateResponse{}, err
+	}
+	resp.AINote = aiNote
+	return resp, nil
 }
 
 func (s *Service) Toggle(ctx context.Context, userID uuid.UUID, dateStr string, req ToggleWinRequest) (ToggleWinResponse, error) {

@@ -152,6 +152,9 @@ func (m *MockAiProvider) SliceTask(_ context.Context, in SliceTaskInput) (SliceT
 		duration = 600
 	}
 	step := fmt.Sprintf("Open what you need for \"%s\" and work on the smallest first piece for %d minutes. Done beats perfect.", clean, duration/60)
+	if strings.TrimSpace(in.PreviousStep) != "" {
+		step = fmt.Sprintf("Step %d of \"%s\": pick up right where you stopped and do the next small piece for %d minutes.", in.StepNumber, clean, duration/60)
+	}
 	return SliceTaskOutput{
 		MicroStep:       TruncateRunes(step, MaxMicroStepRunes),
 		DurationSeconds: duration,

@@ -4,6 +4,7 @@ import type {
   CheckinAnswers,
   DailyLog,
   HeatmapData,
+  InsightsData,
   Pillar,
   RecalibrateData,
   SliceTaskData,
@@ -61,7 +62,7 @@ export const checkinApi = {
       brain_dump: string;
       fun_cope_input: string;
     },
-    idempotencyKey?: string
+    idempotencyKey?: string,
   ) =>
     apiRequest<DailyLog>('/checkin', {
       method: 'POST',
@@ -78,10 +79,11 @@ export const checkinApi = {
 };
 
 export const winsApi = {
-  sliceTask: (date: string, mainTask: string, idempotencyKey?: string) =>
+  /** nextStep asks for the step after the current micro-step, which the user just finished. */
+  sliceTask: (date: string, mainTask: string, idempotencyKey?: string, nextStep = false) =>
     apiRequest<SliceTaskData>(`/wins/${date}/slice-task`, {
       method: 'POST',
-      body: { main_task: mainTask },
+      body: nextStep ? { main_task: mainTask, next_step: true } : { main_task: mainTask },
       idempotent: true,
       idempotencyKey,
     }),
@@ -103,4 +105,5 @@ export const winsApi = {
 
 export const profileApi = {
   getHeatmap: () => apiRequest<HeatmapData>('/profile/heatmap', { method: 'GET' }),
+  getInsights: () => apiRequest<InsightsData>('/profile/insights', { method: 'GET' }),
 };

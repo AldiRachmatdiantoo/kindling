@@ -26,6 +26,8 @@ type Config struct {
 	RequestTimeout time.Duration
 	DBQueryTimeout time.Duration
 	LLMTimeout     time.Duration
+	// AIDailyLimit caps AI calls per user per local day; 0 turns the cap off.
+	AIDailyLimit int
 }
 
 func Load() (*Config, error) {
@@ -50,6 +52,13 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid COOKIE_SECURE value %q: %w", cookieSecureStr, err)
 	}
 	cfg.CookieSecure = cookieSecure
+
+	dailyStr := getEnv("AI_DAILY_LIMIT", "30")
+	daily, err := strconv.Atoi(dailyStr)
+	if err != nil || daily < 0 {
+		return nil, fmt.Errorf("invalid AI_DAILY_LIMIT value %q: must be a whole number, 0 to turn it off", dailyStr)
+	}
+	cfg.AIDailyLimit = daily
 
 	cidrsStr := getEnv("TRUSTED_PROXY_CIDRS", "172.16.0.0/12")
 	prefixes, err := ParseCIDRs(cidrsStr)

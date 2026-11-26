@@ -1,6 +1,16 @@
-import { ArrowRight, CheckCircle2, Clock, Leaf, PenLine, Play, Timer, Wind } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Info,
+  Clock,
+  Leaf,
+  PenLine,
+  Play,
+  Timer,
+  Wind,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { checkinApi } from '../../api/endpoints';
 import type { CopeOption, DailyLog } from '../../api/types';
@@ -12,6 +22,8 @@ import { Mascot } from '../../components/Mascot';
 import { SafetyBanner } from '../../components/SafetyBanner';
 import { moodGreeting, TIER_META, TIER_MOOD } from '../today/tier';
 import { useTodayStatus } from '../today/TodayStatus';
+import { skipRecovery } from '../today/recovery';
+import { aiNoteText } from '../today/aiNote';
 import { PageLoading } from '../../components/PageLoading';
 import { Button } from '@/components/watermelon-ui/button';
 
@@ -26,6 +38,7 @@ const COPE_CARD_BG = ['bg-mint', 'bg-lavender', 'bg-sky'];
 export function CopePage() {
   const { setStatus, reportLog } = useTodayStatus();
   const location = useLocation();
+  const navigate = useNavigate();
   const initialLog = (location.state as { dailyLog?: DailyLog } | null)?.dailyLog ?? null;
 
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(initialLog);
@@ -171,6 +184,18 @@ export function CopePage() {
     <div className="space-y-8">
       {dailyLog.safety_flag && <SafetyBanner />}
 
+      {/* Only the fresh check-in response carries a note; a reload drops it, which is fine. */}
+      {aiNoteText(initialLog?.ai_note) && (
+        <div
+          className="flex items-start gap-2.5 rounded-2xl border-[1.5px] border-ink bg-sky px-4 py-3 text-sm text-ink"
+          role="status"
+          data-testid="ai-note"
+        >
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{aiNoteText(initialLog?.ai_note)}</span>
+        </div>
+      )}
+
       <section className="k-card space-y-4 p-6 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-end gap-3">
@@ -241,16 +266,31 @@ export function CopePage() {
             <p className="text-xs font-semibold text-ink-faint">Choose your own positive cope</p>
             <h2 className="mt-0.5 text-2xl font-bold text-ink">Pick 1 recovery moment</h2>
             <p className="mt-1 text-sm text-ink-soft">
-              Give your nervous system a breather first, or head straight to your 3 Daily Wins if
-              you're ready.
+              {dailyLog.positive_cope_chosen
+                ? 'Your 3 Daily Wins are open. Come back to this moment any time today.'
+                : 'Settle your nervous system first. Your 3 Daily Wins open after one recovery moment.'}
             </p>
           </div>
-          <Button asChild variant="secondary">
-            <Link to="/wins" data-testid="skip-to-wins">
-              Skip to my 3 Wins
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </Button>
+          {dailyLog.positive_cope_chosen ? (
+            <Button asChild variant="secondary">
+              <Link to="/wins" data-testid="skip-to-wins">
+                Go to my 3 Wins
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="skip-recovery"
+              onClick={() => {
+                skipRecovery(dailyLog.log_date);
+                navigate('/wins');
+              }}
+            >
+              Not today? Skip recovery
+            </Button>
+          )}
         </div>
 
         {error && (

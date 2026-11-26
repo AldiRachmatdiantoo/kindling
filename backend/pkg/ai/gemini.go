@@ -171,17 +171,25 @@ type geminiPart struct {
 	Text string `json:"text"`
 }
 
+type geminiThinkingConfig struct {
+	ThinkingBudget int `json:"thinkingBudget"`
+}
+
 type geminiGenerationConfig struct {
 	Temperature      float64        `json:"temperature"`
 	ResponseMimeType string         `json:"responseMimeType"`
 	ResponseSchema   map[string]any `json:"responseSchema"`
+	// ThinkingConfig turns off "thinking" on Flash models: these are short structured answers,
+	// and thinking time can push a check-in past the timeout and into the template fallback.
+	ThinkingConfig *geminiThinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type geminiResponse struct {
 	Candidates []struct {
 		Content struct {
 			Parts []struct {
-				Text string `json:"text"`
+				Text    string `json:"text"`
+				Thought bool   `json:"thought,omitempty"`
 			} `json:"parts"`
 		} `json:"content"`
 	} `json:"candidates"`
@@ -209,6 +217,7 @@ func (g *GeminiProvider) generateJSON(ctx context.Context, systemPrompt, userPro
 			Temperature:      0.3,
 			ResponseMimeType: "application/json",
 			ResponseSchema:   schema,
+			ThinkingConfig:   thinkingConfigFor(g.model),
 		},
 	}
 
@@ -246,11 +255,27 @@ func (g *GeminiProvider) generateJSON(ctx context.Context, systemPrompt, userPro
 	if len(parsed.Candidates) == 0 || len(parsed.Candidates[0].Content.Parts) == 0 {
 		return nil, errors.New("gemini returned empty candidates")
 	}
-	text := strings.TrimSpace(parsed.Candidates[0].Content.Parts[0].Text)
+	// The answer can arrive split over several parts; thought summaries are never part of it.
+	var sb strings.Builder
+	for _, part := range parsed.Candidates[0].Content.Parts {
+		if !part.Thought {
+			sb.WriteString(part.Text)
+		}
+	}
+	text := strings.TrimSpace(sb.String())
 	if text == "" {
 		return nil, errors.New("gemini returned empty text")
 	}
 	return []byte(text), nil
+}
+
+// thinkingConfigFor disables thinking on Gemini 2.5 Flash models, which accept a zero budget.
+// Other models keep their default, since some of them reject a budget of 0.
+func thinkingConfigFor(model string) *geminiThinkingConfig {
+	if strings.Contains(model, "2.5-flash") {
+		return &geminiThinkingConfig{ThinkingBudget: 0}
+	}
+	return nil
 }
 
 func checkinResponseSchema() map[string]any {

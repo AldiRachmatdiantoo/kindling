@@ -15,3 +15,11 @@ SELECT
 FROM daily_logs
 WHERE user_id = $1
   AND (wins_completed_count > 0 OR positive_cope_chosen IS NOT NULL);
+
+-- name: GetInsightDays :many
+SELECT log_date, scores, calibration_tier, positive_cope_chosen, wins_completed_count, wins_data
+FROM daily_logs
+WHERE user_id = $1
+  AND log_date >= $2
+  AND log_date <= $3
+ORDER BY log_date ASC;

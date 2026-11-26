@@ -1,6 +1,35 @@
 package wins
 
-import "github.com/kindling/backend/pkg/ai"
+import (
+	"fmt"
+
+	"github.com/kindling/backend/pkg/ai"
+)
+
+// workLevelMaxSeconds is the longest focus timer each "Still too heavy" level may set for the
+// work pillar. A lighter goal must never come with a longer timer, whatever the model returns.
+var workLevelMaxSeconds = []int{300, 180, 60}
+
+func capWorkDuration(d *int, level int) *int {
+	if level < 1 {
+		level = 1
+	}
+	if level > len(workLevelMaxSeconds) {
+		level = len(workLevelMaxSeconds)
+	}
+	limit := workLevelMaxSeconds[level-1]
+	if d == nil || *d > limit {
+		return &limit
+	}
+	return d
+}
+
+// BuildNextStepFallback is the "next step" template used when the AI provider fails.
+func BuildNextStepFallback(tier ai.CalibrationTier) ai.SliceTaskOutput {
+	out := BuildSliceTaskFallback(tier)
+	out.MicroStep = fmt.Sprintf("Pick up right where you stopped and do the next small piece for %d minutes. One more step is plenty.", out.DurationSeconds/60)
+	return out
+}
 
 // BuildSliceTaskFallback returns a deterministic, schema-valid micro-step when the AI provider fails (PRD §7.4 & §8.2).
 func BuildSliceTaskFallback(tier ai.CalibrationTier) ai.SliceTaskOutput {

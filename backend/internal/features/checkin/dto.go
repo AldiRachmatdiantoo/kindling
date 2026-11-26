@@ -137,6 +137,8 @@ type WorkWinItem struct {
 	MainTask        *string  `json:"main_task"`
 	MicroStep       *string  `json:"micro_step"`
 	DurationSeconds *int     `json:"duration_seconds"`
+	// StepsDone counts micro-steps finished before the current one (progressive slicing).
+	StepsDone int `json:"steps_done,omitempty"`
 }
 
 // WinsData matches the wins_data JSONB structure in PRD §5.1 & §7.3.
@@ -158,6 +160,8 @@ type DailyLogResponse struct {
 	PositiveCopeChosen *string            `json:"positive_cope_chosen"`
 	WinsData           WinsData           `json:"wins_data"`
 	WinsCompletedCount int                `json:"wins_completed_count"`
+	// AINote is set only on the check-in response when the template replaced the AI answer.
+	AINote string `json:"ai_note,omitempty"`
 }
 
 // CopeUpdateRequest is the payload for PATCH /api/v1/checkin/{date}/cope (PRD §7.3).

@@ -29,3 +29,19 @@ func (h *Handler) GetHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	shared.WriteSuccess(w, r, http.StatusOK, resp)
 }
+
+func (h *Handler) GetInsights(w http.ResponseWriter, r *http.Request) {
+	userID, ok := shared.UserIDFromContext(r.Context())
+	if !ok {
+		shared.WriteError(w, r, shared.ErrUnauthenticated("Authentication required"))
+		return
+	}
+
+	resp, err := h.service.GetInsights(r.Context(), userID)
+	if err != nil {
+		shared.WriteError(w, r, err)
+		return
+	}
+
+	shared.WriteSuccess(w, r, http.StatusOK, resp)
+}

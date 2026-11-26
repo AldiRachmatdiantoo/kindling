@@ -55,6 +55,10 @@ type CheckinOutput struct {
 type SliceTaskInput struct {
 	CalibrationTier CalibrationTier
 	MainTask        string
+	// PreviousStep is the micro-step the user just finished; empty for the first slice.
+	PreviousStep string
+	// StepNumber is 1 for the first slice, 2 for the step after it, and so on.
+	StepNumber int
 }
 
 // SliceTaskOutput is the structured AI response for POST /wins/{date}/slice-task.

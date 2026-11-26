@@ -2,7 +2,7 @@ package profile
 
 import "net/http"
 
-// RegisterRoutes mounts the profile heatmap endpoint on the provided ServeMux (PRD §7.5).
+// RegisterRoutes mounts the profile heatmap and insights endpoints on the provided ServeMux (PRD §7.5).
 func RegisterRoutes(
 	mux *http.ServeMux,
 	h *Handler,
@@ -14,4 +14,10 @@ func RegisterRoutes(
 	}
 
 	mux.Handle("GET /api/v1/profile/heatmap", getHeatmap)
+
+	getInsights := http.Handler(http.HandlerFunc(h.GetInsights))
+	if authMiddleware != nil {
+		getInsights = authMiddleware(getInsights)
+	}
+	mux.Handle("GET /api/v1/profile/insights", getInsights)
 }
