@@ -110,24 +110,28 @@ jobs:
         run: docker build -t kindling-web:ci -f ./frontend/Dockerfile .
 
       - name: Trivy scan kindling-api (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.30.0
-        with:
-          image-ref: kindling-api:ci
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --format table \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --vuln-type os,library \
+            --severity HIGH,CRITICAL \
+            kindling-api:ci
 
       - name: Trivy scan kindling-web (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.30.0
-        with:
-          image-ref: kindling-web:ci
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --format table \
+            --exit-code 1 \
+            --ignore-unfixed \
+            --vuln-type os,library \
+            --severity HIGH,CRITICAL \
+            kindling-web:ci
 
   e2e-playwright:
     name: E2E Tests (Playwright + Docker Compose)
