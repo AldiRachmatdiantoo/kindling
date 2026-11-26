@@ -83,6 +83,7 @@ func main() {
 			"env", cfg.AppEnv,
 			"instance_id", cfg.InstanceID,
 			"ai_provider", cfg.AIProvider,
+			"gemini_models", cfg.GeminiModel,
 		)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sony/gobreaker/v2"
@@ -18,11 +19,19 @@ const (
 	defaultGeminiBaseURL = "https://generativelanguage.googleapis.com/v1beta"
 	defaultGeminiModel   = "gemini-2.5-flash"
 	defaultGeminiTimeout = 8 * time.Second
+
+	// How long a model is skipped after it runs out of quota, when Google gives no retry delay.
+	defaultQuotaCooldown = time.Hour
+	// A retired model (404) is skipped for this long before it is tried again.
+	unavailableCooldown = 6 * time.Hour
+	maxQuotaCooldown    = 24 * time.Hour
 )
 
 // GeminiConfig configures GeminiProvider.
 type GeminiConfig struct {
-	APIKey         string
+	APIKey string
+	// Model is one model, or a comma-separated list tried in order: when a model runs out of
+	// quota (429) or is gone (404), the next one answers, e.g. "gemini-2.5-flash,gemini-2.5-flash-lite".
 	Model          string
 	BaseURL        string
 	Timeout        time.Duration
@@ -34,18 +43,36 @@ type GeminiConfig struct {
 // 8s timeout, output validation, and a gobreaker circuit breaker (PRD §8.1–8.2).
 type GeminiProvider struct {
 	apiKey     string
-	model      string
+	models     []string
 	baseURL    string
 	timeout    time.Duration
 	httpClient *http.Client
 	breaker    *gobreaker.CircuitBreaker[[]byte]
+	now        func() time.Time
+
+	mu        sync.Mutex
+	skipUntil map[string]time.Time // model -> when it may be tried again
+}
+
+// ParseGeminiModels splits a comma-separated model list, dropping blanks and duplicates.
+func ParseGeminiModels(s string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, m := range strings.Split(s, ",") {
+		m = strings.TrimSpace(m)
+		if m != "" && !seen[m] {
+			seen[m] = true
+			out = append(out, m)
+		}
+	}
+	if len(out) == 0 {
+		out = []string{defaultGeminiModel}
+	}
+	return out
 }
 
 func NewGeminiProvider(cfg GeminiConfig) *GeminiProvider {
-	model := strings.TrimSpace(cfg.Model)
-	if model == "" {
-		model = defaultGeminiModel
-	}
+	models := ParseGeminiModels(cfg.Model)
 	baseURL := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	if baseURL == "" {
 		baseURL = defaultGeminiBaseURL
@@ -74,12 +101,60 @@ func NewGeminiProvider(cfg GeminiConfig) *GeminiProvider {
 
 	return &GeminiProvider{
 		apiKey:     strings.TrimSpace(cfg.APIKey),
-		model:      model,
+		models:     models,
 		baseURL:    baseURL,
 		timeout:    timeout,
 		httpClient: client,
 		breaker:    cb,
+		now:        time.Now,
+		skipUntil:  map[string]time.Time{},
 	}
+}
+
+// Models returns the configured model chain, in the order it is tried.
+func (g *GeminiProvider) Models() []string {
+	return append([]string(nil), g.models...)
+}
+
+// availableModels is the chain minus models still cooling down. When every model is cooling
+// down it returns the whole chain, so a quota that came back early is noticed.
+func (g *GeminiProvider) availableModels() []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	now := g.now()
+	var out []string
+	for _, m := range g.models {
+		if until, ok := g.skipUntil[m]; ok && now.Before(until) {
+			continue
+		}
+		out = append(out, m)
+	}
+	if len(out) == 0 {
+		return g.models
+	}
+	return out
+}
+
+func (g *GeminiProvider) skipModel(model string, d time.Duration) {
+	if d <= 0 {
+		d = defaultQuotaCooldown
+	}
+	if d > maxQuotaCooldown {
+		d = maxQuotaCooldown
+	}
+	g.mu.Lock()
+	g.skipUntil[model] = g.now().Add(d)
+	g.mu.Unlock()
+}
+
+// modelSkipError means this model cannot answer right now and the next one should be tried.
+type modelSkipError struct {
+	status   int
+	cooldown time.Duration
+}
+
+func (e *modelSkipError) Error() string {
+	return fmt.Sprintf("gemini api returned status %d", e.status)
 }
 
 // BreakerState exposes the current gobreaker state for diagnostics/testing.
@@ -200,6 +275,21 @@ func (g *GeminiProvider) generateJSON(ctx context.Context, systemPrompt, userPro
 		return nil, errors.New("gemini api key is not configured")
 	}
 
+	var lastErr error
+	for _, model := range g.availableModels() {
+		text, err := g.callModel(ctx, model, systemPrompt, userPrompt, schema)
+		var skip *modelSkipError
+		if errors.As(err, &skip) {
+			g.skipModel(model, skip.cooldown)
+			lastErr = fmt.Errorf("%s: %w", model, err)
+			continue
+		}
+		return text, err
+	}
+	return nil, fmt.Errorf("every gemini model is out of quota or unavailable: %w", lastErr)
+}
+
+func (g *GeminiProvider) callModel(ctx context.Context, model, systemPrompt, userPrompt string, schema map[string]any) ([]byte, error) {
 	callCtx, cancel := context.WithTimeout(ctx, g.timeout)
 	defer cancel()
 
@@ -217,7 +307,7 @@ func (g *GeminiProvider) generateJSON(ctx context.Context, systemPrompt, userPro
 			Temperature:      0.3,
 			ResponseMimeType: "application/json",
 			ResponseSchema:   schema,
-			ThinkingConfig:   thinkingConfigFor(g.model),
+			ThinkingConfig:   thinkingConfigFor(model),
 		},
 	}
 
@@ -226,7 +316,7 @@ func (g *GeminiProvider) generateJSON(ctx context.Context, systemPrompt, userPro
 		return nil, fmt.Errorf("marshal gemini request: %w", err)
 	}
 
-	endpoint := fmt.Sprintf("%s/models/%s:generateContent", g.baseURL, g.model)
+	endpoint := fmt.Sprintf("%s/models/%s:generateContent", g.baseURL, model)
 	req, err := http.NewRequestWithContext(callCtx, http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("create gemini request: %w", err)
@@ -244,7 +334,12 @@ func (g *GeminiProvider) generateJSON(ctx context.Context, systemPrompt, userPro
 	if err != nil {
 		return nil, fmt.Errorf("read gemini response: %w", err)
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	switch {
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return nil, &modelSkipError{status: resp.StatusCode, cooldown: retryDelayFrom(body)}
+	case resp.StatusCode == http.StatusNotFound:
+		return nil, &modelSkipError{status: resp.StatusCode, cooldown: unavailableCooldown}
+	case resp.StatusCode < 200 || resp.StatusCode >= 300:
 		return nil, fmt.Errorf("gemini api returned status %d", resp.StatusCode)
 	}
 
@@ -267,6 +362,30 @@ func (g *GeminiProvider) generateJSON(ctx context.Context, systemPrompt, userPro
 		return nil, errors.New("gemini returned empty text")
 	}
 	return []byte(text), nil
+}
+
+// retryDelayFrom reads Google's RetryInfo ("retryDelay": "59828s") from a 429 body. A per-minute
+// limit gives seconds, a per-day limit gives hours; zero means use the default cooldown.
+func retryDelayFrom(body []byte) time.Duration {
+	var env struct {
+		Error struct {
+			Details []struct {
+				RetryDelay string `json:"retryDelay"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &env) != nil {
+		return 0
+	}
+	for _, d := range env.Error.Details {
+		if d.RetryDelay == "" {
+			continue
+		}
+		if dur, err := time.ParseDuration(d.RetryDelay); err == nil && dur > 0 {
+			return dur
+		}
+	}
+	return 0
 }
 
 // thinkingConfigFor disables thinking on Gemini 2.5 Flash models, which accept a zero budget.
