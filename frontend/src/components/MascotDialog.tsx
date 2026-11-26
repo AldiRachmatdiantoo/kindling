@@ -45,6 +45,14 @@ export function MascotDialog({
     initialFocusRef.current?.focus();
   }, [initialFocusRef, stepKey]);
 
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
   const handleKeys = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();

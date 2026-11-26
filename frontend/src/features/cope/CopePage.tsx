@@ -98,7 +98,7 @@ export function CopePage() {
   const openRoomRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (pickCount === 0) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     toolRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   }, [pickCount]);
 
@@ -310,7 +310,7 @@ export function CopePage() {
 
         <div className="grid gap-3 md:grid-cols-3">
           {dailyLog.cope_options.map((option, index) => {
-            const Icon = TOOL_ICON[option.tool_type];
+            const Icon = TOOL_ICON[option.tool_type] ?? Timer;
             const isSelected =
               activeOption?.id === option.id || dailyLog.positive_cope_chosen === option.title;
             const minutes = Math.max(1, Math.round(option.duration_seconds / 60));

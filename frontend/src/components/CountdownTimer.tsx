@@ -67,6 +67,8 @@ export function CountdownTimer({
             <p
               className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-mint-strong"
               data-testid={`${testIdPrefix}-completed`}
+              role="status"
+              aria-live="polite"
             >
               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
               Time's up. Nice work making room for yourself.

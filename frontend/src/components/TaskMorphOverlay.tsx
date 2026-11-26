@@ -51,16 +51,21 @@ export function TaskMorphOverlay({ morph, onClose }: TaskMorphOverlayProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const closingRef = useRef(false);
+  const closeTimerRef = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   const done = Boolean(morph?.to);
 
   const close = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     setLeaving(true);
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    window.setTimeout(
+    closeTimerRef.current = window.setTimeout(
       () => {
+        closeTimerRef.current = null;
         setLeaving(false);
         onCloseRef.current();
         const back = returnFocusRef.current;
@@ -73,8 +78,49 @@ export function TaskMorphOverlay({ morph, onClose }: TaskMorphOverlayProps) {
   const morphId = morph?.id;
   useEffect(() => {
     if (morphId === undefined) return;
+    closingRef.current = false;
+    setLeaving(false);
     returnFocusRef.current = document.activeElement as HTMLElement | null;
     dialogRef.current?.focus();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const focusables = [
+        ...dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], textarea:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ];
+      if (focusables.length === 0) {
+        e.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (
+        e.shiftKey &&
+        (document.activeElement === first || !dialogRef.current.contains(document.activeElement))
+      ) {
+        e.preventDefault();
+        last.focus();
+      } else if (
+        !e.shiftKey &&
+        (document.activeElement === last || !dialogRef.current.contains(document.activeElement))
+      ) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', onTab);
+    return () => {
+      window.removeEventListener('keydown', onTab);
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+      document.body.style.overflow = prevOverflow;
+    };
   }, [morphId]);
 
   useEffect(() => {

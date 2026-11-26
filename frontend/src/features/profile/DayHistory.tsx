@@ -25,27 +25,38 @@ const SCORE_ROWS = [
 ] as const;
 
 export function formatLongDate(date: string): string {
-  return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  try {
+    // Noon UTC keeps the calendar day stable whatever the viewer's timezone.
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(`${date}T12:00:00Z`));
+  } catch {
+    return date;
+  }
 }
 
 function formatShortDate(date: string): string {
-  return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(`${date}T12:00:00Z`));
+  } catch {
+    return date;
+  }
 }
 
 /** The last few days that have something logged, newest first. */
 export function recentActiveDays(days: HeatmapDay[], limit = 7): HeatmapDay[] {
   return days
     .filter((d) => d.level !== 'rest')
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);
 }
 

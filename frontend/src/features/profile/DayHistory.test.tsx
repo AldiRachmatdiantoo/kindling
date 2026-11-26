@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../api/client';
 import { checkinApi } from '../../api/endpoints';
 import type { DailyLog, HeatmapDay } from '../../api/types';
-import { DayDetail, RecentDays, recentActiveDays } from './DayHistory';
+import { DayDetail, formatLongDate, RecentDays, recentActiveDays } from './DayHistory';
 
 const days: HeatmapDay[] = [
   { date: '2026-11-20', level: 'recovery', wins_count: 0, cope_chosen: '4-7-8 Breathing' },
@@ -40,6 +40,10 @@ afterEach(() => vi.restoreAllMocks());
 describe('Day history', () => {
   it('lists only days with something logged, newest first', () => {
     expect(recentActiveDays(days).map((d) => d.date)).toEqual(['2026-11-26', '2026-11-20']);
+  });
+
+  it('formats long dates stably in UTC without timezone day-shift', () => {
+    expect(formatLongDate('2026-11-26')).toBe('Thursday, November 26, 2026');
   });
 
   it('opens a day from the recent list', () => {

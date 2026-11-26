@@ -66,7 +66,10 @@ export interface CelebrationOverlayProps {
  */
 export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayProps) {
   const [leaving, setLeaving] = useState(false);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const dismissRef = useRef<HTMLButtonElement>(null);
   const closingRef = useRef(false);
+  const closeTimerRef = useRef<number | null>(null);
   // Kept in a ref so a parent re-render (a new onDone function) never re-binds the key listener.
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
@@ -76,22 +79,61 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
     closingRef.current = true;
     setLeaving(true);
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    window.setTimeout(() => onDoneRef.current(), reduce ? 0 : 300);
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      onDoneRef.current();
+    }, reduce ? 0 : 300);
   }, []);
 
   useEffect(() => {
     if (!celebration) return;
+    const opener = document.activeElement as HTMLElement | null;
     closingRef.current = false;
     setLeaving(false);
+    dismissRef.current?.focus();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         close();
+        return;
+      }
+      if (e.key !== 'Tab' || !overlayRef.current) return;
+      const focusables = [
+        ...overlayRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+        ),
+      ];
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (
+        e.shiftKey &&
+        (document.activeElement === first || !overlayRef.current.contains(document.activeElement))
+      ) {
+        e.preventDefault();
+        last.focus();
+      } else if (
+        !e.shiftKey &&
+        (document.activeElement === last || !overlayRef.current.contains(document.activeElement))
+      ) {
+        e.preventDefault();
+        first.focus();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+      document.body.style.overflow = prevOverflow;
+      if (opener?.isConnected) opener.focus();
     };
   }, [celebration, close]);
 
@@ -105,10 +147,12 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
   return createPortal(
     <div
       key={celebration.id}
+      ref={overlayRef}
       className={`kc-overlay${leaving ? ' kc-out' : ''}`}
       onClick={close}
-      role="status"
-      aria-live="polite"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="kc-title"
       data-testid="win-celebration"
       data-kind={celebration.kind}
     >
@@ -154,11 +198,22 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
         )}
       </div>
 
-      <div className="kc-caption">
-        <h2>{copy.title}</h2>
+      <div className="kc-caption" aria-live="polite">
+        <h2 id="kc-title">{copy.title}</h2>
         <p>{copy.line}</p>
       </div>
-      <p className="kc-hint">Tap anywhere to keep going</p>
+      <button
+        ref={dismissRef}
+        type="button"
+        className="kc-hint"
+        onClick={(e) => {
+          e.stopPropagation();
+          close();
+        }}
+        data-testid="win-celebration-close"
+      >
+        Tap anywhere to keep going
+      </button>
 
       {isAll &&
         Array.from({ length: 44 }, (_, i) => (

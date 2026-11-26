@@ -117,7 +117,7 @@ export function WinsPage() {
     soul: false,
   });
 
-  const [togglingPillar, setTogglingPillar] = useState<Pillar | null>(null);
+  const [togglingPillars, setTogglingPillars] = useState<Set<Pillar>>(() => new Set());
   const [recalibratingPillar, setRecalibratingPillar] = useState<Pillar | null>(null);
 
   const [taskInput, setTaskInput] = useState('');
@@ -170,7 +170,11 @@ export function WinsPage() {
   const handleToggle = async (pillar: Pillar) => {
     if (!dailyLog) return;
     setError(null);
-    setTogglingPillar(pillar);
+    setTogglingPillars((prev) => {
+      const next = new Set(prev);
+      next.add(pillar);
+      return next;
+    });
     const nextCompleted = !dailyLog.wins_data[pillar].completed;
 
     try {
@@ -202,7 +206,11 @@ export function WinsPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "We couldn't update that win. Try again?");
     } finally {
-      setTogglingPillar(null);
+      setTogglingPillars((prev) => {
+        const next = new Set(prev);
+        next.delete(pillar);
+        return next;
+      });
     }
   };
 
@@ -221,6 +229,7 @@ export function WinsPage() {
         holdMorph(),
       ]);
       finishMorph(res.new_title, `Level ${res.level}`, aiNoteText(res.ai_note));
+      setFinishedStep(null);
       setShrunkPillar(pillar);
       if (
         !(pillar === 'work' && dailyLog.wins_data.work.micro_step) &&
@@ -349,6 +358,7 @@ export function WinsPage() {
         holdMorph(),
       ]);
       finishMorph(res.micro_step, `Step ${res.steps_done + 1}`, aiNoteText(res.ai_note));
+      setFinishedStep(null);
       setDailyLog((prev) => {
         if (!prev) return prev;
         return {
@@ -546,7 +556,7 @@ export function WinsPage() {
         {pillars.map((pillar) => {
           const meta = PILLAR_META[pillar];
           const item = dailyLog.wins_data[pillar];
-          const isToggling = togglingPillar === pillar;
+          const isToggling = togglingPillars.has(pillar);
           const isRecalibrating = recalibratingPillar === pillar;
           const isMaxGentle = item.level >= 3;
           const isOpen = openDetails[pillar];
@@ -859,7 +869,7 @@ export function WinsPage() {
                     <Feather className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                     <span>Resting is a valid choice too. It's okay to stop here for today.</span>
                   </div>
-                ) : (
+                ) : !item.completed ? (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -877,7 +887,7 @@ export function WinsPage() {
                       'Still too heavy'
                     )}
                   </Button>
-                )}
+                ) : null}
               </div>
             </article>
           );

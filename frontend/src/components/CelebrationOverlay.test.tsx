@@ -46,4 +46,27 @@ describe('CelebrationOverlay', () => {
     act(() => vi.advanceTimersByTime(400));
     expect(onDone).toHaveBeenCalledTimes(1);
   });
+
+  it('acts as an accessible modal dialog with focusable dismiss button and body scroll lock', () => {
+    const onDone = vi.fn();
+    const { unmount } = render(
+      <CelebrationOverlay
+        celebration={{ id: 4, kind: 'win', pillar: 'work', count: 1 }}
+        onDone={onDone}
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(document.body.style.overflow).toBe('hidden');
+
+    const dismissBtn = screen.getByTestId('win-celebration-close');
+    expect(dismissBtn).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(dismissBtn).toHaveFocus();
+
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
 });

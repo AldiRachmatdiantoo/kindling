@@ -118,9 +118,18 @@
 .kc-hint {
   position: absolute;
   bottom: max(40px, env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  padding: 6px 14px;
   font-size: 13px;
   color: #a8a4c6;
+  cursor: pointer;
   animation: kc-rise 500ms 1100ms ease-out both;
+}
+.kc-hint:focus-visible {
+  outline: 2px solid #e6f04a;
+  outline-offset: 4px;
 }
 
 /* Finale: Ember on top, the three pillar friends hop in below, confetti falls. */

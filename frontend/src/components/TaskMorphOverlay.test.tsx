@@ -75,4 +75,28 @@ describe('TaskMorphOverlay', () => {
     );
     expect(screen.getByTestId('task-morph-note')).toHaveTextContent("You've used today's AI help.");
   });
+
+  it('locks body scroll while open, guards duplicate close calls, and traps Tab focus', () => {
+    const onClose = vi.fn();
+    const { unmount } = render(
+      <TaskMorphOverlay
+        morph={{ ...base, to: 'Open the doc', label: 'Step 1' }}
+        onClose={onClose}
+      />,
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+
+    const closeBtn = screen.getByTestId('task-morph-close');
+    expect(closeBtn).toHaveFocus();
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(closeBtn).toHaveFocus();
+
+    fireEvent.click(closeBtn);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    act(() => vi.advanceTimersByTime(300));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
 });

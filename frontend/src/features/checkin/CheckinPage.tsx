@@ -83,6 +83,7 @@ export function CheckinPage() {
   const [skipProgressTransition, setSkipProgressTransition] = useState(false);
   const [showSympathy, setShowSympathy] = useState(false);
   const sympathyNextRef = useRef<HTMLButtonElement>(null);
+  const pointerSelectRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -136,7 +137,6 @@ export function CheckinPage() {
   const handleSelectAnswer = (key: keyof CheckinAnswers, value: number) => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
     setFormError(null);
-    setShowSympathy(true);
   };
 
   const closeSympathy = (advance: boolean) => {
@@ -360,6 +360,15 @@ export function CheckinPage() {
                   <label
                     key={value}
                     data-testid={`answer-${question.key}-${value}`}
+                    onPointerDown={() => {
+                      pointerSelectRef.current = true;
+                    }}
+                    onClick={() => {
+                      if (!pointerSelectRef.current) return;
+                      pointerSelectRef.current = false;
+                      handleSelectAnswer(question.key, value);
+                      setShowSympathy(true);
+                    }}
                     className={`flex min-h-11 items-center gap-3 rounded-2xl border-[1.5px] border-ink px-4 py-2.5 text-sm font-semibold k-press has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
                       isChecked ? 'bg-lavender' : 'bg-surface hover:bg-primary-soft'
                     }`}
@@ -369,6 +378,9 @@ export function CheckinPage() {
                       name={question.key}
                       value={value}
                       checked={isChecked}
+                      onKeyDown={() => {
+                        pointerSelectRef.current = false;
+                      }}
                       onChange={() => handleSelectAnswer(question.key, value)}
                       className="sr-only"
                     />
@@ -394,7 +406,7 @@ export function CheckinPage() {
             </div>
 
             <Button
-              onClick={() => goToStep(step + 1)}
+              onClick={() => setShowSympathy(true)}
               disabled={selected === undefined}
               data-testid="checkin-next"
               className="w-full"

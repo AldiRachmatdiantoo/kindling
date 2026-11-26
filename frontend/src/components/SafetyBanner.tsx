@@ -21,14 +21,20 @@ export function SafetyBanner() {
             medical care or crisis counseling.
           </p>
           <div className="flex flex-wrap gap-3 pt-1 text-sm font-medium">
-            <span className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3 py-1.5 font-semibold text-ink">
+            <a
+              href="tel:119"
+              className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3 py-1.5 font-semibold text-ink hover:bg-primary-soft"
+            >
               <PhoneCall className="h-4 w-4" aria-hidden="true" />
               SEJIWA hotline: 119 ext. 8
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3 py-1.5 font-semibold text-ink">
+            </a>
+            <a
+              href="tel:112"
+              className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3 py-1.5 font-semibold text-ink hover:bg-primary-soft"
+            >
               <PhoneCall className="h-4 w-4" aria-hidden="true" />
               Indonesia emergency: 112
-            </span>
+            </a>
           </div>
           <p className="text-xs text-ink-soft">
             You can also talk to a psychologist, a psychiatrist, a campus or workplace counselor, or

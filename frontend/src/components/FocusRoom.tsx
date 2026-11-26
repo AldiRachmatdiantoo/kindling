@@ -201,14 +201,26 @@ function BrainDumpRoom({ option, persistKey }: { option: CopeOption; persistKey:
   const [draft, setDraft] = useState('');
   const [stage, setStage] = useState<'writing' | 'folding' | 'archived'>('writing');
   const [words, setWords] = useState(0);
+  const foldTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (foldTimerRef.current !== null) {
+        window.clearTimeout(foldTimerRef.current);
+        foldTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const fold = () => {
     setWords(draft.trim().split(/\s+/).filter(Boolean).length);
     timer.pause();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     setStage('folding');
-    window.setTimeout(
+    if (foldTimerRef.current !== null) window.clearTimeout(foldTimerRef.current);
+    foldTimerRef.current = window.setTimeout(
       () => {
+        foldTimerRef.current = null;
         setDraft(''); // gone from memory too, not just hidden
         setStage('archived');
       },
@@ -311,14 +323,22 @@ export interface FocusRoomProps {
  */
 export function FocusRoom({ option, persistKey, onClose }: FocusRoomProps) {
   const [leaving, setLeaving] = useState(false);
+  const roomRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const closingRef = useRef(false);
+  const closeTimerRef = useRef<number | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   const close = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     setLeaving(true);
-    window.setTimeout(() => onCloseRef.current(), reduce ? 0 : 260);
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      onCloseRef.current();
+    }, reduce ? 0 : 260);
   }, []);
 
   useEffect(() => {
@@ -328,11 +348,44 @@ export function FocusRoom({ option, persistKey, onClose }: FocusRoomProps) {
     const prevOverflow = root.style.overflow;
     root.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+        return;
+      }
+      if (e.key !== 'Tab' || !roomRef.current) return;
+      const focusables = [
+        ...roomRef.current.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), a[href], textarea:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        ),
+      ];
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (
+        e.shiftKey &&
+        (document.activeElement === first || !roomRef.current.contains(document.activeElement))
+      ) {
+        e.preventDefault();
+        last.focus();
+      } else if (
+        !e.shiftKey &&
+        (document.activeElement === last || !roomRef.current.contains(document.activeElement))
+      ) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
       root.style.overflow = prevOverflow;
       opener?.focus?.();
     };
@@ -347,6 +400,7 @@ export function FocusRoom({ option, persistKey, onClose }: FocusRoomProps) {
 
   return createPortal(
     <div
+      ref={roomRef}
       className={`fr-room${leaving ? ' fr-out' : ''}`}
       role="dialog"
       aria-modal="true"

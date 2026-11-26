@@ -181,7 +181,7 @@ export function ProfilePage() {
         />
       </section>
 
-      {openDate && <DayDetail date={openDate} onClose={() => setOpenDate(null)} />}
+      {openDate && <DayDetail key={openDate} date={openDate} onClose={() => setOpenDate(null)} />}
 
       <RecentDays days={data.days} activeDate={openDate} onOpen={setOpenDate} />
     </div>

@@ -66,4 +66,38 @@ describe('FocusRoom', () => {
     act(() => vi.advanceTimersByTime(400));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('guards against duplicate close calls, traps Tab focus, and cleans up timers on unmount', () => {
+    const onClose = vi.fn();
+    const { unmount } = renderRoom(option('timer'), onClose);
+
+    const closeBtn = screen.getByTestId('focus-room-close');
+    const resetBtn = screen.getByTestId('focus-hobby-reset');
+    expect(closeBtn).toHaveFocus();
+
+    // Shift+Tab from first focusable wraps to last
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(resetBtn).toHaveFocus();
+
+    // Tab from last focusable wraps to first
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(closeBtn).toHaveFocus();
+
+    // Pressing Escape twice before timer completes only invokes onClose once
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    act(() => vi.advanceTimersByTime(400));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // Unmounting before close timer fires cancels pending callback
+    const onClose2 = vi.fn();
+    unmount();
+    const second = renderRoom(option('brain_dump', { title: 'Brain dump' }), onClose2);
+    fireEvent.change(screen.getByTestId('focus-dump-input'), { target: { value: 'hello world' } });
+    fireEvent.click(screen.getByTestId('focus-fold'));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    second.unmount();
+    act(() => vi.advanceTimersByTime(1500));
+    expect(onClose2).not.toHaveBeenCalled();
+  });
 });

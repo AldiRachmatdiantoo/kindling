@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { HeatmapDay, HeatmapLevel } from '../api/types';
 import { buildDateRange } from '../utils/date';
 
@@ -48,6 +48,7 @@ export function HeatmapGrid({ from, to, days, onOpenDay }: HeatmapGridProps) {
     if (el) el.scrollLeft = el.scrollWidth;
   }, [to]);
   const [selectedDay, setSelectedDay] = useState<HeatmapDay | null>(null);
+  const cellRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const cells = useMemo<HeatmapDay[]>(() => {
     const map = new Map<string, HeatmapDay>();
@@ -67,43 +68,101 @@ export function HeatmapGrid({ from, to, days, onOpenDay }: HeatmapGridProps) {
     });
   }, [from, to, days]);
 
-  // Group into columns of 7 days (GitHub-style vertical weeks)
-  const weeks = useMemo(() => {
-    const cols: HeatmapDay[][] = [];
-    for (let i = 0; i < cells.length; i += 7) {
-      cols.push(cells.slice(i, i + 7));
+  const [activeIndex, setActiveIndex] = useState(() => Math.max(0, cells.length - 1));
+  const safeActiveIndex = cells.length === 0 ? 0 : Math.min(activeIndex, cells.length - 1);
+
+  // Arrange into 7 horizontal rows (GitHub-style vertical weeks) so ARIA grid rows match visuals.
+  const rows = useMemo(() => {
+    const weekCount = Math.ceil(cells.length / 7);
+    const gridRows: { cell: HeatmapDay; index: number }[][] = [];
+    for (let r = 0; r < 7; r++) {
+      const row: { cell: HeatmapDay; index: number }[] = [];
+      for (let w = 0; w < weekCount; w++) {
+        const index = w * 7 + r;
+        if (index < cells.length) {
+          row.push({ cell: cells[index], index });
+        }
+      }
+      if (row.length > 0) gridRows.push(row);
     }
-    return cols;
+    return gridRows;
   }, [cells]);
+
+  const handleCellKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex: number | null = null;
+    switch (e.key) {
+      case 'ArrowRight':
+        nextIndex = Math.min(cells.length - 1, index + 7);
+        break;
+      case 'ArrowLeft':
+        nextIndex = Math.max(0, index - 7);
+        break;
+      case 'ArrowDown':
+        nextIndex = Math.min(cells.length - 1, index + 1);
+        break;
+      case 'ArrowUp':
+        nextIndex = Math.max(0, index - 1);
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = Math.max(0, cells.length - 1);
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    setActiveIndex(nextIndex);
+    setSelectedDay(cells[nextIndex]);
+    cellRefs.current[nextIndex]?.focus();
+  };
 
   return (
     <div className="space-y-4" data-testid="heatmap-grid">
       <div ref={scrollRef} className="overflow-x-auto pb-2">
-        <div className="inline-flex gap-1" role="grid" aria-label="Your 365-day recovery heatmap">
-          {weeks.map((week, weekIdx) => (
-            <div key={weekIdx} className="flex flex-col gap-1" role="row">
-              {week.map((cell) => {
-                const label = `${cell.date}: ${LEVEL_LABELS[cell.level]}${
-                  cell.wins_count > 0 ? `, ${cell.wins_count} win` : ''
-                }${cell.cope_chosen ? `, cope: ${cell.cope_chosen}` : ''}`;
+        <div
+          className="inline-flex flex-col gap-1"
+          role="grid"
+          aria-label="Your 365-day recovery heatmap"
+        >
+          {rows.map((row, rowIdx) => (
+            <div key={rowIdx} className="flex gap-1" role="row">
+              {row.map(({ cell, index }) => {
+                const winsLabel =
+                  cell.wins_count > 0
+                    ? `, ${cell.wins_count} ${cell.wins_count === 1 ? 'win' : 'wins'}`
+                    : '';
+                const label = `${cell.date}: ${LEVEL_LABELS[cell.level]}${winsLabel}${
+                  cell.cope_chosen ? `, cope: ${cell.cope_chosen}` : ''
+                }`;
 
                 return (
-                  <button
-                    key={cell.date}
-                    type="button"
-                    role="gridcell"
-                    aria-label={label}
-                    title={label}
-                    data-testid={`heatmap-cell-${cell.date}`}
-                    data-level={cell.level}
-                    onMouseEnter={() => setSelectedDay(cell)}
-                    onFocus={() => setSelectedDay(cell)}
-                    onClick={() => {
-                      setSelectedDay(cell);
-                      onOpenDay?.(cell.date);
-                    }}
-                    className={`h-3.5 w-3.5 rounded-full transition-all hover:ring-2 focus:outline-none focus:ring-2 focus:ring-primary ${LEVEL_STYLES[cell.level]}`}
-                  />
+                  <div key={cell.date} role="gridcell" className="contents">
+                    <button
+                      ref={(el) => {
+                        cellRefs.current[index] = el;
+                      }}
+                      type="button"
+                      tabIndex={index === safeActiveIndex ? 0 : -1}
+                      aria-label={label}
+                      title={label}
+                      data-testid={`heatmap-cell-${cell.date}`}
+                      data-level={cell.level}
+                      onMouseEnter={() => setSelectedDay(cell)}
+                      onFocus={() => {
+                        setActiveIndex(index);
+                        setSelectedDay(cell);
+                      }}
+                      onKeyDown={(e) => handleCellKeyDown(e, index)}
+                      onClick={() => {
+                        setActiveIndex(index);
+                        setSelectedDay(cell);
+                        onOpenDay?.(cell.date);
+                      }}
+                      className={`h-3.5 w-3.5 rounded-full transition-all hover:ring-2 focus:outline-none focus:ring-2 focus:ring-primary ${LEVEL_STYLES[cell.level]}`}
+                    />
+                  </div>
                 );
               })}
             </div>
