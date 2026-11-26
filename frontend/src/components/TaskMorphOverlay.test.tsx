@@ -84,7 +84,7 @@ describe('TaskMorphOverlay', () => {
         onClose={onClose}
       />,
     );
-    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.documentElement.style.overflow).toBe('hidden');
 
     const closeBtn = screen.getByTestId('task-morph-close');
     expect(closeBtn).toHaveFocus();
@@ -97,6 +97,6 @@ describe('TaskMorphOverlay', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
 
     unmount();
-    expect(document.body.style.overflow).toBe('');
+    expect(document.documentElement.style.overflow).toBe('');
   });
 });

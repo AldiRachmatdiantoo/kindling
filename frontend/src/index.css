@@ -38,6 +38,16 @@
 @layer base {
   html {
     color-scheme: light;
+    /* Always show the scrollbar, so the layout never jumps sideways by its width when a
+       page or an opened card crosses the window height. Dialogs lock scrolling on <html>;
+       the stable gutter then keeps the space, painted in the page color. */
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+    background-color: var(--color-cream);
+  }
+  /* While a dimmed dialog locks scrolling, the empty gutter takes the dimmed page color. */
+  html:has(.k-dim-backdrop) {
+    background-color: color-mix(in srgb, #0b0a18 75%, var(--color-cream));
   }
 
   body {

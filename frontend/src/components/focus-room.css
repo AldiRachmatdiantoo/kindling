@@ -376,3 +376,11 @@
   --k-lip-color: #8e9714;
   color: #1f1b3a;
 }
+
+/* The reserved scrollbar gutter sits outside the fixed room; paint it to match. */
+html:has(.fr-room) {
+  background: #15132a;
+}
+html:has(.fr-room[data-tool='timer']) {
+  background: #181210;
+}

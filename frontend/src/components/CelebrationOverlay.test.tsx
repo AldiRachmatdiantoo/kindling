@@ -58,7 +58,7 @@ describe('CelebrationOverlay', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.documentElement.style.overflow).toBe('hidden');
 
     const dismissBtn = screen.getByTestId('win-celebration-close');
     expect(dismissBtn).toHaveFocus();
@@ -67,6 +67,6 @@ describe('CelebrationOverlay', () => {
     expect(dismissBtn).toHaveFocus();
 
     unmount();
-    expect(document.body.style.overflow).toBe('');
+    expect(document.documentElement.style.overflow).toBe('');
   });
 });

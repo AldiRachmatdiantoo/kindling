@@ -91,8 +91,8 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
     closingRef.current = false;
     setLeaving(false);
     dismissRef.current?.focus();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const prevOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
@@ -132,7 +132,7 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
         window.clearTimeout(closeTimerRef.current);
         closeTimerRef.current = null;
       }
-      document.body.style.overflow = prevOverflow;
+      document.documentElement.style.overflow = prevOverflow;
       if (opener?.isConnected) opener.focus();
     };
   }, [celebration, close]);

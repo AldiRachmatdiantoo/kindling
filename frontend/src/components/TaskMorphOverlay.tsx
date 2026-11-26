@@ -82,8 +82,8 @@ export function TaskMorphOverlay({ morph, onClose }: TaskMorphOverlayProps) {
     setLeaving(false);
     returnFocusRef.current = document.activeElement as HTMLElement | null;
     dialogRef.current?.focus();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const prevOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
     const onTab = (e: KeyboardEvent) => {
       if (e.key !== 'Tab' || !dialogRef.current) return;
       const focusables = [
@@ -119,7 +119,7 @@ export function TaskMorphOverlay({ morph, onClose }: TaskMorphOverlayProps) {
         window.clearTimeout(closeTimerRef.current);
         closeTimerRef.current = null;
       }
-      document.body.style.overflow = prevOverflow;
+      document.documentElement.style.overflow = prevOverflow;
     };
   }, [morphId]);
 
