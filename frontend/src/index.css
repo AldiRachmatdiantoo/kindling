@@ -2,33 +2,47 @@
 @import "@fontsource-variable/fraunces";
 @import "@fontsource-variable/plus-jakarta-sans";
 
+/*
+  Design direction: the approved Figma redesign (warm, outlined, hand-drawn feel for
+  people who are already tired). Fraunces carries the soft, friendly voice of headings;
+  Plus Jakarta Sans keeps body copy plain and readable at small sizes.
+  Text colors below were checked against WCAG AA with antislop-human/contrast-check.py.
+*/
 @theme {
   --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-serif: "Fraunces Variable", ui-serif, Georgia, "Times New Roman", serif;
 
   --color-cream: #fffdf7;
+  --color-surface: #ffffff; /* cards, inputs, chips: white in light, raised navy in dark */
   --color-ink: #1f1b3a;
-  --color-ink-soft: #5e5a75;
-  --color-ink-faint: #8c88a3;
+  --color-ink-soft: #5e5a75; /* 6.46:1 on cream, >= 5.1:1 on every pastel */
+  --color-ink-faint: #6b6784; /* 5.30:1 on cream; only on cream/white surfaces */
 
-  --color-primary: #5a5fd8;
+  --color-primary: #5a5fd8; /* white text on it: 5.17:1 */
   --color-primary-dark: #4549b8;
   --color-primary-soft: #e8e8fb;
 
-  --color-lime: #e6f04a;
+  --color-lime: #e6f04a; /* the one accent: primary actions and the current tab */
   --color-lime-dark: #d4df2c;
 
   --color-mint: #d3f5df;
-  --color-mint-strong: #2f9e63;
+  --color-mint-strong: #1e7a4b; /* 4.54:1 on mint */
   --color-lavender: #e6dfff;
-  --color-lavender-strong: #7462e8;
+  --color-lavender-strong: #5b47d6; /* 4.93:1 on lavender */
   --color-sky: #dcebff;
   --color-sky-strong: #3b7ddd;
   --color-peach: #ffe1d6;
-  --color-peach-strong: #d4572f;
+  --color-peach-strong: #a8401f; /* 4.97:1 on peach, 6.14:1 on white */
 }
 
 @layer base {
+  html {
+    color-scheme: light;
+    /* Reserve the scrollbar's space on every page, so moving between a short page and a
+       long one never slides the whole layout sideways. */
+    scrollbar-gutter: stable;
+  }
+
   body {
     font-family: var(--font-sans);
     background-color: var(--color-cream);
@@ -46,27 +60,70 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
+
+  /* Tailwind preflight resets buttons to the arrow cursor; restore the affordance once. */
+  a[href],
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  label[for],
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  label:has(> input[type="radio"]:not(:disabled)),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 @layer components {
   .k-card {
-    @apply rounded-3xl border-[1.5px] border-ink bg-white;
+    @apply rounded-3xl border-[1.5px] border-ink bg-surface;
   }
 
-  .k-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border-[1.5px] border-ink bg-lime px-6 py-3 text-sm font-bold text-ink transition-colors hover:bg-lime-dark disabled:cursor-not-allowed disabled:opacity-60;
+  /*
+    Duolingo-style chunky press: a solid lip under the control sinks when pressed and the
+    springy release overshoots a touch, so taps feel answered. The lip is a box-shadow, so
+    it never shifts layout. k-press-soft is the quieter version for text-only controls.
+  */
+  .k-press {
+    --k-lip: 4px;
+    box-shadow: 0 var(--k-lip) 0 0 var(--k-lip-color, #1f1b3a);
+    transform: translateY(0);
   }
-
-  .k-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border-[1.5px] border-ink bg-white px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-60;
+  .k-press:hover:not(:disabled, [aria-disabled="true"]) {
+    transform: translateY(-1px);
+    box-shadow: 0 calc(var(--k-lip) + 1px) 0 0 var(--k-lip-color, #1f1b3a);
+  }
+  .k-press:active:not(:disabled, [aria-disabled="true"]) {
+    transform: translateY(var(--k-lip));
+    box-shadow: 0 0 0 0 var(--k-lip-color, #1f1b3a);
+  }
+  .k-press:disabled,
+  .k-press[aria-disabled="true"] {
+    box-shadow: 0 2px 0 0 var(--k-lip-color, #1f1b3a);
+  }
+  /* A chosen card or a done win stays half pressed in, like a key that clicked. */
+  .k-press[aria-pressed="true"]:not(:active) {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 0 var(--k-lip-color, #1f1b3a);
+  }
+  .k-press-soft:active:not(:disabled) {
+    transform: scale(0.95);
   }
 
   .k-input {
-    @apply w-full rounded-2xl border-[1.5px] border-ink bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20;
+    @apply w-full rounded-2xl border-[1.5px] border-ink bg-surface px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20;
   }
 
   .k-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-white px-3 py-1 text-xs font-semibold text-ink;
+    @apply inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3 py-1 text-xs font-semibold text-ink;
   }
 
   .k-label {
@@ -81,7 +138,17 @@
     @apply h-8 w-8 animate-spin rounded-full border-[3px] border-primary border-t-transparent;
   }
 
-  /* Scalloped bottom edge for the periwinkle header bands. */
+  /* Fast loads finish inside the pause and show nothing; slow ones fade the spinner in. */
+  .k-loading > * {
+    animation: k-loading-in 200ms ease-out 300ms both;
+  }
+  @keyframes k-loading-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* Scalloped bottom edge: the identity motif shared by the app header and auth pages. */
   .k-wave {
     position: relative;
   }
@@ -92,8 +159,289 @@
     right: 0;
     bottom: -10px;
     height: 10px;
-    background: radial-gradient(circle at 10px 0, var(--color-primary) 10px, transparent 10.5px) repeat-x;
-    background-size: 20px 10px;
+    /* A mask, so the scallops take the header color and fade with it when the mood shifts. */
+    background-color: var(--color-primary);
+    -webkit-mask: radial-gradient(circle at 10px 0, #000 10px, transparent 10.5px) 0 0 / 20px 10px
+      repeat-x;
+    mask: radial-gradient(circle at 10px 0, #000 10px, transparent 10.5px) 0 0 / 20px 10px repeat-x;
     pointer-events: none;
+  }
+
+  /* Inside the periwinkle header the default primary focus ring would vanish. */
+  .k-on-primary :focus-visible {
+    outline-color: #ffffff;
+  }
+}
+
+/*
+  Dark mode: the same tokens, re-pointed. Every utility reads its color from a CSS
+  variable, so overriding the variables here themes the whole app without per-component
+  dark: classes. Pairings checked with contrast-check.py (normal text, AA 4.5:1):
+  ink 16.0 / ink-soft 10.4 / ink-faint 7.6 on cream; ink-soft >= 7.1 on every pastel;
+  each *-strong >= 6.9 on its pastel.
+*/
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --color-cream: #15132a;
+  --color-surface: #221f3d;
+  --color-ink: #f1efff;
+  --color-ink-soft: #c5c1de;
+  --color-ink-faint: #a8a4c6;
+  --color-primary-soft: #2e2e63;
+  --color-mint: #173829;
+  --color-mint-strong: #7ddba8;
+  --color-lavender: #2a2552;
+  --color-lavender-strong: #b8acff;
+  --color-sky: #182b49;
+  --color-sky-strong: #8dbbff;
+  --color-peach: #3d2219;
+  --color-peach-strong: #ff9e80;
+}
+
+/* Lime stays lime in both themes, so anything sitting on it keeps dark ink. */
+html[data-theme="dark"] :is(.bg-lime, .hover\:bg-lime:hover) {
+  --color-ink: #1f1b3a;
+  --color-ink-soft: #3d3958;
+  color: var(--color-ink);
+}
+@media (width >= 48rem) {
+  html[data-theme="dark"] .md\:bg-lime {
+    --color-ink: #1f1b3a;
+    --color-ink-soft: #3d3958;
+  }
+}
+
+/* Dark lips: a muted lilac under outlined controls, a deep olive under lime ones. */
+html[data-theme="dark"] .k-press {
+  --k-lip-color: #6f6b94;
+}
+html[data-theme="dark"] .k-press.bg-lime {
+  --k-lip-color: #8e9714;
+}
+
+/* The periwinkle brand color is too dark for text on navy; links get a lighter tint. */
+html[data-theme="dark"] .text-primary {
+  color: #a9acff;
+}
+html[data-theme="dark"] .hover\:text-primary-dark:hover {
+  color: #c8caff;
+}
+
+/*
+  Adaptive atmosphere: today's check-in sets html[data-mood] (AppShell), and the whole app
+  shifts with it. Gentle (high exhaustion) goes warm amber paper under a deep slate header
+  and slows every animation down; balanced (running but far away) settles into a dusky
+  lavender; standard (energy to spare) goes fresh with teal.
+  Text pairings checked with contrast-check.py:
+  gentle ink-faint 4.73 / ink-soft 5.77 on paper, white 8.77 on slate;
+  balanced ink-faint 4.68 on lavender paper, dark ink-faint >= 6.13;
+  standard ink-faint 5.07 on mint paper, white 5.47 on teal; dark variants >= 5.88.
+*/
+html[data-mood="gentle"] {
+  --k-pace: 1.7;
+  --color-cream: #f9efe0;
+  --color-surface: #fffaf2;
+  --color-primary: #4a4862;
+  --color-primary-dark: #3a3850;
+  --color-primary-soft: #efe2cf;
+}
+html[data-theme="dark"][data-mood="gentle"] {
+  --color-cream: #1b1714;
+  --color-surface: #2b2521;
+  --color-primary: #4a4560;
+  --color-primary-soft: #3a3029;
+}
+html[data-mood="balanced"] {
+  --k-pace: 1.25;
+  --color-cream: #efedff;
+  --color-primary-soft: #e0defb;
+}
+html[data-theme="dark"][data-mood="balanced"] {
+  --color-cream: #131433;
+  --color-surface: #23254a;
+}
+html[data-mood="standard"] {
+  --k-pace: 0.9;
+  --color-cream: #f2faf6;
+  --color-primary: #0f766e;
+  --color-primary-dark: #0b5e58;
+  --color-primary-soft: #d6f2ea;
+}
+html[data-theme="dark"][data-mood="standard"] {
+  --color-cream: #0e1b1a;
+  --color-surface: #16302d;
+  --color-primary-soft: #1d3f3a;
+}
+html[data-theme="dark"][data-mood="gentle"] .text-primary {
+  color: #e3c79a;
+}
+html[data-theme="dark"][data-mood="standard"] .text-primary {
+  color: #7fe0d0;
+}
+
+/* The shift itself is slow and soft, so it reads as the room changing, not a flicker. */
+@layer base {
+  @media (prefers-reduced-motion: no-preference) {
+    body,
+    .k-wave,
+    .k-wave::after,
+    .k-card {
+      transition: background-color 900ms ease;
+    }
+  }
+}
+
+/*
+  Motion (dial MOTION 2). Each animation answers a specific moment:
+  - k-enter: a route changed, so the new page settles in instead of popping.
+  - k-step-next / k-step-prev: the check-in wizard moved forward or back.
+  - k-pop: a win was just completed; the check mark is the reward.
+  - k-bar: energy scores fill from zero so the reading is noticed, once.
+  Nothing loops. Everything is skipped under prefers-reduced-motion.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  .k-press,
+  .k-press-soft {
+    transition:
+      transform 220ms cubic-bezier(0.34, 1.8, 0.64, 1),
+      box-shadow 220ms cubic-bezier(0.34, 1.8, 0.64, 1),
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+  .k-press:active,
+  .k-press-soft:active {
+    transition-duration: 70ms;
+    transition-timing-function: ease-out;
+  }
+
+  @keyframes k-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes k-step-next {
+    from {
+      opacity: 0;
+      transform: translateX(28px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes k-step-prev {
+    from {
+      opacity: 0;
+      transform: translateX(-28px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes k-pop {
+    0% {
+      transform: scale(0.4);
+    }
+    60% {
+      transform: scale(1.25);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes k-bar {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  /*
+    "Still too heavy": while the goal is reworked a soft light sweeps across the card and it
+    breathes in slightly; the lighter goal then settles in from a bigger, blurred scale, so
+    it visibly shrinks into place.
+  */
+  @keyframes k-recal-sweep {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes k-recal-breathe {
+    50% {
+      transform: scale(0.985);
+    }
+  }
+  @keyframes k-shrink-in {
+    0% {
+      opacity: 0;
+      transform: scale(1.18);
+      filter: blur(3px);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(0.96);
+      filter: blur(0);
+    }
+    100% {
+      transform: none;
+    }
+  }
+  @keyframes k-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .k-recal {
+    animation: k-recal-breathe 900ms ease-in-out infinite;
+  }
+  .k-recal::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.4) 50%, transparent 80%);
+    animation: k-recal-sweep 900ms ease-in-out infinite;
+    pointer-events: none;
+  }
+  html[data-theme="dark"] .k-recal::after {
+    background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.12) 50%, transparent 80%);
+  }
+  .k-shrink-in {
+    transform-origin: left center;
+    animation: k-shrink-in calc(620ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .k-spin-slow {
+    animation: k-spin 1s linear infinite;
+  }
+
+  .k-enter {
+    animation: k-enter calc(320ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .k-step-next {
+    animation: k-step-next calc(280ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .k-step-prev {
+    animation: k-step-prev calc(280ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .k-pop {
+    animation: k-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .k-bar {
+    transform-origin: left center;
+    animation: k-bar calc(700ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) 150ms both;
   }
 }

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -39,6 +40,38 @@ type controllableAiProvider struct {
 	recalibrateDelay atomic.Int64 // milliseconds
 	sliceCalls       atomic.Int32
 	recalibrateCalls atomic.Int32
+
+	// barrier, when set, holds each Recalibrate call until that many calls are in flight, so
+	// every concurrent request has finished its unlocked read before any of them writes.
+	barrierMu      sync.Mutex
+	barrierSize    int
+	barrierArrived int
+	barrierOpen    chan struct{}
+}
+
+func (p *controllableAiProvider) setBarrier(n int) {
+	p.barrierMu.Lock()
+	defer p.barrierMu.Unlock()
+	p.barrierSize, p.barrierArrived = n, 0
+	p.barrierOpen = make(chan struct{})
+}
+
+func (p *controllableAiProvider) waitAtBarrier() {
+	p.barrierMu.Lock()
+	if p.barrierSize == 0 {
+		p.barrierMu.Unlock()
+		return
+	}
+	p.barrierArrived++
+	open := p.barrierOpen
+	if p.barrierArrived == p.barrierSize {
+		close(open)
+	}
+	p.barrierMu.Unlock()
+	select {
+	case <-open:
+	case <-time.After(5 * time.Second): // never hang the suite if fewer calls arrive
+	}
 }
 
 func (p *controllableAiProvider) GenerateCheckin(ctx context.Context, in ai.CheckinInput) (ai.CheckinOutput, error) {
@@ -55,6 +88,7 @@ func (p *controllableAiProvider) SliceTask(ctx context.Context, in ai.SliceTaskI
 
 func (p *controllableAiProvider) Recalibrate(ctx context.Context, in ai.RecalibrateInput) (ai.RecalibrateOutput, error) {
 	p.recalibrateCalls.Add(1)
+	p.waitAtBarrier()
 	if ms := p.recalibrateDelay.Load(); ms > 0 {
 		time.Sleep(time.Duration(ms) * time.Millisecond)
 	}
@@ -308,11 +342,121 @@ func TestWinsModule_IntegrationAndConcurrency(t *testing.T) {
 		if recFB.Code != http.StatusOK {
 			t.Fatalf("expected 200 fallback on AI failure, got %d body=%s", recFB.Code, recFB.Body.String())
 		}
+		var envFB struct {
+			Data wins.SliceTaskResponse `json:"data"`
+		}
+		_ = json.Unmarshal(recFB.Body.Bytes(), &envFB)
+		if envFB.Data.AINote != "unavailable" {
+			t.Fatalf("a failed AI call must tell the client why, got ai_note=%q", envFB.Data.AINote)
+		}
 
 		// RLS isolation: User B gets 404 on User A's date.
 		recB := doAuthRequest(handler, userB, http.MethodPost, "/api/v1/wins/2026-11-26/slice-task", body, uuid.NewString())
 		if recB.Code != http.StatusNotFound {
 			t.Fatalf("expected 404 for User B on User A's date, got %d", recB.Code)
+		}
+	})
+
+	t.Run("daily AI budget: past the cap, the template answers and says why", func(t *testing.T) {
+		capped := *cfg
+		capped.AIDailyLimit = 2
+		cappedHandler := server.NewHandler(server.Dependencies{
+			Config:           &capped,
+			Pool:             runtimePool,
+			Redis:            redisClient,
+			Limiter:          cache.NewRateLimiter(redisClient),
+			IdempotencyStore: cache.NewIdempotencyStore(redisClient),
+			AIProvider:       ctrlAI,
+			Clock:            func() time.Time { return fixedNow },
+		})
+		userD := registerUser(t, cappedHandler, "dana@example.com", "Asia/Jakarta")
+		submitCheckin(t, cappedHandler, userD, "2026-11-26") // AI call 1 of 2
+
+		slice := func() wins.SliceTaskResponse {
+			t.Helper()
+			body, _ := json.Marshal(map[string]string{"main_task": "Balas email dosen"})
+			rec := doAuthRequest(cappedHandler, userD, http.MethodPost, "/api/v1/wins/2026-11-26/slice-task", body, uuid.NewString())
+			if rec.Code != http.StatusOK {
+				t.Fatalf("slice status=%d body=%s", rec.Code, rec.Body.String())
+			}
+			var env struct {
+				Data wins.SliceTaskResponse `json:"data"`
+			}
+			_ = json.Unmarshal(rec.Body.Bytes(), &env)
+			return env.Data
+		}
+		if first := slice(); first.AINote != "" { // AI call 2 of 2
+			t.Fatalf("within the cap there must be no note, got %q", first.AINote)
+		}
+		before := ctrlAI.sliceCalls.Load()
+		over := slice()
+		if over.AINote != "daily_limit" || over.MicroStep == "" {
+			t.Fatalf("past the cap expected a template step with ai_note=daily_limit, got %+v", over)
+		}
+		if ctrlAI.sliceCalls.Load() != before {
+			t.Fatal("past the cap the AI provider must not be called")
+		}
+
+		recalBody, _ := json.Marshal(map[string]string{"pillar": "soul"})
+		rec := doAuthRequest(cappedHandler, userD, http.MethodPost, "/api/v1/wins/2026-11-26/recalibrate", recalBody, uuid.NewString())
+		var recal struct {
+			Data wins.RecalibrateResponse `json:"data"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &recal)
+		if rec.Code != http.StatusOK || recal.Data.AINote != "daily_limit" || recal.Data.Level != 1 {
+			t.Fatalf("recalibrate past the cap must still shrink the goal and say why, got %d %+v", rec.Code, recal.Data)
+		}
+	})
+
+	t.Run("POST /wins/{date}/slice-task next_step continues the same task", func(t *testing.T) {
+		// Its own user, so these AI calls don't eat into the other subtests' rate limit.
+		userC := registerUser(t, handler, "carol@example.com", "Asia/Jakarta")
+		submitCheckin(t, handler, userC, "2026-11-26")
+		first, _ := json.Marshal(map[string]string{"main_task": "Menulis bab 3 laporan praktikum"})
+		if rec := doAuthRequest(handler, userC, http.MethodPost, "/api/v1/wins/2026-11-26/slice-task", first, uuid.NewString()); rec.Code != http.StatusOK {
+			t.Fatalf("first slice status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		next := func() wins.SliceTaskResponse {
+			t.Helper()
+			// main_task in the body is ignored for next_step: the server uses the stored task.
+			body, _ := json.Marshal(map[string]any{"main_task": "something else", "next_step": true})
+			rec := doAuthRequest(handler, userC, http.MethodPost, "/api/v1/wins/2026-11-26/slice-task", body, uuid.NewString())
+			if rec.Code != http.StatusOK {
+				t.Fatalf("next_step status=%d body=%s", rec.Code, rec.Body.String())
+			}
+			var env struct {
+				Data wins.SliceTaskResponse `json:"data"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
+				t.Fatalf("decode next_step response: %v", err)
+			}
+			return env.Data
+		}
+
+		second := next()
+		if second.StepsDone != 1 || !strings.Contains(second.MicroStep, "Step 2 of") {
+			t.Fatalf("expected step 2 after one finished step, got %+v", second)
+		}
+		if second.MainTask != "Menulis bab 3 laporan praktikum" {
+			t.Fatalf("next_step must keep the stored task, got %q", second.MainTask)
+		}
+		third := next()
+		if third.StepsDone != 2 || !strings.Contains(third.MicroStep, "Step 3 of") {
+			t.Fatalf("expected step 3, got %+v", third)
+		}
+		log := getCheckinLog(t, handler, userC, "2026-11-26")
+		if log.WinsData.Work.StepsDone != 2 || log.WinsData.Work.MicroStep == nil || *log.WinsData.Work.MicroStep != third.MicroStep {
+			t.Fatalf("expected persisted steps_done=2 and the latest step, got %+v", log.WinsData.Work)
+		}
+
+		// A brand-new task starts counting again.
+		fresh, _ := json.Marshal(map[string]string{"main_task": "Balas email dosen"})
+		rec := doAuthRequest(handler, userC, http.MethodPost, "/api/v1/wins/2026-11-26/slice-task", fresh, uuid.NewString())
+		if rec.Code != http.StatusOK {
+			t.Fatalf("fresh slice status=%d", rec.Code)
+		}
+		if log := getCheckinLog(t, handler, userC, "2026-11-26"); log.WinsData.Work.StepsDone != 0 {
+			t.Fatalf("a new task must reset steps_done, got %d", log.WinsData.Work.StepsDone)
 		}
 	})
 
@@ -395,9 +539,10 @@ func TestWinsModule_IntegrationAndConcurrency(t *testing.T) {
 			Clock:            func() time.Time { return fixedNow },
 		})
 
-		// Add a small delay during AI call so all 10 goroutines read level=0 in Step 1 before Step 3 locks the row.
-		ctrlAI.recalibrateDelay.Store(80)
-		defer ctrlAI.recalibrateDelay.Store(0)
+		// Hold every AI call until all 10 have arrived, so each goroutine has read level=0 in Step 1
+		// before any Step 3 locks the row. A fixed sleep was flaky on a busy machine.
+		ctrlAI.setBarrier(10) // the 10 workers below
+		defer ctrlAI.setBarrier(0)
 
 		const workers = 10
 		startGate := make(chan struct{})

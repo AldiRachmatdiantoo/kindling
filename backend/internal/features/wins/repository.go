@@ -32,7 +32,7 @@ type DailyWinsSnapshot struct {
 type Repository interface {
 	GetUserTimezone(ctx context.Context, userID uuid.UUID) (string, error)
 	GetDailyWins(ctx context.Context, userID uuid.UUID, logDate time.Time) (DailyWinsSnapshot, error)
-	SaveSlicedTask(ctx context.Context, userID uuid.UUID, logDate time.Time, mainTask, microStep string, durationSeconds int) error
+	SaveSlicedTask(ctx context.Context, userID uuid.UUID, logDate time.Time, mainTask, microStep string, durationSeconds, stepsDone int) error
 	ApplyRecalibration(ctx context.Context, userID uuid.UUID, logDate time.Time, pillar string, expectedLevel int, newTitle string, durationSeconds *int) (RecalibrateResponse, error)
 	ToggleWin(ctx context.Context, userID uuid.UUID, logDate time.Time, pillar string, completed bool) (ToggleWinResponse, error)
 	InsertAiAuditLog(ctx context.Context, arg sqlc.InsertAiAuditLogParams) error
@@ -98,7 +98,7 @@ func (r *PostgresRepository) GetDailyWins(ctx context.Context, userID uuid.UUID,
 }
 
 // SaveSlicedTask writes main_task, micro_step, and duration_seconds into wins_data.work inside a FOR UPDATE transaction.
-func (r *PostgresRepository) SaveSlicedTask(ctx context.Context, userID uuid.UUID, logDate time.Time, mainTask, microStep string, durationSeconds int) error {
+func (r *PostgresRepository) SaveSlicedTask(ctx context.Context, userID uuid.UUID, logDate time.Time, mainTask, microStep string, durationSeconds, stepsDone int) error {
 	dbCtx, cancel := context.WithTimeout(ctx, dbQueryTimeout)
 	defer cancel()
 
@@ -125,6 +125,7 @@ func (r *PostgresRepository) SaveSlicedTask(ctx context.Context, userID uuid.UUI
 		winsData.Work.MainTask = &mt
 		winsData.Work.MicroStep = &ms
 		winsData.Work.DurationSeconds = &dur
+		winsData.Work.StepsDone = stepsDone
 
 		updatedJSON, err := json.Marshal(winsData)
 		if err != nil {
@@ -199,6 +200,9 @@ func (r *PostgresRepository) ApplyRecalibration(
 			winsData.Physical.Title = cleanTitle
 			winsData.Physical.Level = newLevel
 			winsData.Physical.Completed = false
+			winsData.Physical.WhyThis = RecalibratedWhyThis
+			winsData.Physical.Steps = nil
+			winsData.Physical.DurationSeconds = nil
 		case PillarWork:
 			winsData.Work.Level = newLevel
 			winsData.Work.Completed = false
@@ -215,11 +219,16 @@ func (r *PostgresRepository) ApplyRecalibration(
 				}
 			} else {
 				winsData.Work.Title = cleanTitle
+				winsData.Work.WhyThis = RecalibratedWhyThis
+				winsData.Work.Steps = nil
 			}
 		case PillarSoul:
 			winsData.Soul.Title = cleanTitle
 			winsData.Soul.Level = newLevel
 			winsData.Soul.Completed = false
+			winsData.Soul.WhyThis = RecalibratedWhyThis
+			winsData.Soul.Steps = nil
+			winsData.Soul.DurationSeconds = nil
 		}
 
 		updatedJSON, err := json.Marshal(winsData)

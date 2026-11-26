@@ -27,21 +27,33 @@ func IsValidPillar(pillar string) bool {
 	}
 }
 
-// WinItem represents the physical or soul win JSONB object (PRD §5.1).
+// RecalibratedWhyThis replaces a card's reason once the user asks for something lighter.
+const RecalibratedWhyThis = "You asked for something lighter, so here is a smaller version. Any step still counts."
+
+// WinItem represents the physical or soul win JSONB object (PRD §5.1). why_this, steps and
+// duration_seconds make the card ready to run; older rows may not have them.
 type WinItem struct {
-	Title     string `json:"title"`
-	Level     int    `json:"level"`
-	Completed bool   `json:"completed"`
+	Title           string   `json:"title"`
+	WhyThis         string   `json:"why_this,omitempty"`
+	Steps           []string `json:"steps,omitempty"`
+	DurationSeconds *int     `json:"duration_seconds"`
+	Level           int      `json:"level"`
+	Completed       bool     `json:"completed"`
 }
 
 // WorkWinItem represents the work win JSONB object with AI Task Slicer fields (PRD §5.1).
+// duration_seconds is the focus timer: the plan's length at first, the micro-step's once sliced.
 type WorkWinItem struct {
-	Title           string  `json:"title"`
-	Level           int     `json:"level"`
-	Completed       bool    `json:"completed"`
-	MainTask        *string `json:"main_task"`
-	MicroStep       *string `json:"micro_step"`
-	DurationSeconds *int    `json:"duration_seconds"`
+	Title           string   `json:"title"`
+	WhyThis         string   `json:"why_this,omitempty"`
+	Steps           []string `json:"steps,omitempty"`
+	Level           int      `json:"level"`
+	Completed       bool     `json:"completed"`
+	MainTask        *string  `json:"main_task"`
+	MicroStep       *string  `json:"micro_step"`
+	DurationSeconds *int     `json:"duration_seconds"`
+	// StepsDone counts micro-steps finished before the current one (progressive slicing).
+	StepsDone int `json:"steps_done,omitempty"`
 }
 
 // WinsData matches the wins_data JSONB structure in PRD §5.1.
@@ -88,6 +100,8 @@ func (w WinsData) PillarTarget(pillar string) (currentTitle string, level int, i
 // SliceTaskRequest is the payload for POST /api/v1/wins/{date}/slice-task (PRD §7.4).
 type SliceTaskRequest struct {
 	MainTask string `json:"main_task"`
+	// NextStep asks for the step after the current micro-step, which the user just finished.
+	NextStep bool `json:"next_step,omitempty"`
 }
 
 // Validate checks main_task is non-empty and at most 300 characters.
@@ -111,6 +125,9 @@ type SliceTaskResponse struct {
 	MainTask        string `json:"main_task"`
 	MicroStep       string `json:"micro_step"`
 	DurationSeconds int    `json:"duration_seconds"`
+	StepsDone       int    `json:"steps_done"`
+	// AINote is set when the template replaced the AI answer: "daily_limit" or "unavailable".
+	AINote string `json:"ai_note,omitempty"`
 }
 
 // RecalibrateRequest is the payload for POST /api/v1/wins/{date}/recalibrate (PRD §7.4).
@@ -135,6 +152,7 @@ type RecalibrateResponse struct {
 	NewTitle        string `json:"new_title"`
 	Level           int    `json:"level"`
 	DurationSeconds *int   `json:"duration_seconds,omitempty"`
+	AINote          string `json:"ai_note,omitempty"`
 }
 
 // ToggleWinRequest is the payload for PATCH /api/v1/wins/{date}/toggle (PRD §7.4).

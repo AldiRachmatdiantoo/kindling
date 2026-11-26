@@ -4,6 +4,7 @@ import type {
   CheckinAnswers,
   DailyLog,
   HeatmapData,
+  InsightsData,
   Pillar,
   RecalibrateData,
   SliceTaskData,
@@ -37,8 +38,20 @@ export const authApi = {
     }),
 };
 
+// The shell, the landing redirect, and the page itself can all ask for today's log in
+// the same tick. Share one in-flight request so a page load costs one call, not three,
+// against the per-IP rate limit.
+let todayInFlight: Promise<DailyLog> | null = null;
+
 export const checkinApi = {
-  getToday: () => apiRequest<DailyLog>('/checkin/today', { method: 'GET' }),
+  getToday: (): Promise<DailyLog> => {
+    if (!todayInFlight) {
+      todayInFlight = apiRequest<DailyLog>('/checkin/today', { method: 'GET' }).finally(() => {
+        todayInFlight = null;
+      });
+    }
+    return todayInFlight;
+  },
 
   getByDate: (date: string) => apiRequest<DailyLog>(`/checkin/${date}`, { method: 'GET' }),
 
@@ -49,7 +62,7 @@ export const checkinApi = {
       brain_dump: string;
       fun_cope_input: string;
     },
-    idempotencyKey?: string
+    idempotencyKey?: string,
   ) =>
     apiRequest<DailyLog>('/checkin', {
       method: 'POST',
@@ -66,10 +79,11 @@ export const checkinApi = {
 };
 
 export const winsApi = {
-  sliceTask: (date: string, mainTask: string, idempotencyKey?: string) =>
+  /** nextStep asks for the step after the current micro-step, which the user just finished. */
+  sliceTask: (date: string, mainTask: string, idempotencyKey?: string, nextStep = false) =>
     apiRequest<SliceTaskData>(`/wins/${date}/slice-task`, {
       method: 'POST',
-      body: { main_task: mainTask },
+      body: nextStep ? { main_task: mainTask, next_step: true } : { main_task: mainTask },
       idempotent: true,
       idempotencyKey,
     }),
@@ -91,4 +105,5 @@ export const winsApi = {
 
 export const profileApi = {
   getHeatmap: () => apiRequest<HeatmapData>('/profile/heatmap', { method: 'GET' }),
+  getInsights: () => apiRequest<InsightsData>('/profile/insights', { method: 'GET' }),
 };

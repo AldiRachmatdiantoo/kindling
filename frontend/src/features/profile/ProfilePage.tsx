@@ -1,16 +1,26 @@
-import { Award, CalendarHeart, Flame, HeartHandshake, Sparkles } from 'lucide-react';
+import { Award, Flame, HeartHandshake, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { profileApi } from '../../api/endpoints';
 import type { HeatmapData } from '../../api/types';
+import { FeatureTip } from '../../components/FeatureTip';
 import { HeatmapGrid } from '../../components/HeatmapGrid';
+import { Mascot } from '../../components/Mascot';
 import { useAuth } from '../auth/AuthContext';
+import { useWelcomeTour } from '../onboarding/WelcomeTour';
+import { PageLoading } from '../../components/PageLoading';
+import { PatternDiscovery } from './PatternDiscovery';
+import { DayDetail, RecentDays } from './DayHistory';
+import { Button } from '@/components/watermelon-ui/button';
 
 export function ProfilePage() {
   const { user } = useAuth();
+  const { openTour } = useWelcomeTour();
   const [data, setData] = useState<HeatmapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openDate, setOpenDate] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -21,7 +31,7 @@ export function ProfilePage() {
       })
       .catch((err) => {
         if (active) {
-          setError(err instanceof ApiError ? err.message : 'Gagal memuat data heatmap.');
+          setError(err instanceof ApiError ? err.message : "We couldn't load your heatmap.");
         }
       })
       .finally(() => {
@@ -31,20 +41,31 @@ export function ProfilePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [attempt]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center" data-testid="profile-loading">
-        <div className="k-spinner" />
-      </div>
-    );
+    return <PageLoading testId="profile-loading" />;
   }
 
   if (error || !data) {
     return (
-      <div className="k-error p-6" data-testid="profile-error">
-        {error || 'Data profil tidak tersedia.'}
+      <div
+        className="k-error mx-auto max-w-md p-6 text-center"
+        data-testid="profile-error"
+        role="alert"
+      >
+        <p>{error || "Your profile isn't available right now."}</p>
+        <Button
+          variant="secondary"
+          className="mt-4"
+          onClick={() => {
+            setError(null);
+            setLoading(true);
+            setAttempt((n) => n + 1);
+          }}
+        >
+          Try again
+        </Button>
       </div>
     );
   }
@@ -52,30 +73,30 @@ export function ProfilePage() {
   const statCards = [
     {
       key: 'total_active_days',
-      label: 'Total Hari Aktif',
+      label: 'Active days',
       value: data.milestones.total_active_days,
       icon: Flame,
-      bg: 'bg-white',
+      bg: 'bg-surface',
     },
     {
       key: 'total_complete_days',
-      label: 'Hari 3/3 Wins',
+      label: '3/3 days',
       value: data.milestones.total_complete_days,
       icon: Award,
       bg: 'bg-lavender',
     },
     {
       key: 'total_recovery_days',
-      label: 'Hari Pemulihan',
+      label: 'Recovery days',
       value: data.milestones.total_recovery_days,
       icon: HeartHandshake,
       bg: 'bg-sky',
     },
     {
       key: 'total_daily_wins',
-      label: 'Total Daily Wins',
+      label: 'Daily wins',
       value: data.milestones.total_daily_wins,
-      icon: Sparkles,
+      icon: Trophy,
       bg: 'bg-mint',
     },
   ];
@@ -99,19 +120,22 @@ export function ProfilePage() {
             {initials}
           </span>
           <div>
-            <p className="text-xs font-semibold text-ink-faint">Profil &amp; Jejak Pemulihan</p>
+            <p className="text-xs font-semibold text-ink-faint">Profile and recovery trail</p>
             <h1 className="text-3xl font-bold tracking-tight text-ink">
-              {user?.full_name || 'Pengguna Kindling'}
+              {user?.full_name || 'Kindling friend'}
             </h1>
             <p className="text-sm text-ink-soft">
               {user?.email} · {user?.timezone || 'Asia/Jakarta'}
             </p>
           </div>
         </div>
-        <div className="flex items-start gap-2 rounded-2xl border-[1.5px] border-ink bg-mint px-4 py-2.5 text-xs leading-relaxed font-medium text-ink">
-          <CalendarHeart className="mt-0.5 h-4 w-4 shrink-0 text-mint-strong" />
-          Tanpa reset streak — istirahat adalah bagian dari proses.
+        <div className="flex items-center gap-2 rounded-2xl border-[1.5px] border-ink bg-mint py-1.5 pr-4 pl-2 text-xs leading-relaxed font-medium text-ink">
+          <Mascot mood="calm" className="h-12 w-10 shrink-0" />
+          No streaks to break. Rest is part of the process.
         </div>
+        <Button onClick={openTour} variant="secondary" data-testid="replay-tour">
+          Replay the tour
+        </Button>
       </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -123,25 +147,43 @@ export function ProfilePage() {
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-ink-soft">{label}</span>
-              <Icon className="h-4 w-4 shrink-0 text-ink" />
+              <Icon className="h-4 w-4 shrink-0 text-ink" aria-hidden="true" />
             </div>
             <p className="mt-2 font-serif text-4xl font-bold tracking-tight text-ink">{value}</p>
-            <p className="mt-1 text-[11px] text-ink-faint">Akumulasi seumur hidup</p>
+            <p className="mt-1 text-[11px] text-ink-soft">All time</p>
           </div>
         ))}
       </section>
 
+      <PatternDiscovery />
+
       <section className="k-card space-y-4 p-6">
         <div>
-          <h2 className="text-2xl font-bold text-ink">Jejak 365 Hari</h2>
+          <h2 className="text-2xl font-bold text-ink">Your last 365 days</h2>
           <p className="mt-1 text-xs text-ink-soft">
-            Rentang {data.range.from} hingga {data.range.to}. Kotak kosong menandakan hari
-            istirahat, bukan kegagalan.
+            From {data.range.from} to {data.range.to}. An empty dot is a rest day, never a failure.
           </p>
         </div>
 
-        <HeatmapGrid from={data.range.from} to={data.range.to} days={data.days} />
+        <FeatureTip id="profile-heatmap" title="How to read your heatmap" mood="calm">
+          <p>
+            Each dot is one day. Blue means you took a recovery moment, light green means 1 or 2
+            wins, and full green means all 3. Grey dots are rest days, and rest is never a failure.
+            Tap any dot to see what happened that day.
+          </p>
+        </FeatureTip>
+
+        <HeatmapGrid
+          from={data.range.from}
+          to={data.range.to}
+          days={data.days}
+          onOpenDay={setOpenDate}
+        />
       </section>
+
+      {openDate && <DayDetail date={openDate} onClose={() => setOpenDate(null)} />}
+
+      <RecentDays days={data.days} activeDate={openDate} onOpen={setOpenDate} />
     </div>
   );
 }

@@ -129,7 +129,12 @@ func NewHandler(deps Dependencies) http.Handler {
 		}
 
 		checkinRepo := checkin.NewPostgresRepository(deps.Pool)
-		checkinSvc := checkin.NewService(checkinRepo, aiProvider, deps.Logger)
+		var aiBudget shared.AIBudget
+		if deps.Limiter != nil && deps.Config.AIDailyLimit > 0 {
+			aiBudget = cache.NewDailyAIBudget(deps.Limiter, deps.Config.AIDailyLimit, deps.Logger)
+		}
+
+		checkinSvc := checkin.NewService(checkinRepo, aiProvider, deps.Logger).WithAIBudget(aiBudget)
 		if deps.Clock != nil {
 			checkinSvc.WithClock(deps.Clock)
 		}
@@ -139,7 +144,7 @@ func NewHandler(deps Dependencies) http.Handler {
 		checkin.RegisterRoutes(apiMux, checkinHandler, authMW, aiRateLimitMW, checkinIdemMW)
 
 		winsRepo := wins.NewPostgresRepository(deps.Pool)
-		winsSvc := wins.NewService(winsRepo, aiProvider, deps.Logger)
+		winsSvc := wins.NewService(winsRepo, aiProvider, deps.Logger).WithAIBudget(aiBudget)
 		if deps.Clock != nil {
 			winsSvc.WithClock(deps.Clock)
 		}

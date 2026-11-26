@@ -1,11 +1,22 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kindling — Small sparks, steady fire.</title>
+    <script>
+      // Apply the theme before first paint so dark mode never flashes white.
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem('kindling:theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.dataset.theme = t;
+      })();
+    </script>
+    <title>Kindling: small sparks, steady fire</title>
   </head>
-  <body class="bg-cream text-ink antialiased selection:bg-lime selection:text-ink">
+  <body class="bg-cream text-ink antialiased selection:bg-lime selection:text-[#1f1b3a]">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

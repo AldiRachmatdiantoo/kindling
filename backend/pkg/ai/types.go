@@ -36,13 +36,6 @@ type CopeOption struct {
 	Guidance          string `json:"guidance"`
 }
 
-// WinsTitles holds the 3 initial daily win titles generated for a check-in.
-type WinsTitles struct {
-	Physical string `json:"physical"`
-	Work     string `json:"work"`
-	Soul     string `json:"soul"`
-}
-
 // CheckinInput contains ONLY non-PII calibration inputs sent to the AI layer (PRD §8.2).
 type CheckinInput struct {
 	Scores          Scores
@@ -55,13 +48,17 @@ type CheckinInput struct {
 type CheckinOutput struct {
 	DiagnosticSummary string       `json:"diagnostic_summary"`
 	CopeOptions       []CopeOption `json:"cope_options"`
-	Wins              WinsTitles   `json:"wins"`
+	Wins              WinsPlan     `json:"wins"`
 }
 
 // SliceTaskInput contains input for AI Task Slicer (PRD §7.4, §8.1).
 type SliceTaskInput struct {
 	CalibrationTier CalibrationTier
 	MainTask        string
+	// PreviousStep is the micro-step the user just finished; empty for the first slice.
+	PreviousStep string
+	// StepNumber is 1 for the first slice, 2 for the step after it, and so on.
+	StepNumber int
 }
 
 // SliceTaskOutput is the structured AI response for POST /wins/{date}/slice-task.

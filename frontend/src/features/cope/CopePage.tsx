@@ -1,32 +1,31 @@
-import { ArrowRight, CheckCircle2, Clock, Leaf, PenLine, Play, Timer, Wind } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Info,
+  Clock,
+  Leaf,
+  PenLine,
+  Play,
+  Timer,
+  Wind,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../api/client';
 import { checkinApi } from '../../api/endpoints';
-import type { CalibrationTier, CopeOption, DailyLog } from '../../api/types';
-import { BreathingPacer } from '../../components/BreathingPacer';
-import { CountdownTimer } from '../../components/CountdownTimer';
+import type { CopeOption, DailyLog } from '../../api/types';
+import { CheckinPending } from '../../components/CheckinPending';
+import { FocusRoom } from '../../components/FocusRoom';
 import { DisclaimerBanner } from '../../components/DisclaimerBanner';
-import { GuidedBrainDump } from '../../components/GuidedBrainDump';
+import { FeatureTip } from '../../components/FeatureTip';
+import { Mascot } from '../../components/Mascot';
 import { SafetyBanner } from '../../components/SafetyBanner';
-
-const TIER_META: Record<CalibrationTier, { label: string; badgeClass: string; desc: string }> = {
-  gentle: {
-    label: 'Gentle Mode',
-    badgeClass: 'bg-sky',
-    desc: 'Target diperkecil semaksimal mungkin agar sistem sarafmu bisa pulih.',
-  },
-  balanced: {
-    label: 'Balanced Mode',
-    badgeClass: 'bg-lavender',
-    desc: 'Target ringan-sedang untuk menjaga ritme tanpa memicu kelelahan.',
-  },
-  standard: {
-    label: 'Standard Mode',
-    badgeClass: 'bg-mint',
-    desc: 'Energimu cukup stabil untuk melangkah dengan target harian normal.',
-  },
-};
+import { moodGreeting, TIER_META, TIER_MOOD } from '../today/tier';
+import { useTodayStatus } from '../today/TodayStatus';
+import { skipRecovery } from '../today/recovery';
+import { aiNoteText } from '../today/aiNote';
+import { PageLoading } from '../../components/PageLoading';
+import { Button } from '@/components/watermelon-ui/button';
 
 const TOOL_ICON = {
   breathing: Wind,
@@ -37,12 +36,14 @@ const TOOL_ICON = {
 const COPE_CARD_BG = ['bg-mint', 'bg-lavender', 'bg-sky'];
 
 export function CopePage() {
+  const { setStatus, reportLog } = useTodayStatus();
   const location = useLocation();
   const navigate = useNavigate();
   const initialLog = (location.state as { dailyLog?: DailyLog } | null)?.dailyLog ?? null;
 
   const [dailyLog, setDailyLog] = useState<DailyLog | null>(initialLog);
   const [loading, setLoading] = useState(!initialLog);
+  const [pending, setPending] = useState(false);
   const [activeOption, setActiveOption] = useState<CopeOption | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +51,9 @@ export function CopePage() {
   useEffect(() => {
     if (dailyLog) {
       if (dailyLog.positive_cope_chosen && !activeOption) {
-        const matched = dailyLog.cope_options.find((c) => c.title === dailyLog.positive_cope_chosen);
+        const matched = dailyLog.cope_options.find(
+          (c) => c.title === dailyLog.positive_cope_chosen,
+        );
         if (matched) setActiveOption(matched);
       }
       return;
@@ -62,6 +65,7 @@ export function CopePage() {
       .then((log) => {
         if (!active) return;
         setDailyLog(log);
+        reportLog(log);
         if (log.positive_cope_chosen) {
           const matched = log.cope_options.find((c) => c.title === log.positive_cope_chosen);
           if (matched) setActiveOption(matched);
@@ -70,10 +74,11 @@ export function CopePage() {
       .catch((err) => {
         if (!active) return;
         if (err instanceof ApiError && err.status === 404) {
-          navigate('/checkin', { replace: true });
+          setPending(true);
+          setStatus('open');
           return;
         }
-        setError('Gagal memuat hasil check-in hari ini.');
+        setError("We couldn't load today's check-in results.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -82,7 +87,18 @@ export function CopePage() {
     return () => {
       active = false;
     };
-  }, [dailyLog, activeOption, navigate]);
+  }, [dailyLog, activeOption, setStatus, reportLog]);
+
+  // After a pick, bring the tool into view: on a phone it opens below the fold.
+  const toolRef = useRef<HTMLDivElement>(null);
+  const [pickCount, setPickCount] = useState(0);
+  const [roomOpen, setRoomOpen] = useState(false);
+  const openRoomRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (pickCount === 0) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    toolRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  }, [pickCount]);
 
   const handleChooseCope = async (option: CopeOption) => {
     if (!dailyLog) return;
@@ -91,31 +107,43 @@ export function CopePage() {
     try {
       const res = await checkinApi.chooseCope(dailyLog.log_date, option.id);
       setDailyLog((prev) =>
-        prev ? { ...prev, positive_cope_chosen: res.positive_cope_chosen } : prev
+        prev ? { ...prev, positive_cope_chosen: res.positive_cope_chosen } : prev,
       );
       setActiveOption(option);
+      setPickCount((n) => n + 1);
+      setRoomOpen(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Gagal menyimpan pilihan cope.');
+      setError(err instanceof ApiError ? err.message : "We couldn't save that pick. Try again?");
     } finally {
       setSavingId(null);
     }
   };
 
   if (loading) {
+    return <PageLoading testId="cope-loading" />;
+  }
+
+  if (pending) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center" data-testid="cope-loading">
-        <div className="k-spinner" />
-      </div>
+      <CheckinPending
+        title="Your Energy Map for Today"
+        unlocks="Your energy map and 3 recovery picks are built from your check-in answers."
+        testId="cope-pending"
+      />
     );
   }
 
   if (!dailyLog) {
     return (
-      <div className="k-card mx-auto max-w-md p-8 text-center">
-        <p className="text-sm text-ink-soft">{error || 'Belum ada check-in untuk hari ini.'}</p>
-        <Link to="/checkin" className="k-btn-primary mt-5">
-          Mulai Check-In
-        </Link>
+      <div
+        className="k-error mx-auto max-w-md p-6 text-center"
+        data-testid="cope-load-error"
+        role="alert"
+      >
+        <p>{error || "Today's results aren't loading right now."}</p>
+        <Button onClick={() => window.location.reload()} variant="secondary" className="mt-4">
+          Reload
+        </Button>
       </div>
     );
   }
@@ -126,28 +154,28 @@ export function CopePage() {
       key: 'physical_exhaustion',
       label: 'Physical Exhaustion',
       value: dailyLog.scores.physical_exhaustion,
-      hint: 'Makin tinggi = makin lelah',
+      hint: 'Higher = more tired',
       barColor: 'bg-primary',
     },
     {
       key: 'work_exhaustion',
       label: 'Work Exhaustion',
       value: dailyLog.scores.work_exhaustion,
-      hint: 'Makin tinggi = makin terkuras',
+      hint: 'Higher = more drained',
       barColor: 'bg-lavender-strong',
     },
     {
       key: 'disengagement',
       label: 'Disengagement',
       value: dailyLog.scores.disengagement,
-      hint: 'Makin tinggi = makin berjarak',
+      hint: 'Higher = more checked out',
       barColor: 'bg-lime-dark',
     },
     {
       key: 'soul_wellbeing',
       label: 'Soul Well-Being',
       value: dailyLog.scores.soul_wellbeing,
-      hint: 'Makin tinggi = makin baik',
+      hint: 'Higher = better',
       barColor: 'bg-mint-strong',
     },
   ];
@@ -156,25 +184,58 @@ export function CopePage() {
     <div className="space-y-8">
       {dailyLog.safety_flag && <SafetyBanner />}
 
+      {/* Only the fresh check-in response carries a note; a reload drops it, which is fine. */}
+      {aiNoteText(initialLog?.ai_note) && (
+        <div
+          className="flex items-start gap-2.5 rounded-2xl border-[1.5px] border-ink bg-sky px-4 py-3 text-sm text-ink"
+          role="status"
+          data-testid="ai-note"
+        >
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{aiNoteText(initialLog?.ai_note)}</span>
+        </div>
+      )}
+
       <section className="k-card space-y-4 p-6 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold text-ink-faint">Hasil Kalibrasi · {dailyLog.log_date}</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink">Peta Energimu Hari Ini</h1>
+          <div className="flex items-end gap-3">
+            <Mascot
+              mood={TIER_MOOD[dailyLog.calibration_tier]}
+              className="k-pop h-20 w-16 shrink-0"
+            />
+            <div>
+              <p className="text-xs font-semibold text-ink-faint">
+                Your results · {dailyLog.log_date}
+              </p>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink">
+                Your Energy Map for Today
+              </h1>
+            </div>
           </div>
-          <span
-            className={`k-chip ${tierInfo.badgeClass}`}
-            data-testid="calibration-tier-badge"
-          >
-            <Leaf className="h-3.5 w-3.5" />
+          <span className={`k-chip ${tierInfo.badgeClass}`} data-testid="calibration-tier-badge">
+            <Leaf className="h-3.5 w-3.5" aria-hidden="true" />
             {tierInfo.label}
           </span>
         </div>
 
+        <p
+          className="max-w-3xl font-serif text-lg leading-snug font-semibold text-ink sm:text-xl"
+          data-testid="mood-greeting"
+        >
+          {moodGreeting(dailyLog.calibration_tier, dailyLog.scores)}
+        </p>
         <p className="max-w-3xl text-sm leading-relaxed text-ink" data-testid="diagnostic-summary">
           {dailyLog.diagnostic_summary}
         </p>
         <p className="text-xs text-ink-soft">{tierInfo.desc}</p>
+
+        <FeatureTip id="cope-map" title="How to read your energy map" mood="calm">
+          <p>
+            Each bar is one part of how you're doing today. For the first three, a higher number
+            means more worn out. For Soul Well-Being, higher is better. The mode badge up top tells
+            you how big today's goals will be.
+          </p>
+        </FeatureTip>
 
         <div className="grid grid-cols-2 gap-3 pt-1 lg:grid-cols-4">
           {scoreCards.map((item) => (
@@ -184,10 +245,12 @@ export function CopePage() {
               data-testid={`score-${item.key}`}
             >
               <span className="block text-xs font-semibold text-ink-soft">{item.label}</span>
-              <span className="mt-1 block font-serif text-3xl font-bold text-ink">{item.value}</span>
+              <span className="mt-1 block font-serif text-3xl font-bold text-ink">
+                {item.value}
+              </span>
               <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink/10">
                 <div
-                  className={`h-full rounded-full ${item.barColor}`}
+                  className={`k-bar h-full rounded-full ${item.barColor}`}
                   style={{ width: `${Math.min(100, Math.max(0, item.value))}%` }}
                 />
               </div>
@@ -200,16 +263,34 @@ export function CopePage() {
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold text-ink-faint">Choose Your Own Positive Cope</p>
-            <h2 className="mt-0.5 text-2xl font-bold text-ink">Pilih 1 Momen Pemulihan</h2>
+            <p className="text-xs font-semibold text-ink-faint">Choose your own positive cope</p>
+            <h2 className="mt-0.5 text-2xl font-bold text-ink">Pick 1 recovery moment</h2>
             <p className="mt-1 text-sm text-ink-soft">
-              Pulihkan sistem sarafmu dulu — atau langsung lanjut ke 3 Daily Wins jika sudah siap.
+              {dailyLog.positive_cope_chosen
+                ? 'Your 3 Daily Wins are open. Come back to this moment any time today.'
+                : 'Settle your nervous system first. Your 3 Daily Wins open after one recovery moment.'}
             </p>
           </div>
-          <Link to="/wins" data-testid="skip-to-wins" className="k-btn-secondary">
-            Lewati &amp; Lanjut ke 3 Wins
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          {dailyLog.positive_cope_chosen ? (
+            <Button asChild variant="secondary">
+              <Link to="/wins" data-testid="skip-to-wins">
+                Go to my 3 Wins
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="skip-recovery"
+              onClick={() => {
+                skipRecovery(dailyLog.log_date);
+                navigate('/wins');
+              }}
+            >
+              Not today? Skip recovery
+            </Button>
+          )}
         </div>
 
         {error && (
@@ -217,6 +298,13 @@ export function CopePage() {
             {error}
           </div>
         )}
+
+        <FeatureTip id="cope-pick" title="Pick whatever feels good right now">
+          <p>
+            Tap any card to pick it, and it opens in a quiet full-screen room, ready to go. Changed
+            your mind? Close it and tap another one. They're all short, so there's no wrong choice.
+          </p>
+        </FeatureTip>
 
         <div className="grid gap-3 md:grid-cols-3">
           {dailyLog.cope_options.map((option, index) => {
@@ -233,19 +321,19 @@ export function CopePage() {
                 onClick={() => handleChooseCope(option)}
                 data-testid={`cope-card-${option.id}`}
                 aria-pressed={isSelected}
-                className={`flex flex-col justify-between gap-4 rounded-3xl border-[1.5px] border-ink p-5 text-left transition-transform hover:-translate-y-0.5 disabled:cursor-wait ${
+                className={`k-press flex flex-col justify-between gap-4 rounded-3xl border-[1.5px] border-ink p-5 text-left disabled:cursor-wait ${
                   COPE_CARD_BG[index % COPE_CARD_BG.length]
                 } ${isSelected ? 'ring-4 ring-primary/40' : ''}`}
               >
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2">
                     <span className="k-chip capitalize">
-                      <Icon className="h-3.5 w-3.5" />
+                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                       {option.brief_cope_category.replace(/_/g, ' ')}
                     </span>
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-ink-soft">
-                      <Clock className="h-3.5 w-3.5" />
-                      {minutes} mnt
+                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                      {minutes} min
                     </span>
                   </div>
                   <h3 className="text-xl leading-snug font-bold text-ink">{option.title}</h3>
@@ -254,17 +342,17 @@ export function CopePage() {
 
                 <div className="flex items-center justify-between text-sm font-bold">
                   {savingId === option.id ? (
-                    <span className="text-ink-soft">Menyimpan...</span>
+                    <span className="text-ink-soft">Saving...</span>
                   ) : isSelected ? (
                     <span className="inline-flex items-center gap-1.5 text-ink">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Dipilih hari ini
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                      Picked for today
                     </span>
                   ) : (
-                    <span className="text-ink-soft">Pilih &amp; jalankan</span>
+                    <span className="text-ink-soft">Pick and start</span>
                   )}
                   <span className="flex h-10 w-10 items-center justify-center rounded-full border-[1.5px] border-ink bg-lime">
-                    <Play className="h-4 w-4" />
+                    <Play className="h-4 w-4" aria-hidden="true" />
                   </span>
                 </div>
               </button>
@@ -273,28 +361,41 @@ export function CopePage() {
         </div>
 
         {activeOption && (
-          <div className="pt-2" data-testid="active-cope-tool">
-            {activeOption.tool_type === 'breathing' && (
-              <BreathingPacer
-                durationSeconds={activeOption.duration_seconds}
-                guidance={activeOption.guidance}
-              />
-            )}
-            {activeOption.tool_type === 'timer' && (
-              <CountdownTimer
-                durationSeconds={activeOption.duration_seconds}
-                title={activeOption.title}
-                subtitle={activeOption.guidance}
-                testIdPrefix="cope-activity"
-              />
-            )}
-            {activeOption.tool_type === 'brain_dump' && (
-              <GuidedBrainDump
-                durationSeconds={activeOption.duration_seconds}
-                guidance={activeOption.guidance}
-              />
-            )}
+          <div
+            ref={toolRef}
+            className="flex scroll-mt-28 flex-wrap items-center justify-between gap-3 rounded-3xl border-[1.5px] border-ink bg-surface p-5"
+            data-testid="active-cope-tool"
+          >
+            <div className="flex items-center gap-3">
+              <Mascot mood="calm" className="h-14 w-12 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-ink-faint">Your recovery moment</p>
+                <p className="font-serif text-lg font-bold text-ink">{activeOption.title}</p>
+                <p className="text-xs text-ink-soft">
+                  Your timer keeps going even if you close the room.
+                </p>
+              </div>
+            </div>
+            <Button
+              ref={openRoomRef}
+              onClick={() => setRoomOpen(true)}
+              data-testid="open-focus-room"
+            >
+              <Play className="h-4 w-4" aria-hidden="true" />
+              Open focus room
+            </Button>
           </div>
+        )}
+        {activeOption && roomOpen && (
+          <FocusRoom
+            option={activeOption}
+            persistKey={`${dailyLog.log_date}:cope:${activeOption.id}`}
+            onClose={() => {
+              setRoomOpen(false);
+              // The picked card was disabled while saving, so focus returns here instead.
+              window.requestAnimationFrame(() => openRoomRef.current?.focus());
+            }}
+          />
         )}
       </section>
 

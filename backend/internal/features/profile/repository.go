@@ -2,6 +2,7 @@ package profile
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/kindling/backend/internal/database"
 	"github.com/kindling/backend/internal/database/sqlc"
 	"github.com/kindling/backend/internal/shared"
+	"github.com/kindling/backend/pkg/ai"
 )
 
 const dbQueryTimeout = 3 * time.Second
@@ -28,6 +30,7 @@ type HeatmapData struct {
 type Repository interface {
 	GetUserTimezone(ctx context.Context, userID uuid.UUID) (string, error)
 	GetHeatmapAndMilestones(ctx context.Context, userID uuid.UUID, fromDate, toDate time.Time) (HeatmapData, error)
+	GetInsightDays(ctx context.Context, userID uuid.UUID, fromDate, toDate time.Time) ([]InsightDay, error)
 }
 
 // PostgresRepository implements Repository using pgxpool + sqlc with mandatory RLS via WithUserTx.
@@ -85,4 +88,50 @@ func (r *PostgresRepository) GetHeatmapAndMilestones(ctx context.Context, userID
 		return HeatmapData{}, err
 	}
 	return data, nil
+}
+
+// GetInsightDays reads the check-ins Pattern Discovery works from, oldest first, under RLS.
+func (r *PostgresRepository) GetInsightDays(ctx context.Context, userID uuid.UUID, fromDate, toDate time.Time) ([]InsightDay, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, dbQueryTimeout)
+	defer cancel()
+
+	var out []InsightDay
+	err := database.WithUserTx(dbCtx, r.pool, userID, func(q *sqlc.Queries) error {
+		rows, err := q.GetInsightDays(dbCtx, sqlc.GetInsightDaysParams{
+			UserID:    userID,
+			LogDate:   pgtype.Date{Time: fromDate, Valid: true},
+			LogDate_2: pgtype.Date{Time: toDate, Valid: true},
+		})
+		if err != nil {
+			return fmt.Errorf("get insight days: %w", err)
+		}
+		out = make([]InsightDay, 0, len(rows))
+		for _, row := range rows {
+			var scores ai.Scores
+			if err := json.Unmarshal(row.Scores, &scores); err != nil {
+				continue // a malformed row is skipped rather than failing the whole profile
+			}
+			var wins struct {
+				Work struct {
+					Completed bool `json:"completed"`
+				} `json:"work"`
+			}
+			_ = json.Unmarshal(row.WinsData, &wins)
+			day := InsightDay{
+				Date:      row.LogDate.Time,
+				Scores:    scores,
+				WinsCount: int(row.WinsCompletedCount),
+				WorkDone:  wins.Work.Completed,
+			}
+			if row.PositiveCopeChosen.Valid {
+				day.Cope = row.PositiveCopeChosen.String
+			}
+			out = append(out, day)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }

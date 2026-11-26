@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: { '@': '/src' },
+    },
     server: {
       port: 5173,
       proxy: {

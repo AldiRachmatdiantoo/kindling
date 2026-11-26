@@ -6,6 +6,7 @@ import { RegisterPage } from './features/auth/RegisterPage';
 import { GuestRoute, ProtectedRoute } from './features/auth/RouteGuards';
 import { CheckinPage } from './features/checkin/CheckinPage';
 import { CopePage } from './features/cope/CopePage';
+import { HomeRedirect } from './features/home/HomeRedirect';
 import { ProfilePage } from './features/profile/ProfilePage';
 import { WinsPage } from './features/wins/WinsPage';
 
@@ -20,6 +21,7 @@ export function App() {
           </Route>
 
           <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<HomeRedirect />} />
             <Route element={<AppShell />}>
               <Route path="/checkin" element={<CheckinPage />} />
               <Route path="/cope" element={<CopePage />} />
@@ -28,8 +30,7 @@ export function App() {
             </Route>
           </Route>
 
-          <Route path="/" element={<Navigate to="/checkin" replace />} />
-          <Route path="*" element={<Navigate to="/checkin" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

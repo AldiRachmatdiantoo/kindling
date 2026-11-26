@@ -1,0 +1,361 @@
+/*
+  "Still too heavy" (shrink) and the Task Slicer (slice) moment. The stage is always dark, like
+  the celebration, so the card colors and text contrast stay fixed in both themes. Only
+  transform, opacity and clip-path animate.
+*/
+.tm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: #15132a;
+  color: #f1efff;
+  animation: tm-fade-in 200ms ease-out both;
+}
+/* The container only holds focus while the request runs; it is not a control. */
+.tm-overlay:focus {
+  outline: none;
+}
+.tm-overlay.tm-out {
+  animation: tm-fade-out 220ms ease-in forwards;
+}
+
+.tm-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 320px;
+  max-width: 100%;
+  height: 270px;
+}
+.tm-stage > * {
+  grid-area: 1 / 1;
+}
+
+.tm-card {
+  width: 280px;
+  max-width: calc(100vw - 48px);
+  padding: 18px 20px;
+  border: 1.5px solid #1f1b3a;
+  border-radius: 22px;
+  box-shadow: 0 4px 0 #1f1b3a;
+  color: #1f1b3a;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: left;
+  will-change: transform, opacity;
+}
+
+/* ---------- shrink ---------- */
+.tm-squeeze {
+  animation: tm-squeeze 1400ms ease-in-out infinite;
+}
+.tm-feather {
+  position: absolute;
+  bottom: 18%;
+  width: 20px;
+  height: 20px;
+  color: #e6f04a;
+  opacity: 0;
+  animation: tm-float 1.9s ease-out infinite;
+}
+.tm-shrunk {
+  text-decoration: line-through;
+  animation: tm-shrink-away 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.tm-shrink .tm-result {
+  width: 228px;
+  font-size: 16px;
+  animation: tm-pop-small 1000ms cubic-bezier(0.22, 1, 0.36, 1) 700ms both;
+}
+
+/* ---------- slice ---------- */
+.tm-left {
+  clip-path: inset(0 50% 0 0);
+}
+.tm-right {
+  clip-path: inset(0 0 0 50%);
+}
+.tm-slice .tm-from:not(.tm-apart) {
+  animation: tm-tremble 1.5s ease-in-out infinite;
+}
+.tm-blade {
+  position: relative;
+  width: 280px;
+  max-width: calc(100vw - 48px);
+  height: 100%;
+  pointer-events: none;
+}
+.tm-blade::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: linear-gradient(transparent, #e6f04a 30%, #e6f04a 70%, transparent);
+  transform-origin: top;
+  animation: tm-cut-line 1.5s ease-in-out infinite;
+}
+.tm-scissors {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  color: #e6f04a;
+  animation: tm-cut 1.5s ease-in-out infinite;
+}
+.tm-left.tm-apart {
+  animation: tm-apart-left 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.tm-right.tm-apart {
+  animation: tm-apart-right 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.tm-slice .tm-result {
+  width: 250px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  animation: tm-rise 1000ms cubic-bezier(0.22, 1, 0.36, 1) 700ms both;
+}
+
+.tm-label {
+  display: table;
+  margin-bottom: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #1f1b3a;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ---------- text and button ---------- */
+.tm-note {
+  display: flex;
+  max-width: 320px;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1.5px solid #4a4670;
+  border-radius: 14px;
+  background: #221f3d;
+  color: #f1efff;
+  font-size: 13px;
+  line-height: 1.4;
+  animation: tm-rise 400ms cubic-bezier(0.22, 1, 0.36, 1) 1300ms both;
+}
+.tm-note-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: #e6f04a;
+}
+.tm-status {
+  max-width: 320px;
+  min-height: 2.6em;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}
+.tm-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.tm-btn {
+  min-height: 48px;
+  padding: 0 26px;
+  border: 0;
+  border-radius: 999px;
+  background: #e6f04a;
+  box-shadow: 0 4px 0 #a3ab1f;
+  color: #1f1b3a;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  animation: tm-rise 500ms cubic-bezier(0.22, 1, 0.36, 1) 1600ms both;
+}
+.tm-btn:hover {
+  background: #eef46e;
+}
+.tm-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #a3ab1f;
+}
+.tm-btn:focus-visible {
+  outline: 3px solid #f1efff;
+  outline-offset: 3px;
+}
+
+/* ---------- keyframes ---------- */
+@keyframes tm-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes tm-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes tm-squeeze {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.9, 0.84);
+  }
+}
+@keyframes tm-float {
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-130px) rotate(40deg);
+  }
+}
+@keyframes tm-shrink-away {
+  to {
+    opacity: 0.35;
+    transform: translateY(-104px) scale(0.5);
+  }
+}
+@keyframes tm-pop-small {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.4);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(24px) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(24px) scale(1);
+  }
+}
+@keyframes tm-tremble {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  45% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-2px);
+  }
+  55% {
+    transform: translateX(2px);
+  }
+  60% {
+    transform: translateX(0);
+  }
+}
+@keyframes tm-cut-line {
+  0% {
+    opacity: 1;
+    transform: scaleY(0);
+  }
+  70% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(1);
+  }
+}
+@keyframes tm-cut {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) rotate(90deg);
+  }
+  15% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(240px) rotate(90deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(240px) rotate(90deg);
+  }
+}
+@keyframes tm-apart-left {
+  55% {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 0;
+    transform: translate(-90px, -40px) rotate(-14deg) scale(0.8);
+  }
+}
+@keyframes tm-apart-right {
+  55% {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 0;
+    transform: translate(90px, -40px) rotate(14deg) scale(0.8);
+  }
+}
+@keyframes tm-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-overlay,
+  .tm-overlay * {
+    animation: none !important;
+  }
+  .tm-feather,
+  .tm-blade {
+    display: none;
+  }
+  .tm-shrunk,
+  .tm-apart {
+    opacity: 0;
+  }
+}
+
+/* The reserved scrollbar gutter sits outside the fixed overlay; paint it to match. */
+html:has(.tm-overlay) {
+  background-color: #15132a;
+}

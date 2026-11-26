@@ -51,6 +51,9 @@ export type Pillar = 'physical' | 'work' | 'soul';
 
 export type HeatmapLevel = 'rest' | 'recovery' | 'steady' | 'complete';
 
+/** Set when a simpler template replaced the AI answer: today's cap was reached, or the AI failed. */
+export type AINote = 'daily_limit' | 'unavailable';
+
 export interface CheckinAnswers {
   cbi_1: number;
   cbi_2: number;
@@ -81,6 +84,12 @@ export interface CopeOption {
 
 export interface WinItem {
   title: string;
+  /** Why this win fits today, quoting the matching check-in score. Missing on older logs. */
+  why_this?: string;
+  /** Two concrete micro-steps to start without deciding anything. Missing on older logs. */
+  steps?: string[];
+  /** Length of the activity timer; null once the goal was made smaller. */
+  duration_seconds?: number | null;
   level: number;
   completed: boolean;
 }
@@ -89,6 +98,8 @@ export interface WorkWinItem extends WinItem {
   main_task: string | null;
   micro_step: string | null;
   duration_seconds: number | null;
+  /** Micro-steps already finished on this task before the current one. */
+  steps_done?: number;
 }
 
 export interface WinsData {
@@ -108,12 +119,16 @@ export interface DailyLog {
   positive_cope_chosen: string | null;
   wins_data: WinsData;
   wins_completed_count: number;
+  /** Only on the check-in response. */
+  ai_note?: AINote;
 }
 
 export interface SliceTaskData {
   main_task: string;
   micro_step: string;
   duration_seconds: number;
+  steps_done: number;
+  ai_note?: AINote;
 }
 
 export interface RecalibrateData {
@@ -121,6 +136,7 @@ export interface RecalibrateData {
   new_title: string;
   level: number;
   duration_seconds?: number;
+  ai_note?: AINote;
 }
 
 export interface ToggleWinData {
@@ -152,4 +168,20 @@ export interface HeatmapData {
   range: HeatmapRange;
   milestones: ProfileMilestones;
   days: HeatmapDay[];
+}
+
+/** One pattern found in the user's own check-ins, with the evidence size behind it. */
+export interface Insight {
+  id: string;
+  kind: 'weekday_peak' | 'cope_next_day' | 'exhaustion_trend' | 'recovery_days' | string;
+  headline: string;
+  detail: string;
+  sample_size: number;
+}
+
+export interface InsightsData {
+  window_days: number;
+  days_analyzed: number;
+  min_days: number;
+  insights: Insight[];
 }

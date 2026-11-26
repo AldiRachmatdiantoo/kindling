@@ -88,3 +88,21 @@ Ganti ☐ menjadi ☑ setelah **Definition of Done** modul (PRD §9) terpenuhi.
   - *Konten:* "4-7-8" ≠ "Physiological Sigh"; "Emotional Regulation" bukan subskala Brief-COPE; Lally 2010 = median, bukan rata-rata.
   - *Gap lain yang ditutup:* bank pertanyaan & nilai preset, envelope error + kode, batas panjang input, validasi tanggal + kolom `timezone`, kebijakan re-check-in, deteksi krisis + disclaimer, privasi log, `openapi.yaml` (dibutuhkan ZAP), runner migrasi, env vars, trigger `updated_at`, penghapusan `pgcrypto` yang tidak terpakai.
 - **26 Nov 2026 (Modul 6)** — Upgrade runtime base `frontend/Dockerfile` dari `nginx:1.27-alpine` (Alpine 3.21.3, 70 CVE HIGH/CRITICAL di Trivy) ke `nginx:stable-alpine-slim` (Alpine 3.24.4, 0 CVE HIGH/CRITICAL di Trivy) + tambah `.dockerignore`. Di `deploy/zap/zap-rules.tsv`, rule `40026` (DOM XSS browser-based) diset `IGNORE` karena tidak relevan pada endpoint JSON API dan memicu timeout headless Firefox.
+
+---
+
+## Catatan Pasca-Modul (26 Nov 2026, branch `feat/friendly-wins-celebration-fixes`)
+
+Fitur tambahan setelah Modul 1–6 (sesudah commit `7f33cdb`):
+
+- **Pattern Discovery** — `GET /api/v1/profile/insights` (`profile/insights.go`): membaca check-in 90 hari terakhir, minimal 7 hari data, maksimal 3 insight (`weekday_peak`, `cope_next_day`, `exhaustion_trend`, `recovery_days`), tiap insight menyertakan `sample_size`. Frontend: `PatternDiscovery.tsx`. Seed demo 30 hari: `backend/cmd/seed/`.
+- **Kartu 3 Wins ringkas** — detail (cara mulai, timer, slicer) disembunyikan di balik toggle `win-details-toggle-*`; timer tetap berjalan saat ditutup.
+- **Wins terkunci sampai recovery** — Wins baru terbuka setelah memilih positive cope, atau user menekan "Skip recovery" (disimpan di localStorage `kindling:recovery-skipped:<date>`).
+- **Slicer bertahap** — `POST /wins/{date}/slice-task` menerima `next_step: true`; server membaca `micro_step`/`main_task` tersimpan (tidak percaya klien), respons menambah `steps_done`. `WorkWinItem.steps_done` disimpan di `wins_data`.
+- **Pop-up animasi** — `TaskMorphOverlay.tsx` + `task-morph.css`: animasi "mengecilkan" (Still too heavy) dan "slicing", menunggu request selesai, tertutup hanya saat user menekan tombol. Menghormati `prefers-reduced-motion`.
+- **Gemini** — `thinkingBudget: 0` untuk 2.5-flash, aturan bahasa (selalu English), prompt slicer/recalibrate diperketat; durasi Work hasil recalibrate dibatasi 300/180/60 detik (`capWorkDuration`).
+- **Batas AI harian** — `AI_DAILY_LIMIT` (default 30, `0` = tanpa batas) per user per hari lokal, kunci Redis `rl:aiday:<user>:<date>`, fail-open bila Redis error. Melewati batas atau Gemini gagal → template fallback + field `ai_note` (`daily_limit` / `unavailable`) pada respons check-in, slice-task, dan recalibrate; frontend menampilkan pesan ramah di pop-up dan banner halaman Cope.
+
+**Tertunda:** `backend/api/openapi.yaml` belum memuat `/profile/insights`, `next_step`, `steps_done`, dan `ai_note`. Banner `ai_note` di halaman Cope belum dicek visual.
+
+**Test:** `go test ./...` (integration: `TESTCONTAINERS_RYUK_DISABLED=true`), `npx vitest run` (32/32), E2E `E2E_BASE_URL=http://localhost:5173 npx playwright test` dengan `AI_PROVIDER=mock` (3/3).

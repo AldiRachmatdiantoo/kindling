@@ -55,6 +55,10 @@ func (s *stubRepo) GetHeatmapAndMilestones(_ context.Context, _ uuid.UUID, fromD
 	return s.data, nil
 }
 
+func (s *stubRepo) GetInsightDays(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]InsightDay, error) {
+	return nil, nil
+}
+
 func TestServiceGetHeatmap_TimezoneAndRange(t *testing.T) {
 	// 2026-11-26 20:00 UTC is 2026-11-27 03:00 in Asia/Jakarta, and 2026-11-26 15:00 in America/New_York.
 	utcNow := time.Date(2026, 11, 26, 20, 0, 0, 0, time.UTC)
