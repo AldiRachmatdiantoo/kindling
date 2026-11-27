@@ -55,11 +55,17 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-ai-consent').check();
     await page.getByTestId('register-submit').click();
 
-    // Redirects to /checkin
+    // A new account lands on the welcome screen first, then goes on to the check-in
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByTestId('welcome-title')).toContainText('Welcome to Kindling, Kindling');
+    await page.getByTestId('welcome-start').click();
     await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('checkin-form')).toBeVisible();
-    // A friendly intro explains the questions before the first one appears
-    await expect(page.getByTestId('checkin-intro')).toBeVisible();
+    // The check-in opens with a short guide: what it's for, the three pillars, how it ends
+    await page.getByTestId('checkin-guide-next').click();
+    await expect(page.getByTestId('checkin-guide-pillars').locator('li')).toHaveCount(3);
+    await page.getByTestId('checkin-guide-next').click();
+    await expect(page.getByTestId('checkin-start')).toBeVisible();
 
     // 2. Click Demo Preset A and submit
     await page.getByTestId('preset-a-button').click();
@@ -173,6 +179,17 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('today-summary')).toBeVisible();
     await expect(page.getByTestId('today-wins-count')).toContainText('3 / 3');
+
+    // 10. Signing back in opens on the welcome screen, which knows today is answered
+    await page.getByTestId('logout-button').click();
+    await expect(page).toHaveURL(/\/login$/);
+    await page.getByTestId('login-email').fill(email);
+    await page.getByTestId('login-password').fill('SafePassw0rd123!');
+    await page.getByTestId('login-submit').click();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByTestId('welcome-title')).toContainText('Welcome back');
+    await page.getByTestId('welcome-to-wins').click();
+    await expect(page).toHaveURL(/\/wins$/);
   });
 
   test('"Answer later" skips the check-in, lands on the dashboard, and the choice survives "/"', async ({
@@ -188,8 +205,9 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-ai-consent').check();
     await page.getByTestId('register-submit').click();
 
-    await expect(page).toHaveURL(/\/checkin$/);
-    await page.getByTestId('checkin-answer-later').click();
+    // "Answer later" right on the welcome screen
+    await expect(page).toHaveURL(/\/welcome$/);
+    await page.getByTestId('welcome-later').click();
 
     await expect(page).toHaveURL(/\/wins$/);
 
@@ -228,6 +246,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-ai-consent').check();
     await page.getByTestId('register-submit').click();
 
+    await expect(page).toHaveURL(/\/welcome$/);
+    await page.getByTestId('welcome-start').click();
     await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('checkin-form')).toBeVisible();
 

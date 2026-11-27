@@ -43,12 +43,12 @@ const PILLARS: Pillar[] = ['physical', 'work', 'soul'];
 function buildSteps(firstName: string): TourStep[] {
   return [
     {
-      title: `Hey ${firstName || 'there'}, welcome to Kindling!`,
+      title: `Nice work, ${firstName || 'friend'}! Here's your day`,
       mood: 'cheer',
       body: (
         <p>
-          I'm Ember. Around here we don't chase big goals. A better life gets built from small steps
-          that fit the energy you actually have today. Let me show you how it works. It only takes a
+          Around here we don't chase big goals. A better life gets built from small steps that fit
+          the energy you actually have today. Let me show you around your day. It only takes a
           minute.
         </p>
       ),

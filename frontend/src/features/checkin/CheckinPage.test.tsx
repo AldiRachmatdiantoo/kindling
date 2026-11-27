@@ -38,7 +38,7 @@ describe('CheckinPage keyboard navigation', () => {
   it('lets keyboard users navigate all Likert radio options without modal interception until Next', async () => {
     renderCheckin();
 
-    fireEvent.click(await screen.findByTestId('checkin-start'));
+    fireEvent.click(await screen.findByTestId('checkin-guide-skip'));
     expect(screen.getByTestId('checkin-step-label')).toHaveTextContent('1 of 9');
 
     const radios = screen.getAllByRole('radio');
@@ -64,11 +64,46 @@ describe('CheckinPage keyboard navigation', () => {
   it('opens the sympathy dialog immediately on pointer click of an option', async () => {
     renderCheckin();
 
-    fireEvent.click(await screen.findByTestId('checkin-start'));
+    fireEvent.click(await screen.findByTestId('checkin-guide-skip'));
     const label = screen.getByTestId(`answer-${CHECKIN_QUESTIONS[0].key}-2`);
     fireEvent.pointerDown(label);
     fireEvent.click(label);
 
     expect(screen.getByTestId('checkin-sympathy')).toBeInTheDocument();
   });
+
+  it('shares an early read after each pillar, then concludes the day before the last step', async () => {
+    renderCheckin();
+    fireEvent.click(await screen.findByTestId('checkin-guide-skip'));
+
+    const answerAndAdvance = (value: number) => {
+      fireEvent.click(screen.getAllByRole('radio')[value - 1]);
+      fireEvent.click(screen.getByTestId('checkin-next'));
+      fireEvent.click(screen.getByTestId('sympathy-next'));
+    };
+    const continueRead = async (pillar: string) => {
+      expect(screen.getByTestId(`checkin-reading-${pillar}`)).toBeInTheDocument();
+      fireEvent.click(await screen.findByTestId('reading-continue', {}, { timeout: 3000 }));
+    };
+
+    // Physical: 3 questions, all "Very much" tired
+    for (let i = 0; i < 3; i++) answerAndAdvance(4);
+    await continueRead('physical');
+    expect(screen.getByTestId('checkin-step-label')).toHaveTextContent('4 of 9');
+
+    // Work: 4 questions
+    for (let i = 0; i < 4; i++) answerAndAdvance(2);
+    await continueRead('work');
+
+    // Soul: 2 questions, then the conclusion
+    for (let i = 0; i < 2; i++) answerAndAdvance(3);
+    await continueRead('soul');
+    expect(screen.getByTestId('checkin-conclusion')).toBeInTheDocument();
+    // Physical exhaustion at 100 makes it a gentle day, same rule as the server
+    expect(await screen.findByTestId('conclusion-tier', {}, { timeout: 3000 })).toHaveTextContent(
+      'Gentle Mode',
+    );
+    fireEvent.click(screen.getByTestId('conclusion-continue'));
+    expect(screen.getByTestId('checkin-step-label')).toHaveTextContent('Last step');
+  }, 15000);
 });

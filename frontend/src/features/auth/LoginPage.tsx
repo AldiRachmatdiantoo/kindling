@@ -44,7 +44,8 @@ export function LoginPage() {
     try {
       const data = await authApi.login(parsed.data);
       setUser(data.user);
-      navigate(fromPath, { replace: true });
+      // Signing in opens on the welcome screen, unless the user was sent here from a page.
+      navigate(fromPath === '/' ? '/welcome' : fromPath, { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.details && typeof err.details === 'object') {

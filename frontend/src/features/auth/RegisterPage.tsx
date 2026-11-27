@@ -10,6 +10,7 @@ import { Button } from '@/components/watermelon-ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { markJustRegistered } from '../../utils/justRegistered';
 
 function detectTimezone(): string {
   try {
@@ -58,8 +59,10 @@ export function RegisterPage() {
     setSubmitting(true);
     try {
       const data = await authApi.register(parsed.data);
+      // A brand-new account meets Ember first, then goes on to the check-in from there.
+      markJustRegistered();
       setUser(data.user);
-      navigate('/checkin', { replace: true });
+      navigate('/welcome', { replace: true, state: { isNew: true } });
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.details && typeof err.details === 'object') {

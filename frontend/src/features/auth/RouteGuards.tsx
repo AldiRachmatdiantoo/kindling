@@ -49,7 +49,7 @@ function SessionUnreachable() {
 }
 
 export function ProtectedRoute() {
-  const { user, loading, unreachable } = useAuth();
+  const { user, loading, unreachable, signedOut } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -61,7 +61,9 @@ export function ProtectedRoute() {
   }
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    // A deliberate sign-out starts the next sign-in fresh (on the welcome screen); only a
+    // lapsed session remembers the page to return to.
+    return <Navigate to="/login" state={signedOut ? undefined : { from: location }} replace />;
   }
 
   return <Outlet />;
@@ -69,13 +71,17 @@ export function ProtectedRoute() {
 
 export function GuestRoute() {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <FullPageLoader />;
   }
 
+  // Signed in (just now, or already): go back to the page that sent the user to sign in,
+  // otherwise open on the welcome screen.
   if (user) {
-    return <Navigate to="/" replace />;
+    const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+    return <Navigate to={from && from !== '/' ? from : '/welcome'} replace />;
   }
 
   return <Outlet />;

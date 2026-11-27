@@ -5,10 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { ApiError, generateIdempotencyKey } from '../../api/client';
 import { checkinApi } from '../../api/endpoints';
 import { checkinSchema } from '../../api/schemas';
-import type { CheckinAnswers, DailyLog } from '../../api/types';
+import type { CheckinAnswers, DailyLog, Pillar } from '../../api/types';
 import { DisclaimerBanner } from '../../components/DisclaimerBanner';
 import { FeatureTip } from '../../components/FeatureTip';
-import type { MascotMood } from '../../components/Mascot';
+import { Mascot, type MascotMood } from '../../components/Mascot';
 import { MascotBubble } from '../../components/MascotBubble';
 import { MascotDialog } from '../../components/MascotDialog';
 import { PageLoading } from '../../components/PageLoading';
@@ -16,6 +16,7 @@ import { clearCheckinDefer, deferCheckin } from '../../utils/checkinDefer';
 import { getTodayInTimezone } from '../../utils/date';
 import { useAuth } from '../auth/AuthContext';
 import { TodayOverview } from '../today/TodayOverview';
+import { TIER_META } from '../today/tier';
 import { useTodayStatus } from '../today/TodayStatus';
 import {
   CHECKIN_QUESTIONS,
@@ -24,6 +25,14 @@ import {
   type CheckinQuestion,
   type DemoPreset,
 } from './constants';
+import { DayConclusion, PILLAR_META, PillarReading } from './CheckinReading';
+import {
+  PILLAR_ORDER,
+  PILLAR_QUESTION_COUNT,
+  pillarEndingAt,
+  previewScores,
+  previewTier,
+} from './reading';
 import { Button } from '@/components/watermelon-ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -33,6 +42,7 @@ import { Textarea } from '@/components/ui/textarea';
 const INITIAL_ANSWERS: Partial<CheckinAnswers> = {};
 const TOTAL_QUESTIONS = CHECKIN_QUESTIONS.length;
 const FINAL_STEP = TOTAL_QUESTIONS;
+const GUIDE_PAGES = 3;
 
 // Same signal colors as the score bars on the results page, so a dimension keeps its color.
 const DIMENSION_META: Record<CheckinQuestion['dimension'], { label: string; dot: string }> = {
@@ -94,6 +104,13 @@ export function CheckinPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [started, setStarted] = useState(false);
+  // The opening guide, a few short pages instead of one long bubble.
+  const [guidePage, setGuidePage] = useState(0);
+  const [guideDirection, setGuideDirection] = useState<'next' | 'prev'>('next');
+  // Between questions: an early read after each pillar, then the conclusion after the last.
+  const [interlude, setInterlude] = useState<
+    { kind: 'pillar'; pillar: Pillar } | { kind: 'summary' } | null
+  >(null);
   const [skipProgressTransition, setSkipProgressTransition] = useState(false);
   const [showSympathy, setShowSympathy] = useState(false);
   const sympathyNextRef = useRef<HTMLButtonElement>(null);
@@ -124,6 +141,11 @@ export function CheckinPage() {
     };
   }, [setStatus, reportLog, lookupAttempt]);
 
+  const turnGuidePage = (page: number) => {
+    setGuideDirection(page < guidePage ? 'prev' : 'next');
+    setGuidePage(page);
+  };
+
   const goToStep = (next: number) => {
     setSkipProgressTransition(false);
     setDirection(next < step ? 'prev' : 'next');
@@ -143,6 +165,7 @@ export function CheckinPage() {
     setFunCopeInput(preset.fun_cope_input);
     setFormError(null);
     setStarted(true);
+    setInterlude(null);
     setSkipProgressTransition(true);
     setDirection('next');
     setStep(FINAL_STEP);
@@ -156,7 +179,9 @@ export function CheckinPage() {
   const closeSympathy = (advance: boolean) => {
     setShowSympathy(false);
     if (advance) {
-      goToStep(step + 1);
+      const finishedPillar = pillarEndingAt(step);
+      if (finishedPillar) setInterlude({ kind: 'pillar', pillar: finishedPillar });
+      else goToStep(step + 1);
       return;
     }
     // Back to the chosen option so keyboard users keep their place.
@@ -247,6 +272,23 @@ export function CheckinPage() {
   const question = isFinal ? null : CHECKIN_QUESTIONS[step];
   const selected = question ? answers[question.key] : undefined;
   const progress = isFinal ? 100 : Math.round(((step + 1) / TOTAL_QUESTIONS) * 100);
+  const scores = previewScores(answers);
+  const stepLabel = isFinal
+    ? 'Last step'
+    : interlude?.kind === 'summary'
+      ? 'Your day'
+      : interlude
+        ? `${PILLAR_META[interlude.pillar].label} read`
+        : `${step + 1} of ${TOTAL_QUESTIONS}`;
+
+  const continueFromPillar = (pillar: Pillar) => {
+    if (pillar === PILLAR_ORDER[PILLAR_ORDER.length - 1]) {
+      setInterlude({ kind: 'summary' });
+      return;
+    }
+    setInterlude(null);
+    goToStep(step + 1);
+  };
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
@@ -256,8 +298,12 @@ export function CheckinPage() {
             <Button
               variant="secondary"
               size="icon"
-              onClick={() => goToStep(Math.max(0, step - 1))}
-              disabled={step === 0}
+              onClick={() => {
+                // From a read, step back to the question that finished the pillar.
+                if (interlude) setInterlude(null);
+                else goToStep(Math.max(0, step - 1));
+              }}
+              disabled={step === 0 && !interlude}
               aria-label="Previous question"
               className="disabled:invisible"
             >
@@ -265,9 +311,7 @@ export function CheckinPage() {
             </Button>
             <div className="flex-1">
               <div className="mb-1 flex items-center justify-between text-xs font-semibold text-ink-soft">
-                <span data-testid="checkin-step-label">
-                  {isFinal ? 'Last step' : `${step + 1} of ${TOTAL_QUESTIONS}`}
-                </span>
+                <span data-testid="checkin-step-label">{stepLabel}</span>
                 <span>{progress}%</span>
               </div>
               <div
@@ -333,28 +377,144 @@ export function CheckinPage() {
         {!started && (
           <div className="k-enter pt-2" data-testid="checkin-intro">
             <MascotBubble
-              mood="happy"
-              title={`Hey${firstName ? ` ${firstName}` : ''}! Before we start, I have 9 quick questions for you.`}
+              key={guidePage}
+              className={guideDirection === 'next' ? 'k-step-next' : 'k-step-prev'}
+              mood={guidePage === 1 ? 'cheer' : 'happy'}
+              title={
+                guidePage === 0
+                  ? `Hey${firstName ? ` ${firstName}` : ''}! Before we start.`
+                  : guidePage === 1
+                    ? 'The questions cover 3 pillars'
+                    : "Here's how it goes"
+              }
+              corner={
+                <span
+                  className="flex items-center gap-1.5"
+                  aria-label={`Guide page ${guidePage + 1} of ${GUIDE_PAGES}`}
+                  data-testid="checkin-guide-page"
+                >
+                  {Array.from({ length: GUIDE_PAGES }, (_, i) => (
+                    <span
+                      key={i}
+                      aria-hidden="true"
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        i === guidePage ? 'w-4 bg-primary' : 'w-1.5 bg-line-strong'
+                      }`}
+                    />
+                  ))}
+                </span>
+              }
               actions={
-                <Button onClick={() => setStarted(true)} data-testid="checkin-start">
-                  Let's go
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
+                <>
+                  {guidePage === 0 ? (
+                    <Button
+                      variant="link"
+                      onClick={() => setStarted(true)}
+                      data-testid="checkin-guide-skip"
+                    >
+                      Skip guide
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      onClick={() => turnGuidePage(guidePage - 1)}
+                      data-testid="checkin-guide-back"
+                    >
+                      Back
+                    </Button>
+                  )}
+                  {guidePage < GUIDE_PAGES - 1 ? (
+                    <Button
+                      onClick={() => turnGuidePage(guidePage + 1)}
+                      data-testid="checkin-guide-next"
+                    >
+                      Next
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  ) : (
+                    <Button onClick={() => setStarted(true)} data-testid="checkin-start">
+                      Let's go
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  )}
+                </>
               }
             >
-              <p>
-                Your answers tell me how much energy you've got today. Then I'll size your goals and
-                recovery moments to match, so the day feels doable instead of overwhelming.
-              </p>
-              <p className="mt-2">
-                Just answer honestly, there are no wrong answers. It takes about 2 minutes. Not a
-                good time? Tap &ldquo;Answer later&rdquo; up top.
-              </p>
+              {guidePage === 0 && (
+                <>
+                  <p>
+                    I have {TOTAL_QUESTIONS} quick questions for you. Your answers decide how big
+                    today gets, so the day fits the energy you actually have.
+                  </p>
+                  <p className="mt-2">It takes about 2 minutes, and there are no wrong answers.</p>
+                </>
+              )}
+              {guidePage === 1 && (
+                <ul className="mt-1 space-y-2" data-testid="checkin-guide-pillars">
+                  {PILLAR_ORDER.map((pillar) => (
+                    <li
+                      key={pillar}
+                      className="flex items-center gap-3 rounded-2xl border border-line bg-surface-2 px-3 py-2"
+                    >
+                      <Mascot pillar={pillar} className="h-10 w-8 shrink-0" />
+                      <span className="min-w-0 flex-1 text-sm leading-snug">
+                        <span className="font-bold text-ink">{PILLAR_META[pillar].label}</span>
+                        <span className="text-ink-faint">
+                          {' '}
+                          · {PILLAR_QUESTION_COUNT[pillar]} questions
+                        </span>
+                        <span className="block text-ink-soft">{PILLAR_META[pillar].about}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {guidePage === 2 && (
+                <>
+                  <p>After each pillar I'll share an early read of how it's going.</p>
+                  <p className="mt-2">At the end I'll put it all together into today's mode:</p>
+                  <span className="mt-2.5 flex flex-wrap gap-1.5">
+                    {(['gentle', 'balanced', 'standard'] as const).map((tier) => (
+                      <span
+                        key={tier}
+                        className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${TIER_META[tier].badgeClass}`}
+                      >
+                        {TIER_META[tier].label}
+                      </span>
+                    ))}
+                  </span>
+                  <p className="mt-2.5">Your 3 Daily Wins are sized to match.</p>
+                  <p className="mt-2 text-ink-faint">
+                    Not a good time? Tap &ldquo;Answer later&rdquo; up top.
+                  </p>
+                </>
+              )}
             </MascotBubble>
           </div>
         )}
 
-        {started && question && (
+        {started && interlude?.kind === 'pillar' && (
+          <PillarReading
+            key={interlude.pillar}
+            pillar={interlude.pillar}
+            scores={scores}
+            isLast={interlude.pillar === PILLAR_ORDER[PILLAR_ORDER.length - 1]}
+            onContinue={() => continueFromPillar(interlude.pillar)}
+          />
+        )}
+
+        {started && interlude?.kind === 'summary' && (
+          <DayConclusion
+            scores={scores}
+            tier={previewTier(scores)}
+            onContinue={() => {
+              setInterlude(null);
+              goToStep(FINAL_STEP);
+            }}
+          />
+        )}
+
+        {started && question && !interlude && (
           <fieldset
             key={question.key}
             className={`space-y-3 ${direction === 'next' ? 'k-step-next' : 'k-step-prev'}`}
