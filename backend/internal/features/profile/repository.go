@@ -24,6 +24,7 @@ const dbQueryTimeout = 3 * time.Second
 type HeatmapData struct {
 	Days       []sqlc.GetHeatmapDaysRow
 	Milestones sqlc.GetProfileMilestonesRow
+	PillarDays []PillarDay
 }
 
 // Repository defines the persistence boundary for the profile feature.
@@ -56,8 +57,9 @@ func (r *PostgresRepository) GetUserTimezone(ctx context.Context, userID uuid.UU
 	return user.Timezone, nil
 }
 
-// GetHeatmapAndMilestones reads the 365-day heatmap (Index-Only Scan on idx_daily_logs_heatmap)
-// and lifetime milestones inside a single database.WithUserTx transaction (PRD §5.3 & §7.5).
+// GetHeatmapAndMilestones reads the 365-day heatmap (Index-Only Scan on idx_daily_logs_heatmap),
+// lifetime milestones, and lifetime per-pillar completions (a separate query, so the heatmap
+// query keeps its index-only plan) inside a single database.WithUserTx transaction (PRD §5.3 & §7.5).
 func (r *PostgresRepository) GetHeatmapAndMilestones(ctx context.Context, userID uuid.UUID, fromDate, toDate time.Time) (HeatmapData, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, dbQueryTimeout)
 	defer cancel()
@@ -78,9 +80,24 @@ func (r *PostgresRepository) GetHeatmapAndMilestones(ctx context.Context, userID
 			return fmt.Errorf("get profile milestones: %w", err)
 		}
 
+		completions, err := q.GetPillarCompletions(dbCtx, userID)
+		if err != nil {
+			return fmt.Errorf("get pillar completions: %w", err)
+		}
+		pillarDays := make([]PillarDay, 0, len(completions))
+		for _, row := range completions {
+			pillarDays = append(pillarDays, PillarDay{
+				Date:         row.LogDate.Time,
+				PhysicalDone: row.PhysicalDone,
+				WorkDone:     row.WorkDone,
+				SoulDone:     row.SoulDone,
+			})
+		}
+
 		data = HeatmapData{
 			Days:       days,
 			Milestones: milestones,
+			PillarDays: pillarDays,
 		}
 		return nil
 	})

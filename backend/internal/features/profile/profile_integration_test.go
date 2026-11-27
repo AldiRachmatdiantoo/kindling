@@ -115,6 +115,75 @@ func seedDailyLog(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, logDate st
 	}
 }
 
+// seedPillarLog inserts a log whose wins_data marks each pillar done or not, with
+// wins_completed_count derived the same way the toggle endpoint does.
+func seedPillarLog(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, logDate string, physical, work, soul bool) {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin seed tx: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, "SELECT set_config('app.current_user_id', $1, true)", userID.String()); err != nil {
+		t.Fatalf("set rls user id: %v", err)
+	}
+	id, err := shared.NewUUIDv7()
+	if err != nil {
+		t.Fatalf("uuidv7: %v", err)
+	}
+	wins, _ := json.Marshal(map[string]any{
+		"physical": map[string]any{"title": "p", "level": 0, "completed": physical},
+		"work":     map[string]any{"title": "w", "level": 0, "completed": work},
+		"soul":     map[string]any{"title": "s", "level": 0, "completed": soul},
+	})
+	count := 0
+	for _, done := range []bool{physical, work, soul} {
+		if done {
+			count++
+		}
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO daily_logs (
+			id, user_id, log_date, raw_answers, brain_dump, fun_cope_input,
+			scores, calibration_tier, diagnostic_summary, safety_flag,
+			cope_options, positive_cope_chosen, wins_data, wins_completed_count
+		) VALUES (
+			$1, $2, $3::date, '{}'::jsonb, '', '',
+			'{"physical_exhaustion":50,"work_exhaustion":50,"disengagement":50,"soul_wellbeing":50}'::jsonb,
+			'balanced', 'summary', false,
+			'[]'::jsonb, NULL, $4::jsonb, $5
+		)
+	`, id, userID, logDate, string(wins), count)
+	if err != nil {
+		t.Fatalf("seed pillar log (%s): %v", logDate, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("commit seed tx: %v", err)
+	}
+}
+
+func getHeatmap(t *testing.T, handler http.Handler, s authSession) profile.HeatmapResponse {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/profile/heatmap", nil)
+	for _, c := range s.cookies {
+		req.AddCookie(c)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /profile/heatmap status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var env struct {
+		Data profile.HeatmapResponse `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
+		t.Fatalf("decode heatmap: %v", err)
+	}
+	return env.Data
+}
+
 func TestProfileHeatmap_IntegrationAndExplainIndex(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test in short mode")
@@ -303,6 +372,56 @@ func TestProfileHeatmap_IntegrationAndExplainIndex(t *testing.T) {
 		_ = json.Unmarshal(recB.Body.Bytes(), &envB)
 		if len(envB.Data.Days) != 0 || envB.Data.Milestones.TotalActiveDays != 0 {
 			t.Fatalf("RLS leak: User B saw %+v", envB.Data)
+		}
+	})
+
+	t.Run("pillar_progress counts lifetime wins per pillar in date order and respects RLS", func(t *testing.T) {
+		userD := registerUser(t, handler, "dana@example.com", "Asia/Jakarta")
+		userE := registerUser(t, handler, "eve@example.com", "Asia/Jakarta")
+
+		// Inserted out of date order on purpose: checkpoints must follow log_date, not insert order.
+		seedPillarLog(t, runtimePool, userD.userID, "2026-11-20", true, false, false)  // physical #4
+		seedPillarLog(t, runtimePool, userD.userID, "2025-06-01", true, true, false)   // physical #1, work #1 (older than 365 days)
+		seedPillarLog(t, runtimePool, userD.userID, "2026-11-25", true, false, true)   // physical #5, soul #2
+		seedPillarLog(t, runtimePool, userD.userID, "2026-11-02", true, false, true)   // physical #2, soul #1
+		seedPillarLog(t, runtimePool, userD.userID, "2026-11-10", true, true, false)   // physical #3 -> checkpoint 1, work #2
+		seedPillarLog(t, runtimePool, userD.userID, "2026-11-12", false, false, false) // no wins: ignored
+		seedPillarLog(t, runtimePool, userD.userID, "2026-11-26", true, true, false)   // physical #6 -> checkpoint 2, work #3 -> checkpoint 1
+		// Another user's wins must never leak into D's path.
+		seedPillarLog(t, runtimePool, userE.userID, "2026-11-26", true, true, true)
+
+		got := getHeatmap(t, handler, userD).PillarProgress
+		phys, work, soul := got.Physical, got.Work, got.Soul
+
+		if phys.CompletedTotal != 6 || phys.NextCheckpointAt != 9 || len(phys.Checkpoints) != 2 ||
+			phys.Checkpoints[0] != (profile.Checkpoint{Number: 1, ReachedOn: "2026-11-10"}) ||
+			phys.Checkpoints[1] != (profile.Checkpoint{Number: 2, ReachedOn: "2026-11-26"}) ||
+			phys.LastCompletedOn == nil || *phys.LastCompletedOn != "2026-11-26" {
+			t.Fatalf("physical progress = %+v", phys)
+		}
+		if work.CompletedTotal != 3 || work.NextCheckpointAt != 6 || len(work.Checkpoints) != 1 ||
+			work.Checkpoints[0] != (profile.Checkpoint{Number: 1, ReachedOn: "2026-11-26"}) {
+			t.Fatalf("work progress = %+v", work)
+		}
+		if soul.CompletedTotal != 2 || soul.NextCheckpointAt != 3 || len(soul.Checkpoints) != 0 ||
+			soul.LastCompletedOn == nil || *soul.LastCompletedOn != "2026-11-25" {
+			t.Fatalf("soul progress = %+v", soul)
+		}
+		if m := getHeatmap(t, handler, userD).Milestones; m.TotalCheckpoints != 3 || m.TotalDailyWins != 11 {
+			t.Fatalf("milestones = %+v, want total_checkpoints=3 total_daily_wins=11", m)
+		}
+
+		// E sees only E's single day.
+		e := getHeatmap(t, handler, userE)
+		if e.PillarProgress.Physical.CompletedTotal != 1 || e.PillarProgress.Work.CompletedTotal != 1 ||
+			e.PillarProgress.Soul.CompletedTotal != 1 || e.Milestones.TotalCheckpoints != 0 {
+			t.Fatalf("user E progress = %+v", e.PillarProgress)
+		}
+
+		// A user with no logs gets an empty path, not an error.
+		b := getHeatmap(t, handler, userB).PillarProgress
+		if b.Physical.CompletedTotal != 0 || b.Physical.LastCompletedOn != nil || len(b.Physical.Checkpoints) != 0 {
+			t.Fatalf("user B progress = %+v", b)
 		}
 	})
 

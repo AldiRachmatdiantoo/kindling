@@ -184,8 +184,17 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
 
     // Verify lifetime milestone counters reflect today's completion
     await expect(page.getByTestId('stat-total_active_days')).toContainText('1');
-    await expect(page.getByTestId('stat-total_complete_days')).toContainText('1');
     await expect(page.getByTestId('stat-total_daily_wins')).toContainText('3');
+    await expect(page.getByTestId('stat-total_checkpoints')).toContainText('0');
+
+    // Milestone Path: one step on each pillar, no checkpoint yet (the first opens at 3 wins)
+    for (const name of ['Physical', 'Work', 'Soul']) {
+      await expect(
+        page.getByRole('group', { name: `${name}: 1 win, 0 checkpoints` }),
+      ).toBeVisible();
+    }
+    await expect(page.getByTestId('milestone-physical-marker')).toHaveText('Today you got here');
+    await expect(page.getByRole('button', { name: /^Checkpoint/ })).toHaveCount(0);
 
     // 9. After checking in, the first tab becomes "Today" and opens the day overview
     await expect(page.getByTestId('nav-checkin')).toContainText('Today');

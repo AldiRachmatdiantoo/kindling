@@ -39,10 +39,10 @@ func TestClassifyHeatmapLevel(t *testing.T) {
 }
 
 type stubRepo struct {
-	tz       string
-	data     HeatmapData
-	gotFrom  time.Time
-	gotTo    time.Time
+	tz      string
+	data    HeatmapData
+	gotFrom time.Time
+	gotTo   time.Time
 }
 
 func (s *stubRepo) GetUserTimezone(_ context.Context, _ uuid.UUID) (string, error) {

@@ -87,6 +87,8 @@ func (s *Service) GetHeatmap(ctx context.Context, userID uuid.UUID) (HeatmapResp
 		})
 	}
 
+	progress := ComputePillarProgress(data.PillarDays)
+
 	return HeatmapResponse{
 		Range: DateRange{
 			From: fromDate.Format(shared.DateLayout),
@@ -97,7 +99,9 @@ func (s *Service) GetHeatmap(ctx context.Context, userID uuid.UUID) (HeatmapResp
 			TotalCompleteDays: data.Milestones.TotalCompleteDays,
 			TotalRecoveryDays: data.Milestones.TotalRecoveryDays,
 			TotalDailyWins:    data.Milestones.TotalDailyWins,
+			TotalCheckpoints:  progress.TotalCheckpoints(),
 		},
-		Days: days,
+		Days:           days,
+		PillarProgress: progress,
 	}, nil
 }

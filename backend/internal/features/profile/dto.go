@@ -36,6 +36,7 @@ type Milestones struct {
 	TotalCompleteDays int64 `json:"total_complete_days"`
 	TotalRecoveryDays int64 `json:"total_recovery_days"`
 	TotalDailyWins    int64 `json:"total_daily_wins"`
+	TotalCheckpoints  int64 `json:"total_checkpoints"`
 }
 
 type HeatmapDay struct {
@@ -47,7 +48,8 @@ type HeatmapDay struct {
 
 // HeatmapResponse matches PRD §7.5 GET /api/v1/profile/heatmap.
 type HeatmapResponse struct {
-	Range      DateRange    `json:"range"`
-	Milestones Milestones   `json:"milestones"`
-	Days       []HeatmapDay `json:"days"`
+	Range          DateRange         `json:"range"`
+	Milestones     Milestones        `json:"milestones"`
+	Days           []HeatmapDay      `json:"days"`
+	PillarProgress PillarProgressSet `json:"pillar_progress"`
 }

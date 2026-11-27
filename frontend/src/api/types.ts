@@ -186,7 +186,24 @@ export interface ProfileMilestones {
   total_complete_days: number;
   total_recovery_days: number;
   total_daily_wins: number;
+  total_checkpoints: number;
 }
+
+/** The day a pillar's (3n)-th win was completed. */
+export interface PillarCheckpoint {
+  number: number;
+  reached_on: string;
+}
+
+/** One pillar's lifetime Milestone Path; it only moves forward or stays still. */
+export interface PillarProgress {
+  completed_total: number;
+  checkpoints: PillarCheckpoint[];
+  next_checkpoint_at: number;
+  last_completed_on: string | null;
+}
+
+export type PillarProgressSet = Record<Pillar, PillarProgress>;
 
 export interface HeatmapDay {
   date: string;
@@ -199,6 +216,7 @@ export interface HeatmapData {
   range: HeatmapRange;
   milestones: ProfileMilestones;
   days: HeatmapDay[];
+  pillar_progress: PillarProgressSet;
 }
 
 /** One pattern found in the user's own check-ins, with the evidence size behind it. */

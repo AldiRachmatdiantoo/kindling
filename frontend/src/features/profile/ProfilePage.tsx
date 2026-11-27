@@ -1,4 +1,4 @@
-import { Award, Flame, HeartHandshake, Trophy } from 'lucide-react';
+import { Flame, HeartHandshake, Package, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { profileApi } from '../../api/endpoints';
@@ -10,6 +10,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useWelcomeTour } from '../onboarding/WelcomeTour';
 import { PageLoading } from '../../components/PageLoading';
 import { HabitsCard } from '../habits/HabitsCard';
+import { MilestonePath } from './MilestonePath';
 import { PatternDiscovery } from './PatternDiscovery';
 import { DayDetail, RecentDays } from './DayHistory';
 import { Button } from '@/components/watermelon-ui/button';
@@ -72,7 +73,22 @@ export function ProfilePage() {
     );
   }
 
+  // Cumulative only: each number can grow or stay, never drop because of a rest day.
   const statCards = [
+    {
+      key: 'total_daily_wins',
+      label: 'Total wins',
+      value: data.milestones.total_daily_wins,
+      icon: Trophy,
+      tint: 'text-sun-strong',
+    },
+    {
+      key: 'total_checkpoints',
+      label: 'Checkpoints reached',
+      value: data.milestones.total_checkpoints ?? 0,
+      icon: Package,
+      tint: 'text-mint-strong',
+    },
     {
       key: 'total_active_days',
       label: 'Active days',
@@ -81,25 +97,11 @@ export function ProfilePage() {
       tint: 'text-ink',
     },
     {
-      key: 'total_complete_days',
-      label: '3/3 days',
-      value: data.milestones.total_complete_days,
-      icon: Award,
-      tint: 'text-mint-strong',
-    },
-    {
       key: 'total_recovery_days',
       label: 'Recovery days',
       value: data.milestones.total_recovery_days,
       icon: HeartHandshake,
       tint: 'text-sky-strong',
-    },
-    {
-      key: 'total_daily_wins',
-      label: 'Daily wins',
-      value: data.milestones.total_daily_wins,
-      icon: Trophy,
-      tint: 'text-sun-strong',
     },
   ];
 
@@ -160,6 +162,10 @@ export function ProfilePage() {
           </div>
         ))}
       </section>
+
+      {data.pillar_progress && (
+        <MilestonePath progress={data.pillar_progress} today={data.range.to} />
+      )}
 
       <HabitsCard />
 

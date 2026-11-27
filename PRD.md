@@ -44,7 +44,7 @@ Tidak dipakai karena tidak ada sumbernya: klaim ">80% pengguna berhenti karena *
 - **"Siapa Peduli 66 Hari Baru Kebentuk".** Fokus penuh pada kemenangan realistis **hari ini** sesuai kapasitas energi pengguna. Konsistensi jangka panjang terjadi sebagai efek samping alami, bukan beban *countdown*.
 - **"Having a Coping Mechanism is Not a Bad Thing — Choose Your Own Positive Cope".** Sistem tidak menghakimi pelarian pengguna saat lelah, melainkan menerjemahkannya menjadi 3 opsi *positive cope* yang **100% dipilih sendiri** oleh pengguna untuk mengembalikan rasa kendali (*agency*).
 - **Istirahat adalah hasil yang sah.** Hari tanpa *win* tidak pernah ditampilkan sebagai kegagalan; heatmap tidak mengenal *reset streak*.
-- **Tidak ada metrik yang menghukum.** Aplikasi tidak menampilkan *streak* maupun persentase *win rate*, karena angka yang turun saat pengguna absen memicu kecemasan baru. Semua statistik bersifat kumulatif: hanya bisa naik atau diam.
+- **Tidak ada metrik yang menghukum.** Aplikasi tidak menampilkan *streak* maupun persentase *win rate*, karena angka yang turun saat pengguna absen memicu kecemasan baru. Semua statistik bersifat kumulatif: hanya bisa naik atau diam. Hari lampau terkunci (mutasi hanya untuk hari ini/kemarin), jadi progres lama tidak pernah turun; satu-satunya yang bisa mengurangi angka adalah pengguna membatalkan centang win pada hari itu sendiri.
 - **Habit milik pengguna, langkahnya dari AI.** Pengguna menentukan sendiri kegiatan yang ia nikmati atau ingin ia tingkatkan per pilar; AI hanya menerjemahkannya menjadi langkah kecil sesuai energi hari itu, tanpa mendikte detail teknis (mis. program gym) kecuali diminta.
 
 ### 1.3 Referensi Ilmiah
@@ -73,7 +73,7 @@ Tidak dipakai karena tidak ada sumbernya: klaim ">80% pengguna berhenti karena *
 | **FR-05** | Choose Your Own Positive Cope | AI memetakan jawaban *fun thing* ke kategori **Brief-COPE adaptif** (enum §2.2) dan menyusun tepat 3 opsi pemulihan (60–600 detik). Pengguna memilih 1 kartu untuk masuk ke ruang interaktif layar penuh: *Breathing Pacer* beranimasi (pola 4-7-8, *box*, atau *slow*), *Activity Timer* untuk hobinya, atau *Guided Brain-Dump* yang dilipat dan diarsipkan saat selesai. Setelah dilipat, pengguna memilih **"Read it back to me"** atau **"Keep it private"**; di atas tombol tertulis bahwa teks dikirim ke layanan AI (Google Gemini) hanya untuk refleksi ini dan tidak disimpan. Bila dipilih, `POST /checkin/{date}/reflect` (§7.3) mengembalikan refleksi ≤ 280 karakter + ≤ 3 tema dengan nada mengikuti tier hari itu, lalu tombol "On to my 3 Daily Wins". "Keep it private" tidak mengirim apa pun. |
 | **FR-06** | Calibrated 3 Daily Wins | Tepat 3 target, 1 per pilar **Physical, Work, Soul**, sesuai `calibration_tier`. Bila pengguna punya habit untuk pilar itu (FR-10), AI membangun target **dari habit tersebut**; bila tidak, AI memilihkan. Pilar **Work** memiliki **AI Task Slicer**: pengguna memasukkan 1 tugas (maks 300 karakter), AI mengembalikan 1 langkah mikro 5–10 menit + *Focus Timer*. |
 | **FR-07** | Dynamic Target Renegotiation | Setiap kartu *win* memiliki tombol *"Masih Terlalu Berat"* yang menurunkan skala target satu tingkat (`level` 0 → 3). Penulisan hasil dilakukan di transaksi `SELECT ... FOR UPDATE` dengan pengecekan versi (§8.3). Pada level 3 tombol berubah menjadi pesan bahwa istirahat juga merupakan pilihan sah. |
-| **FR-08** | Anti-Burnout Heatmap | Halaman `/profile` merender grid 365 hari ala GitHub tanpa *reset streak* + statistik kumulatif seumur hidup. Level warna lihat §2.3. |
+| **FR-08** | Anti-Burnout Heatmap & Milestone Path | Halaman `/profile` merender grid 365 hari ala GitHub tanpa *reset streak* + statistik kumulatif seumur hidup (Total wins, Checkpoints reached, Active days, Recovery days; tanpa persentase, tanpa *streak*). Level warna lihat §2.3. **Milestone Path** per pilar (Physical, Work, Soul, dengan maskot pilarnya): 1 node per win yang selesai; tiap 3 win menjadi *checkpoint* berupa "peti apresiasi" yang bisa dibuka (tombol, keyboard) berisi catatan apresiasi deterministik per pilar & nomor checkpoint + tanggal tercapai, tanpa hadiah/poin. Penanda posisi terakhir: "Today you got here" / "Yesterday you got here" / "Last time you got here · <tanggal>". Nama aksesibel per pilar, mis. "Physical: 7 wins, 2 checkpoints"; jalur panjang menampilkan 3 checkpoint terakhir dengan tombol "Show N earlier checkpoints"; *empty state* saat belum ada win; animasi buka peti dilewati dengan `prefers-reduced-motion`. Data: `pillar_progress` (§5.1, §7.5). |
 | **FR-10** | Standing Habits per Pilar | Pengguna menyimpan maks 1 habit per pilar: kegiatan yang ia nikmati atau ingin ia tingkatkan (maks 120 karakter) + opsional hambatan yang biasanya muncul (maks 200 karakter). Diisi pada langkah *"Your habits"* di akhir check-in (bisa dilewati; bila sudah ada, cukup "Keep these" atau "Edit") dan bisa diubah kapan saja di kartu *Your habits* di `/profile`. Perubahan berlaku mulai check-in berikutnya. Ukuran langkah mengikuti tier: `gentle` ±2 menit, `balanced` ±10 menit, `standard` ±20 menit; hambatan dipakai AI untuk memilih langkah yang mengakalinya. Kartu win menampilkan asalnya: *"From your habit: …"*. |
 | **FR-11** | Swap for Today | Kartu win **Physical** dan **Soul** yang belum selesai punya tombol *"Do something else today"*. Pengguna menulis kegiatan lain (maks 120 karakter) dan AI menyusun ulang win pilar itu dari kegiatan tersebut, **khusus hari itu**. Habit tetap tidak berubah dan kembali besok. Kartu menampilkan *"Just for today: …"*. Pilar Work tidak memakai swap karena sudah punya Task Slicer. |
 | **FR-09** | Safety & Privacy | (a) Deteksi kata kunci krisis secara deterministik pada `brain_dump`/`fun_cope_input` sebelum LLM; bila terpicu, response membawa `safety_flag: true` dan UI menampilkan banner layanan bantuan. (b) Isi teks pengguna tidak pernah ditulis ke log aplikasi. (c) Disclaimer §1.4 tampil di `/checkin` dan `/cope`. |
@@ -254,6 +254,8 @@ Field opsional per kartu:
 - `swapped`: `true` bila win ditukar khusus hari itu (FR-11).
 
 `level` 0 = target awal, 3 = paling ringan. `wins_completed_count` **selalu** dihitung ulang dari `wins_data` dalam statement UPDATE yang sama.
+
+**`pillar_progress` (turunan, tanpa tabel baru).** Milestone Path dihitung saat dibaca dari `wins_data.<pilar>.completed` di semua log pengguna (seumur hidup, hanya log dengan `wins_completed_count > 0`), urut `log_date`. Satu log memuat paling banyak 1 win per pilar, sehingga win ke-3n suatu pilar jatuh tepat di satu tanggal (`reached_on`). Karena hari lampau terkunci (semua mutasi wins hanya untuk hari ini/kemarin, §7.4), progres lama tidak pernah turun; yang bisa mengurangi hanya pengguna membatalkan centang win pada hari itu sendiri. Bentuk final di §7.5.
 
 **`cope_options`** (tepat 3 elemen)
 ```json
@@ -582,13 +584,23 @@ Aturan: `reflection` ≤ 280 karakter, `themes` ≤ 3 item (masing-masing ≤ 40
 ```json
 {
   "range": { "from": "2025-11-27", "to": "2026-11-26" },
-  "milestones": { "total_active_days": 17, "total_complete_days": 12, "total_recovery_days": 5, "total_daily_wins": 41 },
-  "days": [ { "date": "2026-11-26", "level": "complete", "wins_count": 3, "cope_chosen": "Pernapasan 4-7-8" } ]
+  "milestones": { "total_active_days": 17, "total_complete_days": 12, "total_recovery_days": 5, "total_daily_wins": 41, "total_checkpoints": 3 },
+  "days": [ { "date": "2026-11-26", "level": "complete", "wins_count": 3, "cope_chosen": "Pernapasan 4-7-8" } ],
+  "pillar_progress": {
+    "physical": { "completed_total": 7,
+                  "checkpoints": [ { "number": 1, "reached_on": "2026-11-08" }, { "number": 2, "reached_on": "2026-11-20" } ],
+                  "next_checkpoint_at": 9, "last_completed_on": "2026-11-26" },
+    "work":     { "completed_total": 4, "checkpoints": [ { "number": 1, "reached_on": "2026-11-15" } ],
+                  "next_checkpoint_at": 6, "last_completed_on": "2026-11-25" },
+    "soul":     { "completed_total": 0, "checkpoints": [], "next_checkpoint_at": 3, "last_completed_on": null }
+  }
 }
 ```
 - `days` hanya berisi tanggal yang memiliki log dalam 365 hari terakhir (per `users.timezone`); level dihitung di SQL/service sesuai §2.3.
 - `milestones` dihitung seumur hidup (bukan hanya 365 hari).
 - Query heatmap hanya menyentuh kolom `user_id, log_date, wins_completed_count, positive_cope_chosen` agar memenuhi syarat *Index-Only Scan* (verifikasi dengan `EXPLAIN (ANALYZE, BUFFERS)` di integration test; *Heap Fetches* bisa > 0 sampai autovacuum memperbarui visibility map — itu normal).
+- `pillar_progress` (seumur hidup) dibaca dengan **query terpisah** `GetPillarCompletions` (membaca `wins_data`) di transaksi `WithUserTx` yang sama, sehingga query heatmap tetap *Index-Only Scan*. Per pilar: `completed_total`; `checkpoints` = array `{ number, reached_on }` (satu per 3 win, `reached_on` = tanggal win ke-3n selesai, urut tanggal); `next_checkpoint_at` = `(floor(completed_total / 3) + 1) * 3`; `last_completed_on` = tanggal win terakhir pilar itu atau `null`. `milestones.total_checkpoints` = jumlah checkpoint ketiga pilar. RLS berlaku: data pengguna lain tidak pernah terlihat.
+- Hari lampau terkunci (mutasi hanya hari ini/kemarin), jadi `pillar_progress` dan `milestones` lama tidak pernah turun; yang bisa mengurangi hanya pengguna membatalkan centang win pada hari itu sendiri.
 
 ### 7.6 Habits (`/api/v1/habits`)
 
@@ -672,19 +684,10 @@ Status: ✅ sudah ada di app · 🟡 sebagian · ⬜ rencana (belum dibangun). I
 | Cope Room interaktif (FR-05) | ✅ | Pilih 1 dari 3 kartu; ruang Breathing (4-7-8/box/slow), Activity Timer, Brain-Dump. Setelah dilipat: "Read it back to me" / "Keep it private" dengan penjelasan pengiriman ke Google Gemini; `POST /checkin/{date}/reflect` (izin eksplisit `consent: true`, deteksi krisis tanpa AI, teks tidak disimpan/di-log, fallback tanpa AI yang tidak menyalin teks); kartu refleksi + tema, `SafetyBanner`, pesan `ai_note`, coba lagi / lanjut tanpa refleksi | — |
 | Auto-advance check-in (FR-02) | ✅ | Pilih jawaban langsung lanjut setelah ±400 ms; panah hanya memindah pilihan; Back tetap ada; Next hanya saat kembali ke pertanyaan yang sudah dijawab; reading per pilar tetap jalan | — |
 | Quick-pick chips (FR-02, FR-10, FR-11) | ✅ | 4–5 *chip* per input untuk "fun thing", activity habit tiap pilar, dan swap hari ini; mengisi input dan tetap bisa diedit | — |
-| Milestone Path per pilar | ⬜ | Statistik kumulatif di `/profile` (`total_daily_wins`, hari aktif, hari *recovery*) | Jalur node per pilar yang hanya maju atau diam. Setiap 3 win pilar itu selesai membuka 1 *checkpoint* berisi catatan apresiasi + tanggal, dengan penanda posisi terakhir ("Kemarin kamu sampai di sini"). Isi checkpoint berupa apresiasi, bukan hadiah yang membuat pengguna merasa wajib kembali |
+| Milestone Path per pilar (FR-08) | ✅ | `pillar_progress` + `milestones.total_checkpoints` di `GET /profile/heatmap` (query terpisah dari `wins_data`, tanpa tabel baru, heatmap tetap *Index-Only Scan*). Komponen `MilestonePath` di `/profile`: node per win, peti apresiasi tiap 3 win (catatan deterministik + tanggal, tanpa hadiah/poin), penanda "Today/Yesterday you got here" atau "Last time you got here · <tanggal>", *empty state*, keyboard, nama aksesibel per pilar, `prefers-reduced-motion`. Kartu statistik: Total wins, Checkpoints reached, Active days, Recovery days | — |
 | Adaptive Atmosphere | ⬜ | Tema light/dark | Warna aksen dan tempo transisi mengikuti tier hari itu (mis. amber/slate teduh untuk `gentle`, teal segar untuk `standard`). Setiap palet wajib lolos kontras WCAG AA di kedua tema dan menghormati `prefers-reduced-motion` |
 
-**Rancangan data Milestone Path (rencana).** Dihitung dari `daily_logs.wins_data` yang sudah ada, tanpa tabel baru, sehingga tidak ada state yang bisa "mundur":
-```json
-"pillar_progress": {
-  "physical": { "completed_total": 7, "checkpoints": 2, "next_checkpoint_at": 9,
-                "last_completed_on": "2026-11-26" },
-  "work":     { "completed_total": 4, "checkpoints": 1, "next_checkpoint_at": 6, "last_completed_on": "2026-11-25" },
-  "soul":     { "completed_total": 2, "checkpoints": 0, "next_checkpoint_at": 3, "last_completed_on": "2026-11-24" }
-}
-```
-Rencananya ditambahkan ke response `GET /profile/heatmap`, dengan `checkpoints = floor(completed_total / 3)`.
+**Data Milestone Path (final).** Dihitung dari `daily_logs.wins_data` yang sudah ada, tanpa tabel baru. Rancangan awal memakai `checkpoints` berupa angka; bentuk final memakai array `{ number, reached_on }` (jumlahnya tetap `floor(completed_total / 3)`) agar tiap peti bisa menampilkan tanggalnya. Contoh lengkap di §7.5.
 
 ---
 
@@ -743,3 +746,4 @@ Perubahan dari draft awal (detail alasan ada di `progress.md` → Log Keputusan)
 5. Baru: FR-10 Standing Habits, FR-11 Swap for Today, tabel `user_habits` (migrasi 000002, RLS), field `habit`/`swapped` di `wins_data`, `POST /wins/{date}/swap`, `GET/PUT /habits`, `AiProvider.PlanWin`, kuota AI harian.
 6. §9.3 Peta Status Fitur: Cope Room refleksi AI, auto-advance, quick-pick chips, Milestone Path (`pillar_progress`), dan Adaptive Atmosphere dicatat sebagai rencana, bukan acceptance criteria v1.
 7. Fase 2 Modul 7 (27 Nov 2026): auto-advance check-in dan quick-pick chips selesai (FR-02, §9.3 ✅).
+8. Fase 2 Modul 9 (27 Nov 2026): Milestone Path selesai (FR-08, §1.2, §5.1, §7.5, §9.3 ✅). `pillar_progress.<pilar>.checkpoints` menjadi array `{ number, reached_on }`, ditambah `milestones.total_checkpoints`. Kartu statistik `/profile` kini Total wins, Checkpoints reached, Active days, Recovery days (kartu "3/3 days" dilepas; `total_complete_days` tetap ada di API). Penanda posisi menambah varian "Today you got here" untuk win hari ini.
