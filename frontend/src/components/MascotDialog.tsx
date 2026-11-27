@@ -77,7 +77,7 @@ export function MascotDialog({
 
   return createPortal(
     <div
-      className="k-dim-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-[#0b0a18]/75 p-4 backdrop-blur-xs"
+      className="k-dim-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -90,7 +90,7 @@ export function MascotDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={handleKeys}
-        className="k-enter w-full max-w-lg"
+        className="k-dialog-in w-full max-w-lg"
       >
         <MascotBubble mood={mood} pillar={pillar} title={title} titleId={titleId} corner={corner} actions={actions}>
           {children}

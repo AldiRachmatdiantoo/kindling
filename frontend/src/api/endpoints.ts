@@ -3,11 +3,13 @@ import type {
   AuthData,
   CheckinAnswers,
   DailyLog,
+  HabitsData,
   HeatmapData,
   InsightsData,
   Pillar,
   RecalibrateData,
   SliceTaskData,
+  SwapWinData,
   ToggleWinData,
 } from './types';
 
@@ -96,11 +98,26 @@ export const winsApi = {
       idempotencyKey,
     }),
 
+  /** Trade a physical or soul win for another activity, for today only. */
+  swap: (date: string, pillar: Pillar, activity: string, idempotencyKey?: string) =>
+    apiRequest<SwapWinData>(`/wins/${date}/swap`, {
+      method: 'POST',
+      body: { pillar, activity },
+      idempotent: true,
+      idempotencyKey,
+    }),
+
   toggle: (date: string, pillar: Pillar, completed: boolean) =>
     apiRequest<ToggleWinData>(`/wins/${date}/toggle`, {
       method: 'PATCH',
       body: { pillar, completed },
     }),
+};
+
+export const habitsApi = {
+  get: () => apiRequest<HabitsData>('/habits', { method: 'GET' }),
+  /** Saves all three pillars at once; a null or empty activity clears that pillar. */
+  put: (habits: HabitsData) => apiRequest<HabitsData>('/habits', { method: 'PUT', body: habits }),
 };
 
 export const profileApi = {

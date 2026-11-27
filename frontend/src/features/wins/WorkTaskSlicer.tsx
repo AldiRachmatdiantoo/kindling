@@ -6,6 +6,7 @@ import { CountdownTimer } from '../../components/CountdownTimer';
 import { FeatureTip } from '../../components/FeatureTip';
 import { Button } from '@/components/watermelon-ui/button';
 import { timerKey } from './constants';
+import { Input } from '@/components/ui/input';
 
 export interface WorkTaskSlicerProps {
   work: WorkWinItem;
@@ -71,8 +72,8 @@ export const WorkTaskSlicer = memo(function WorkTaskSlicer({
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border-[1.5px] border-ink bg-surface p-4">
-      <div className="flex items-center gap-1.5 text-xs font-bold text-ink">
+    <div className="space-y-3 rounded-2xl border border-line bg-surface-2 p-4">
+      <div className="flex items-center gap-1.5 text-xs font-bold text-sun-strong">
         <Scissors className="h-3.5 w-3.5" aria-hidden="true" />
         AI Task Slicer (5–10 min)
       </div>
@@ -85,7 +86,7 @@ export const WorkTaskSlicer = memo(function WorkTaskSlicer({
       </FeatureTip>
 
       <form onSubmit={handleSubmit} className="flex gap-2" data-testid="slice-task-form">
-        <input
+        <Input
           type="text"
           maxLength={300}
           value={taskInput}
@@ -93,7 +94,7 @@ export const WorkTaskSlicer = memo(function WorkTaskSlicer({
           data-testid="slice-task-input"
           aria-label="Task to break down"
           placeholder="One task that feels heavy..."
-          className="k-input min-h-11 min-w-0 flex-1 rounded-full px-3.5 py-2 text-xs"
+          className="min-h-11 min-w-0 flex-1 rounded-full px-3.5 py-2 text-xs"
         />
         <Button type="submit" size="sm" disabled={slicing} data-testid="slice-task-submit">
           {slicing ? 'Slicing...' : 'Slice it'}
@@ -103,9 +104,9 @@ export const WorkTaskSlicer = memo(function WorkTaskSlicer({
 
       {work.micro_step && (
         <div className="space-y-3" data-testid="work-micro-step-box">
-          <div className="rounded-xl bg-lavender p-3">
+          <div className="rounded-xl bg-sun p-3">
             <span
-              className="block text-[11px] font-bold text-lavender-strong"
+              className="block text-[11px] font-bold text-sun-strong"
               data-testid="work-step-number"
             >
               Step {(work.steps_done ?? 0) + 1} · Your next tiny step
@@ -130,14 +131,16 @@ export const WorkTaskSlicer = memo(function WorkTaskSlicer({
             durationSeconds={work.duration_seconds ?? 300}
             title="Focus Timer"
             testIdPrefix="focus"
-            persistKey={userId ? timerKey(userId, logDate, 'work', work.steps_done ?? 0) : undefined}
+            persistKey={
+              userId ? timerKey(userId, logDate, 'work', work.steps_done ?? 0) : undefined
+            }
             onComplete={handleFocusComplete}
             compact
           />
 
           {work.completed ? null : finishedStep === work.micro_step ? (
             <div
-              className="k-shrink-in space-y-2 rounded-xl border-[1.5px] border-ink bg-lavender p-3"
+              className="k-shrink-in space-y-2 rounded-xl border border-line bg-surface-2 p-3"
               data-testid="work-step-choice"
               role="status"
             >

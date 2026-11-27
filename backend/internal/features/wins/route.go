@@ -11,6 +11,7 @@ func RegisterRoutes(
 	aiRateLimitMiddleware func(http.Handler) http.Handler,
 	sliceTaskIdempotencyMiddleware func(http.Handler) http.Handler,
 	recalibrateIdempotencyMiddleware func(http.Handler) http.Handler,
+	swapIdempotencyMiddleware func(http.Handler) http.Handler,
 ) {
 	sliceTask := http.Handler(http.HandlerFunc(h.SliceTask))
 	if aiRateLimitMiddleware != nil {
@@ -34,6 +35,17 @@ func RegisterRoutes(
 		recalibrate = authMiddleware(recalibrate)
 	}
 
+	swap := http.Handler(http.HandlerFunc(h.Swap))
+	if aiRateLimitMiddleware != nil {
+		swap = aiRateLimitMiddleware(swap)
+	}
+	if swapIdempotencyMiddleware != nil {
+		swap = swapIdempotencyMiddleware(swap)
+	}
+	if authMiddleware != nil {
+		swap = authMiddleware(swap)
+	}
+
 	toggle := http.Handler(http.HandlerFunc(h.Toggle))
 	if authMiddleware != nil {
 		toggle = authMiddleware(toggle)
@@ -41,5 +53,6 @@ func RegisterRoutes(
 
 	mux.Handle("POST /api/v1/wins/{date}/slice-task", sliceTask)
 	mux.Handle("POST /api/v1/wins/{date}/recalibrate", recalibrate)
+	mux.Handle("POST /api/v1/wins/{date}/swap", swap)
 	mux.Handle("PATCH /api/v1/wins/{date}/toggle", toggle)
 }

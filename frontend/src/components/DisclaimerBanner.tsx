@@ -3,7 +3,7 @@ import { Info } from 'lucide-react';
 export function DisclaimerBanner() {
   return (
     <div
-      className="flex items-start gap-3 rounded-2xl border-[1.5px] border-dashed border-ink/40 bg-surface/60 px-4 py-3 text-xs leading-relaxed text-ink-soft"
+      className="flex items-start gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-xs leading-relaxed text-ink-soft"
       data-testid="disclaimer-banner"
       role="note"
     >

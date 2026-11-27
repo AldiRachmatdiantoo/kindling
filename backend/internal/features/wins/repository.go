@@ -36,6 +36,8 @@ type Repository interface {
 	ApplyRecalibration(ctx context.Context, userID uuid.UUID, logDate time.Time, pillar string, expectedLevel int, newTitle string, durationSeconds *int) (RecalibrateResponse, error)
 	ToggleWin(ctx context.Context, userID uuid.UUID, logDate time.Time, pillar string, completed bool) (ToggleWinResponse, error)
 	InsertAiAuditLog(ctx context.Context, arg sqlc.InsertAiAuditLogParams) error
+	GetDayForSwap(ctx context.Context, userID uuid.UUID, logDate time.Time) (DaySnapshot, error)
+	ApplySwap(ctx context.Context, userID uuid.UUID, logDate time.Time, pillar string, item WinItem) error
 }
 
 // PostgresRepository implements Repository using pgxpool + sqlc with mandatory RLS via WithUserTx.

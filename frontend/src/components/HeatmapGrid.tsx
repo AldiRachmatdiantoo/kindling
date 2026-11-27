@@ -170,7 +170,7 @@ export function HeatmapGrid({ from, to, days, onOpenDay }: HeatmapGridProps) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 border-t-[1.5px] border-ink/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-t border-line/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-h-[20px] text-xs text-ink-soft" data-testid="heatmap-detail">
           {selectedDay ? (
             <span>

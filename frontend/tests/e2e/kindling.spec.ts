@@ -55,11 +55,17 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-ai-consent').check();
     await page.getByTestId('register-submit').click();
 
-    // Redirects to /checkin
+    // A new account lands on the welcome screen first, then goes on to the check-in
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByTestId('welcome-title')).toContainText('Welcome to Kindling, Kindling');
+    await page.getByTestId('welcome-start').click();
     await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('checkin-form')).toBeVisible();
-    // A friendly intro explains the questions before the first one appears
-    await expect(page.getByTestId('checkin-intro')).toBeVisible();
+    // The check-in opens with a short guide: what it's for, the three pillars, how it ends
+    await page.getByTestId('checkin-guide-next').click();
+    await expect(page.getByTestId('checkin-guide-pillars').locator('li')).toHaveCount(3);
+    await page.getByTestId('checkin-guide-next').click();
+    await expect(page.getByTestId('checkin-start')).toBeVisible();
 
     // 2. Click Demo Preset A and submit
     await page.getByTestId('preset-a-button').click();
@@ -173,6 +179,17 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('today-summary')).toBeVisible();
     await expect(page.getByTestId('today-wins-count')).toContainText('3 / 3');
+
+    // 10. Signing back in opens on the welcome screen, which knows today is answered
+    await page.getByTestId('logout-button').click();
+    await expect(page).toHaveURL(/\/login$/);
+    await page.getByTestId('login-email').fill(email);
+    await page.getByTestId('login-password').fill('SafePassw0rd123!');
+    await page.getByTestId('login-submit').click();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await expect(page.getByTestId('welcome-title')).toContainText('Welcome back');
+    await page.getByTestId('welcome-to-wins').click();
+    await expect(page).toHaveURL(/\/wins$/);
   });
 
   test('"Answer later" skips the check-in, lands on the dashboard, and the choice survives "/"', async ({
@@ -188,8 +205,9 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-ai-consent').check();
     await page.getByTestId('register-submit').click();
 
-    await expect(page).toHaveURL(/\/checkin$/);
-    await page.getByTestId('checkin-answer-later').click();
+    // "Answer later" right on the welcome screen
+    await expect(page).toHaveURL(/\/welcome$/);
+    await page.getByTestId('welcome-later').click();
 
     await expect(page).toHaveURL(/\/wins$/);
 
@@ -228,6 +246,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-ai-consent').check();
     await page.getByTestId('register-submit').click();
 
+    await expect(page).toHaveURL(/\/welcome$/);
+    await page.getByTestId('welcome-start').click();
     await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('checkin-form')).toBeVisible();
 
@@ -287,5 +307,66 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.reload();
     await expect(page).toHaveURL(/\/profile$/);
     await expect(page.getByTestId('heatmap-grid')).toBeVisible();
+  });
+
+  test('habits: the check-in asks for them, wins are built from them, and a win can be swapped for today', async ({
+    page,
+  }) => {
+    await page.goto('/register');
+    await page.getByTestId('register-fullname').fill('Habit Flow User');
+    await page.getByTestId('register-email').fill(uniqueEmail('e2e-habits'));
+    await page.getByTestId('register-password').fill('HabitPassw0rd123!');
+    await page.getByTestId('register-timezone').fill('Asia/Jakarta');
+    await page.getByTestId('register-ai-consent').check();
+    await page.getByTestId('register-submit').click();
+    await expect(page).toHaveURL(/\/welcome$/);
+    await page.getByTestId('welcome-start').click();
+    await page.getByTestId('checkin-guide-skip').click();
+
+    // Answer all 9 questions, stepping through each pillar's read and the conclusion
+    for (let i = 0; i < 9; i++) {
+      const key = await page.locator('fieldset input[type=radio]').first().getAttribute('name');
+      await page.getByTestId(`answer-${key}-2`).click();
+      await page.getByTestId('sympathy-next').click();
+      if (i === 2 || i === 6 || i === 8) await page.getByTestId('reading-continue').click();
+    }
+    await expect(page.getByTestId('conclusion-tier')).toBeVisible();
+    await page.getByTestId('conclusion-continue').click();
+
+    // First time: the habits form, one activity per pillar plus what gets in the way
+    await expect(page.getByTestId('habits-form')).toBeVisible();
+    await page.getByTestId('habit-physical-activity').fill('morning run');
+    await page.getByTestId('habit-physical-struggle').fill('too sleepy');
+    await page.getByTestId('habit-soul-activity').fill('reading');
+    await page.getByTestId('habits-save').click();
+
+    await page.getByTestId('checkin-fun-cope').fill('Playing guitar');
+    await page.getByTestId('checkin-submit').click();
+    await expect(page).toHaveURL(/\/cope$/);
+    await page.getByTestId('welcome-skip').click();
+    await expect(page.getByTestId('welcome-tour')).toHaveCount(0);
+
+    await page.getByTestId('nav-wins').click();
+    await page.getByTestId('wins-skip-recovery').click();
+
+    // Physical and soul come from the habits; work, without one, is picked for the user
+    await expect(page.getByTestId('win-habit-physical')).toContainText('morning run');
+    await expect(page.getByTestId('win-title-physical')).toContainText('morning run');
+    await expect(page.getByTestId('win-habit-soul')).toContainText('reading');
+    await expect(page.getByTestId('win-habit-work')).toHaveCount(0);
+
+    // Swap the physical win for today only
+    await page.getByTestId('swap-open-physical').click();
+    await page.getByTestId('swap-input-physical').fill('yoga in my room');
+    await page.getByTestId('swap-submit-physical').click();
+    await expect(page.getByTestId('task-morph-result')).toContainText('yoga in my room');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('win-habit-physical')).toContainText('Just for today');
+    await expect(page.getByTestId('win-title-physical')).toContainText('yoga');
+
+    // The standing habit is unchanged on the profile
+    await page.getByTestId('nav-profile').click();
+    await expect(page.getByTestId('habits-summary')).toContainText('morning run');
+    await expect(page.getByTestId('habits-summary')).toContainText('too sleepy');
   });
 });

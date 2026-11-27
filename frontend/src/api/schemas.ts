@@ -14,11 +14,17 @@ export const registerSchema = z.object({
     .max(128, 'Keep it under 128 characters'),
   timezone: z.string().trim().min(1).max(64).default('Asia/Jakarta'),
   ai_consent: z.literal(true, {
-    errorMap: () => ({ message: 'Please agree to AI processing of your text to create an account.' }),
+    errorMap: () => ({
+      message: 'Please agree to AI processing of your text to create an account.',
+    }),
   }),
 });
 
-const likertItem = z.number().int().min(1, 'Pick a number from 1 to 4').max(4, 'Pick a number from 1 to 4');
+const likertItem = z
+  .number()
+  .int()
+  .min(1, 'Pick a number from 1 to 4')
+  .max(4, 'Pick a number from 1 to 4');
 
 export const checkinSchema = z.object({
   log_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'That date format looks off'),

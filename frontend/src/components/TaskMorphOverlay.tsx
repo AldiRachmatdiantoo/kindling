@@ -6,8 +6,11 @@ import './task-morph.css';
 
 export interface TaskMorph {
   id: number;
-  /** shrink: "Still too heavy". slice: the AI Task Slicer, first step or the next one. */
-  kind: 'shrink' | 'slice';
+  /**
+   * shrink: "Still too heavy". slice: the AI Task Slicer, first step or the next one.
+   * swap: a win traded for another activity, for today only.
+   */
+  kind: 'shrink' | 'slice' | 'swap';
   pillar: Pillar;
   from: string;
   /** null while the request is in flight; the result once it lands. */
@@ -19,9 +22,9 @@ export interface TaskMorph {
 }
 
 const CARD_BG: Record<Pillar, string> = {
-  physical: '#d3f5e3',
-  work: '#e3defc',
-  soul: '#dbe9ff',
+  physical: '#12261c',
+  work: '#2a2212',
+  soul: '#13233a',
 };
 
 const COPY = {
@@ -34,6 +37,11 @@ const COPY = {
     working: 'Slicing it into one small step...',
     done: 'Just this one piece. The rest can wait.',
     button: "Let's do this step",
+  },
+  swap: {
+    working: 'Building a step from that...',
+    done: 'Swapped for today. Your habit is back tomorrow.',
+    button: "Let's do this",
   },
 };
 
@@ -155,7 +163,14 @@ export function TaskMorphOverlay({ morph, onClose }: TaskMorphOverlayProps) {
       data-phase={done ? 'done' : 'working'}
     >
       <div className={`tm-stage tm-${morph.kind}`} aria-hidden="true">
-        {morph.kind === 'shrink' ? (
+        {morph.kind === 'swap' ? (
+          <div
+            className={`tm-card tm-from ${done ? 'tm-swapped' : 'tm-shuffle'}`}
+            style={{ background: bg }}
+          >
+            {morph.from}
+          </div>
+        ) : morph.kind === 'shrink' ? (
           <>
             <div
               className={`tm-card tm-from ${done ? 'tm-shrunk' : 'tm-squeeze'}`}

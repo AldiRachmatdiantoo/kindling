@@ -43,7 +43,7 @@ export function CountdownTimer({
 
   return (
     <div
-      className={`rounded-2xl border-[1.5px] border-ink bg-cream ${compact ? 'p-3.5' : 'p-5'}`}
+      className={`rounded-2xl border border-line bg-surface-2 ${compact ? 'p-3.5' : 'p-5'}`}
       data-testid={`${testIdPrefix}-timer`}
     >
       {(title || subtitle) && (
@@ -96,7 +96,7 @@ export function CountdownTimer({
         </div>
       </div>
 
-      <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full border-[1.5px] border-ink bg-surface">
+      <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full border border-line bg-surface">
         <div
           className="h-full rounded-full bg-lime transition-all duration-300"
           style={{ width: `${progress}%` }}

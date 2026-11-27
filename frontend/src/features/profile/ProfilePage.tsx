@@ -9,9 +9,11 @@ import { Mascot } from '../../components/Mascot';
 import { useAuth } from '../auth/AuthContext';
 import { useWelcomeTour } from '../onboarding/WelcomeTour';
 import { PageLoading } from '../../components/PageLoading';
+import { HabitsCard } from '../habits/HabitsCard';
 import { PatternDiscovery } from './PatternDiscovery';
 import { DayDetail, RecentDays } from './DayHistory';
 import { Button } from '@/components/watermelon-ui/button';
+import { Card } from '@/components/ui/card';
 
 export function ProfilePage() {
   const { user } = useAuth();
@@ -76,28 +78,28 @@ export function ProfilePage() {
       label: 'Active days',
       value: data.milestones.total_active_days,
       icon: Flame,
-      bg: 'bg-surface',
+      tint: 'text-ink',
     },
     {
       key: 'total_complete_days',
       label: '3/3 days',
       value: data.milestones.total_complete_days,
       icon: Award,
-      bg: 'bg-lavender',
+      tint: 'text-mint-strong',
     },
     {
       key: 'total_recovery_days',
       label: 'Recovery days',
       value: data.milestones.total_recovery_days,
       icon: HeartHandshake,
-      bg: 'bg-sky',
+      tint: 'text-sky-strong',
     },
     {
       key: 'total_daily_wins',
       label: 'Daily wins',
       value: data.milestones.total_daily_wins,
       icon: Trophy,
-      bg: 'bg-mint',
+      tint: 'text-sun-strong',
     },
   ];
 
@@ -111,75 +113,84 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <section className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-lime font-serif text-xl font-bold text-ink"
-            aria-hidden="true"
-          >
-            {initials}
-          </span>
-          <div>
-            <p className="text-xs font-semibold text-ink-faint">Profile and recovery trail</p>
-            <h1 className="text-3xl font-bold tracking-tight text-ink">
-              {user?.full_name || 'Kindling friend'}
-            </h1>
-            <p className="text-sm text-ink-soft">
-              {user?.email} · {user?.timezone || 'Asia/Jakarta'}
-            </p>
+      <Card asChild className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
+        <section>
+          <div className="flex items-center gap-4">
+            <span
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-primary bg-primary-soft font-serif text-xl font-bold text-ink"
+              aria-hidden="true"
+            >
+              {initials}
+            </span>
+            <div>
+              <p className="text-xs font-semibold text-ink-faint">Profile and recovery trail</p>
+              <h1 className="text-3xl font-bold tracking-tight text-ink">
+                {user?.full_name || 'Kindling friend'}
+              </h1>
+              <p className="text-sm text-ink-soft">
+                {user?.email} · {user?.timezone || 'Asia/Jakarta'}
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 rounded-2xl border-[1.5px] border-ink bg-mint py-1.5 pr-4 pl-2 text-xs leading-relaxed font-medium text-ink">
-          <Mascot mood="calm" className="h-12 w-10 shrink-0" />
-          No streaks to break. Rest is part of the process.
-        </div>
-        <Button onClick={openTour} variant="secondary" data-testid="replay-tour">
-          Replay the tour
-        </Button>
-      </section>
+          <div className="flex items-center gap-2 rounded-full border border-line bg-surface-2 py-1.5 pr-4 pl-2 text-xs leading-relaxed font-medium text-ink">
+            <Mascot mood="calm" className="h-12 w-10 shrink-0" />
+            No streaks to break. Rest is part of the process.
+          </div>
+          <Button onClick={openTour} variant="secondary" data-testid="replay-tour">
+            Replay the tour
+          </Button>
+        </section>
+      </Card>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {statCards.map(({ key, label, value, icon: Icon, bg }) => (
+        {statCards.map(({ key, label, value, icon: Icon, tint }) => (
           <div
             key={key}
-            className={`rounded-3xl border-[1.5px] border-ink p-5 ${bg}`}
+            className="rounded-3xl border border-line bg-surface p-5"
             data-testid={`stat-${key}`}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-ink-soft">{label}</span>
-              <Icon className="h-4 w-4 shrink-0 text-ink" aria-hidden="true" />
+              <Icon className={`h-4 w-4 shrink-0 ${tint}`} aria-hidden="true" />
             </div>
-            <p className="mt-2 font-serif text-4xl font-bold tracking-tight text-ink">{value}</p>
+            <p className={`mt-2 k-tinted-num font-serif text-4xl font-bold tracking-tight ${tint}`}>
+              {value}
+            </p>
             <p className="mt-1 text-[11px] text-ink-soft">All time</p>
           </div>
         ))}
       </section>
 
+      <HabitsCard />
+
       <PatternDiscovery />
 
-      <section className="k-card space-y-4 p-6">
-        <div>
-          <h2 className="text-2xl font-bold text-ink">Your last 365 days</h2>
-          <p className="mt-1 text-xs text-ink-soft">
-            From {data.range.from} to {data.range.to}. An empty dot is a rest day, never a failure.
-          </p>
-        </div>
+      <Card asChild className="space-y-4 p-6">
+        <section>
+          <div>
+            <h2 className="text-2xl font-bold text-ink">Your last 365 days</h2>
+            <p className="mt-1 text-xs text-ink-soft">
+              From {data.range.from} to {data.range.to}. An empty dot is a rest day, never a
+              failure.
+            </p>
+          </div>
 
-        <FeatureTip id="profile-heatmap" title="How to read your heatmap" mood="calm">
-          <p>
-            Each dot is one day. Blue means you took a recovery moment, light green means 1 or 2
-            wins, and full green means all 3. Grey dots are rest days, and rest is never a failure.
-            Tap any dot to see what happened that day.
-          </p>
-        </FeatureTip>
+          <FeatureTip id="profile-heatmap" title="How to read your heatmap" mood="calm">
+            <p>
+              Each dot is one day. Blue means you took a recovery moment, light green means 1 or 2
+              wins, and full green means all 3. Grey dots are rest days, and rest is never a
+              failure. Tap any dot to see what happened that day.
+            </p>
+          </FeatureTip>
 
-        <HeatmapGrid
-          from={data.range.from}
-          to={data.range.to}
-          days={data.days}
-          onOpenDay={setOpenDate}
-        />
-      </section>
+          <HeatmapGrid
+            from={data.range.from}
+            to={data.range.to}
+            days={data.days}
+            onOpenDay={setOpenDate}
+          />
+        </section>
+      </Card>
 
       {openDate && <DayDetail key={openDate} date={openDate} onClose={() => setOpenDate(null)} />}
 

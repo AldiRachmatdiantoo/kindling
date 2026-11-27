@@ -92,6 +92,10 @@ export interface WinItem {
   duration_seconds?: number | null;
   level: number;
   completed: boolean;
+  /** The user's activity this win was built from: their habit, or today's swap. */
+  habit?: string;
+  /** True when the user traded this win for another activity, for today only. */
+  swapped?: boolean;
 }
 
 export interface WorkWinItem extends WinItem {
@@ -128,6 +132,25 @@ export interface SliceTaskData {
   micro_step: string;
   duration_seconds: number;
   steps_done: number;
+  ai_note?: AINote;
+}
+
+/** A standing activity for one pillar, and what usually gets in the way. */
+export interface Habit {
+  activity: string;
+  struggle: string;
+}
+
+/** One habit per pillar; null where none is set. */
+export interface HabitsData {
+  physical: Habit | null;
+  work: Habit | null;
+  soul: Habit | null;
+}
+
+export interface SwapWinData {
+  pillar: Pillar;
+  win: WinItem;
   ai_note?: AINote;
 }
 

@@ -650,6 +650,93 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /wins/{date}/swap:
+    post:
+      summary: Trade a physical or soul win for another activity, for today only (AI rate limited 10/min/user)
+      operationId: swapWin
+      tags: [Wins]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: UUID identifying this mutation for idempotent replay (PRD §7.0)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwapWinRequest"
+      responses:
+        "200":
+          description: The pillar's new win, built from the activity; the standing habit is unchanged
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SwapWinData"
+        "400":
+          description: Validation error (pillar must be physical or soul, activity 1-120 chars, win already done, date or Idempotency-Key)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Check-in log not found for date (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Key still processing (IDEMPOTENCY_IN_PROGRESS)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Date out of range (DATE_OUT_OF_RANGE) or key reused with different body (IDEMPOTENCY_KEY_REUSED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: AI rate limit exceeded (10 req/min/user)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /wins/{date}/toggle:
     patch:
       summary: Transactionally toggle a daily win pillar completion status and recompute wins_completed_count
@@ -715,6 +802,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /habits:
+    get:
+      summary: The user's standing habits, one per pillar, that each day's wins are built from
+      operationId: getHabits
+      tags: [Habits]
+      security:
+        - AccessTokenCookie: []
+      responses:
+        "200":
+          description: Habits per pillar (null where none is set)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/HabitsData"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      summary: Replace all three habits at once; a null or empty activity clears that pillar
+      operationId: putHabits
+      tags: [Habits]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HabitsData"
+      responses:
+        "200":
+          description: The stored habits
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/HabitsData"
+        "400":
+          description: Validation error (activity over 120 or struggle over 200 characters, malformed body)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /profile/heatmap:
     get:
       summary: Get 365-day anti-burnout heatmap (in user's timezone) and lifetime cumulative milestones
@@ -908,6 +1063,8 @@ components:
         title: { type: string, maxLength: 80 }
         level: { type: integer, minimum: 0, maximum: 3 }
         completed: { type: boolean }
+        habit: { type: string, maxLength: 120, description: "The activity this win was built from (habit or today's swap)" }
+        swapped: { type: boolean, description: "True when traded for another activity, today only" }
     WorkWinItem:
       type: object
       required: [title, level, completed, main_task, micro_step, duration_seconds]
@@ -989,6 +1146,37 @@ components:
           type: integer
           minimum: 300
           maximum: 600
+    Habit:
+      type: object
+      required: [activity, struggle]
+      properties:
+        activity: { type: string, maxLength: 120 }
+        struggle: { type: string, maxLength: 200, description: "What usually gets in the way; may be empty" }
+    HabitsData:
+      type: object
+      properties:
+        physical: { allOf: [{ $ref: "#/components/schemas/Habit" }], nullable: true }
+        work: { allOf: [{ $ref: "#/components/schemas/Habit" }], nullable: true }
+        soul: { allOf: [{ $ref: "#/components/schemas/Habit" }], nullable: true }
+    SwapWinRequest:
+      type: object
+      required: [pillar, activity]
+      properties:
+        pillar:
+          type: string
+          enum: [physical, soul]
+        activity: { type: string, minLength: 1, maxLength: 120 }
+    SwapWinData:
+      type: object
+      required: [pillar, win]
+      properties:
+        pillar:
+          type: string
+          enum: [physical, soul]
+        win: { $ref: "#/components/schemas/WinItem" }
+        ai_note:
+          type: string
+          enum: [daily_limit, unavailable]
     RecalibrateRequest:
       type: object
       required: [pillar]

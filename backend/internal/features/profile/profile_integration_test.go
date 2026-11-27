@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -127,11 +126,11 @@ func TestProfileHeatmap_IntegrationAndExplainIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve 01-roles.sh: %v", err)
 	}
-	migrationPath, err := filepath.Abs(filepath.Join("..", "..", "..", "migrations", "000001_init_schema.up.sql"))
+	migrationPath, err := filepath.Abs(filepath.Join("..", "..", "..", "migrations"))
 	if err != nil {
 		t.Fatalf("resolve migration: %v", err)
 	}
-	migrationSQL, err := os.ReadFile(migrationPath)
+	migrationSQL, err := database.ReadUpMigrations(migrationPath)
 	if err != nil {
 		t.Fatalf("read migration: %v", err)
 	}

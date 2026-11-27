@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -96,6 +95,10 @@ func (p *controllableAiProvider) Recalibrate(ctx context.Context, in ai.Recalibr
 		return ai.RecalibrateOutput{}, errors.New("simulated recalibrate llm failure")
 	}
 	return p.inner.Recalibrate(ctx, in)
+}
+
+func (p *controllableAiProvider) PlanWin(ctx context.Context, in ai.PlanWinInput) (ai.WinPlan, error) {
+	return p.inner.PlanWin(ctx, in)
 }
 
 type authSession struct {
@@ -191,11 +194,11 @@ func TestWinsModule_IntegrationAndConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve 01-roles.sh: %v", err)
 	}
-	migrationPath, err := filepath.Abs(filepath.Join("..", "..", "..", "migrations", "000001_init_schema.up.sql"))
+	migrationPath, err := filepath.Abs(filepath.Join("..", "..", "..", "migrations"))
 	if err != nil {
 		t.Fatalf("resolve migration: %v", err)
 	}
-	migrationSQL, err := os.ReadFile(migrationPath)
+	migrationSQL, err := database.ReadUpMigrations(migrationPath)
 	if err != nil {
 		t.Fatalf("read migration: %v", err)
 	}
@@ -598,6 +601,82 @@ func TestWinsModule_IntegrationAndConcurrency(t *testing.T) {
 		log := getCheckinLog(t, concurrentHandler, userRace, "2026-11-26")
 		if log.WinsData.Soul.Level != 1 {
 			t.Fatalf("expected final soul level = 1, got %d", log.WinsData.Soul.Level)
+		}
+	})
+
+	t.Run("habits: PUT/GET with RLS, check-in builds wins from them, swap for today", func(t *testing.T) {
+		userH := registerUser(t, handler, "habits@example.com", "Asia/Jakarta")
+		other := registerUser(t, handler, "habits-other@example.com", "Asia/Jakarta")
+
+		body, _ := json.Marshal(map[string]any{
+			"physical": map[string]string{"activity": "  morning run  ", "struggle": "too sleepy"},
+			"work":     nil,
+			"soul":     map[string]string{"activity": "reading", "struggle": ""},
+		})
+		rec := doAuthRequest(handler, userH, http.MethodPut, "/api/v1/habits", body, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("PUT /habits: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+
+		var got struct {
+			Data struct {
+				Physical *struct{ Activity, Struggle string } `json:"physical"`
+				Work     *struct{ Activity, Struggle string } `json:"work"`
+				Soul     *struct{ Activity, Struggle string } `json:"soul"`
+			} `json:"data"`
+		}
+		rec = doAuthRequest(handler, userH, http.MethodGet, "/api/v1/habits", nil, "")
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
+			t.Fatalf("GET /habits: status=%d err=%v body=%s", rec.Code, err, rec.Body.String())
+		}
+		if got.Data.Physical == nil || got.Data.Physical.Activity != "morning run" || got.Data.Work != nil || got.Data.Soul == nil {
+			t.Fatalf("habits not stored as sent (trimmed, work empty): %s", rec.Body.String())
+		}
+
+		// RLS: another user sees none of them.
+		rec = doAuthRequest(handler, other, http.MethodGet, "/api/v1/habits", nil, "")
+		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "morning run") {
+			t.Fatalf("habits leaked across users: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+
+		// Today's wins are built from the habits; work, without one, keeps a picked win.
+		submitCheckin(t, handler, userH, "2026-11-26")
+		log := getCheckinLog(t, handler, userH, "2026-11-26")
+		if log.WinsData.Physical.Habit != "morning run" || !strings.Contains(log.WinsData.Physical.Title, "morning run") {
+			t.Fatalf("physical win should come from the habit: %+v", log.WinsData.Physical)
+		}
+		if log.WinsData.Soul.Habit != "reading" || log.WinsData.Work.Habit != "" {
+			t.Fatalf("soul from habit, work picked: soul=%+v work=%+v", log.WinsData.Soul, log.WinsData.Work)
+		}
+
+		// Swap the physical win for today only.
+		body, _ = json.Marshal(map[string]any{"pillar": "physical", "activity": "yoga in my room"})
+		rec = doAuthRequest(handler, userH, http.MethodPost, "/api/v1/wins/2026-11-26/swap", body, uuid.NewString())
+		if rec.Code != http.StatusOK {
+			t.Fatalf("swap: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		log = getCheckinLog(t, handler, userH, "2026-11-26")
+		if !log.WinsData.Physical.Swapped || log.WinsData.Physical.Habit != "yoga in my room" || !strings.Contains(log.WinsData.Physical.Title, "yoga") {
+			t.Fatalf("physical win should be swapped: %+v", log.WinsData.Physical)
+		}
+		// The standing habit is untouched.
+		rec = doAuthRequest(handler, userH, http.MethodGet, "/api/v1/habits", nil, "")
+		if !strings.Contains(rec.Body.String(), "morning run") {
+			t.Fatalf("a swap must not change the habit: %s", rec.Body.String())
+		}
+
+		// Work has the slicer instead, and a finished win cannot be swapped.
+		body, _ = json.Marshal(map[string]any{"pillar": "work", "activity": "emails"})
+		if rec = doAuthRequest(handler, userH, http.MethodPost, "/api/v1/wins/2026-11-26/swap", body, uuid.NewString()); rec.Code != http.StatusBadRequest {
+			t.Fatalf("work swap should be rejected: status=%d", rec.Code)
+		}
+		toggle, _ := json.Marshal(map[string]any{"pillar": "soul", "completed": true})
+		if rec = doAuthRequest(handler, userH, http.MethodPatch, "/api/v1/wins/2026-11-26/toggle", toggle, ""); rec.Code != http.StatusOK {
+			t.Fatalf("toggle: status=%d", rec.Code)
+		}
+		body, _ = json.Marshal(map[string]any{"pillar": "soul", "activity": "a walk"})
+		if rec = doAuthRequest(handler, userH, http.MethodPost, "/api/v1/wins/2026-11-26/swap", body, uuid.NewString()); rec.Code != http.StatusBadRequest {
+			t.Fatalf("swapping a finished win should be rejected: status=%d body=%s", rec.Code, rec.Body.String())
 		}
 	})
 

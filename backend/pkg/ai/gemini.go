@@ -231,6 +231,29 @@ func (g *GeminiProvider) Recalibrate(ctx context.Context, in RecalibrateInput) (
 	return out, nil
 }
 
+func (g *GeminiProvider) PlanWin(ctx context.Context, in PlanWinInput) (WinPlan, error) {
+	var out WinPlan
+	_, err := g.breaker.Execute(func() ([]byte, error) {
+		raw, err := g.generateJSON(ctx, planWinSystemInstruction, BuildPlanWinPrompt(in), winPlanSchema())
+		if err != nil {
+			return nil, err
+		}
+		var parsed WinPlan
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return nil, fmt.Errorf("unmarshal gemini plan win output: %w", err)
+		}
+		if err := ValidateWinPlan(in.Pillar, parsed); err != nil {
+			return nil, fmt.Errorf("validate gemini plan win output: %w", err)
+		}
+		out = parsed
+		return raw, nil
+	})
+	if err != nil {
+		return WinPlan{}, err
+	}
+	return out, nil
+}
+
 type geminiRequest struct {
 	SystemInstruction *geminiContent         `json:"systemInstruction,omitempty"`
 	Contents          []geminiContent        `json:"contents"`

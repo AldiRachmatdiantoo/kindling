@@ -2,21 +2,28 @@ import type { Pillar } from '../../api/types';
 
 export const PILLARS: Pillar[] = ['physical', 'work', 'soul'];
 
-export const PILLAR_META: Record<Pillar, { label: string; subtitle: string; bg: string }> = {
+// Each pillar keeps one signal color (Figma): a dot and a label tint, never a whole card.
+export const PILLAR_META: Record<
+  Pillar,
+  { label: string; subtitle: string; dot: string; text: string }
+> = {
   physical: {
     label: 'Physical Win',
     subtitle: 'Be kind to your body',
-    bg: 'bg-mint',
+    dot: 'bg-mint-strong',
+    text: 'text-mint-strong',
   },
   work: {
     label: 'Work Win',
     subtitle: 'One tiny step, zero overwhelm',
-    bg: 'bg-lavender',
+    dot: 'bg-sun-strong',
+    text: 'text-sun-strong',
   },
   soul: {
     label: 'Soul Win',
     subtitle: 'A quiet moment just for you',
-    bg: 'bg-sky',
+    dot: 'bg-sky-strong',
+    text: 'text-sky-strong',
   },
 };
 

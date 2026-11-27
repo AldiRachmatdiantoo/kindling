@@ -1,5 +1,6 @@
 import { HeartHandshake, Trophy } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { m } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ApiError, generateIdempotencyKey } from '../../api/client';
 import { checkinApi, winsApi } from '../../api/endpoints';
@@ -20,6 +21,8 @@ import { PILLARS, timerKey } from './constants';
 import { RecoveryLockedView } from './RecoveryLockedView';
 import { WinCard } from './WinCard';
 import { WorkTaskSlicer } from './WorkTaskSlicer';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 
 // Mirrors the backend's RecalibratedWhyThis: once a goal shrinks, its old reason and steps no longer fit.
 const RECALIBRATED_WHY =
@@ -93,6 +96,7 @@ export function WinsPage() {
 
   const [togglingPillars, setTogglingPillars] = useState<Set<Pillar>>(() => new Set());
   const [recalibratingPillar, setRecalibratingPillar] = useState<Pillar | null>(null);
+  const [swappingPillar, setSwappingPillar] = useState<Pillar | null>(null);
 
   const [slicing, setSlicing] = useState(false);
   // The micro-step whose focus block is finished; the choice "next step or win here" shows for it.
@@ -273,6 +277,35 @@ export function WinsPage() {
     [startMorph, finishMorph],
   );
 
+  const handleSwap = useCallback(
+    async (pillar: Pillar, activity: string): Promise<string | null> => {
+      const current = dailyLogRef.current;
+      if (!current) return null;
+      setError(null);
+      setSwappingPillar(pillar);
+      startMorph({ kind: 'swap', pillar, from: current.wins_data[pillar].title });
+      try {
+        const [res] = await Promise.all([
+          winsApi.swap(current.log_date, pillar, activity, generateIdempotencyKey()),
+          holdMorph(),
+        ]);
+        finishMorph(res.win.title, 'Just for today', aiNoteText(res.ai_note));
+        setPreviousTitle((prev) => ({ ...prev, [pillar]: undefined }));
+        setOpenDetails((prev) => ({ ...prev, [pillar]: true }));
+        setDailyLog((prev) =>
+          prev ? { ...prev, wins_data: { ...prev.wins_data, [pillar]: res.win } } : prev,
+        );
+        return null;
+      } catch (err) {
+        setMorph(null);
+        return err instanceof ApiError ? err.message : "We couldn't swap that just now. Try again?";
+      } finally {
+        setSwappingPillar(null);
+      }
+    },
+    [startMorph, finishMorph],
+  );
+
   const handleSliceNextStep = useCallback(async (): Promise<string | null> => {
     const current = dailyLogRef.current;
     if (!current?.wins_data.work.main_task) return null;
@@ -406,7 +439,7 @@ export function WinsPage() {
       <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
       <TaskMorphOverlay morph={morph} onClose={() => setMorph(null)} />
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
           <p className="text-xs font-semibold text-ink-faint">
             Your 3 Daily Wins · {dailyLog.log_date}
@@ -418,14 +451,25 @@ export function WinsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="k-chip bg-lime px-3.5 py-1.5 text-sm" data-testid="wins-progress-badge">
+          <Badge
+            className="border-mint-strong bg-transparent px-3.5 py-1.5 text-sm text-mint-strong"
+            data-testid="wins-progress-badge"
+          >
             <Trophy className="h-4 w-4" aria-hidden="true" />
-            {/* Re-keyed on change so the count pops when a win lands. */}
-            <span key={dailyLog.wins_completed_count} className="k-pop inline-block">
-              {dailyLog.wins_completed_count} / 3
+            {/* Re-keyed on change so the new count rolls up into place when a win lands. */}
+            <span className="inline-flex overflow-hidden">
+              <m.span
+                key={dailyLog.wins_completed_count}
+                initial={{ y: '100%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                className="inline-block"
+              >
+                {dailyLog.wins_completed_count} / 3
+              </m.span>
             </span>
             done
-          </span>
+          </Badge>
           <Button asChild variant="secondary">
             <Link to="/cope">
               <HeartHandshake className="h-4 w-4" aria-hidden="true" />
@@ -433,7 +477,7 @@ export function WinsPage() {
             </Link>
           </Button>
         </div>
-      </div>
+      </Card>
 
       {error && (
         <div className="k-error" data-testid="wins-error" role="alert">
@@ -490,6 +534,8 @@ export function WinsPage() {
             onToggleDetails={handleToggleDetails}
             onToggle={handleToggle}
             onRecalibrate={handleRecalibrate}
+            onSwap={pillar === 'work' ? undefined : handleSwap}
+            isSwapping={swappingPillar === pillar}
             workSlicer={
               pillar === 'work' ? (
                 <WorkTaskSlicer

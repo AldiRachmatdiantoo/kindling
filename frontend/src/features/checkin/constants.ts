@@ -86,7 +86,8 @@ export const DEMO_PRESETS: DemoPreset[] = [
       who5_1: 2,
       who5_2: 1,
     },
-    brain_dump: 'Deadlines are piling up, I have barely slept for three days, and my body feels wrecked.',
+    brain_dump:
+      'Deadlines are piling up, I have barely slept for three days, and my body feels wrecked.',
     fun_cope_input: 'Lying down and listening to my favorite songs',
   },
   {

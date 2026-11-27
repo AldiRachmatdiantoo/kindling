@@ -2,7 +2,7 @@ export type Theme = 'light' | 'dark';
 
 const STORAGE_KEY = 'kindling:theme';
 
-/** The theme index.html already applied before React loaded (stored choice, else the OS). */
+/** The theme theme-init.js applied before React loaded (stored choice, else dark). */
 export function getTheme(): Theme {
   return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
 }

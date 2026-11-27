@@ -9,6 +9,8 @@ import { MascotBubble } from '../../components/MascotBubble';
 import { TIER_META, TIER_MOOD } from '../today/tier';
 import { formatLongDate } from '../../utils/date';
 import { Button } from '@/components/watermelon-ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 
 export { formatLongDate };
 
@@ -21,9 +23,9 @@ const PILLAR_LABEL: Record<Pillar, string> = {
 };
 
 const SCORE_ROWS = [
-  { key: 'physical_exhaustion', label: 'Physical exhaustion', bar: 'bg-primary' },
-  { key: 'work_exhaustion', label: 'Work exhaustion', bar: 'bg-lavender-strong' },
-  { key: 'disengagement', label: 'Disengagement', bar: 'bg-lime-dark' },
+  { key: 'physical_exhaustion', label: 'Physical exhaustion', bar: 'bg-peach-strong' },
+  { key: 'work_exhaustion', label: 'Work exhaustion', bar: 'bg-sun-strong' },
+  { key: 'disengagement', label: 'Disengagement', bar: 'bg-sky-strong' },
   { key: 'soul_wellbeing', label: 'Soul well-being', bar: 'bg-mint-strong' },
 ] as const;
 
@@ -59,50 +61,52 @@ export function RecentDays({ days, activeDate, onOpen }: RecentDaysProps) {
   const recent = recentActiveDays(days);
 
   return (
-    <section className="k-card space-y-4 p-6" data-testid="recent-days">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">Recent days</h2>
-        <p className="mt-1 text-xs text-ink-soft">Tap a day to see how it went.</p>
-      </div>
-
-      {recent.length === 0 ? (
-        <div className="flex items-center gap-3 rounded-2xl bg-cream p-4 text-sm text-ink-soft">
-          <Mascot mood="calm" className="h-12 w-10 shrink-0" />
-          Your check-ins will show up here, one card per day.
+    <Card asChild className="space-y-4 p-6">
+      <section data-testid="recent-days">
+        <div>
+          <h2 className="text-2xl font-bold text-ink">Recent days</h2>
+          <p className="mt-1 text-xs text-ink-soft">Tap a day to see how it went.</p>
         </div>
-      ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {recent.map((day) => (
-            <li key={day.date}>
-              <button
-                type="button"
-                onClick={() => onOpen(day.date)}
-                aria-pressed={activeDate === day.date}
-                data-testid={`recent-day-${day.date}`}
-                className="k-press flex min-h-11 w-full flex-col gap-2 rounded-2xl border-[1.5px] border-ink bg-surface p-4 text-left hover:bg-primary-soft"
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="font-serif text-base font-bold text-ink">
-                    {formatShortDate(day.date)}
+
+        {recent.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-2xl bg-surface-2 p-4 text-sm text-ink-soft">
+            <Mascot mood="calm" className="h-12 w-10 shrink-0" />
+            Your check-ins will show up here, one card per day.
+          </div>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {recent.map((day) => (
+              <li key={day.date}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(day.date)}
+                  aria-pressed={activeDate === day.date}
+                  data-testid={`recent-day-${day.date}`}
+                  className="k-press flex min-h-11 w-full flex-col gap-2 rounded-2xl border border-line bg-surface p-4 text-left hover:bg-primary-soft"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-serif text-base font-bold text-ink">
+                      {formatShortDate(day.date)}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-soft">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${HEATMAP_DOT[day.level]}`}
+                        aria-hidden="true"
+                      />
+                      {HEATMAP_LABELS[day.level]}
+                    </span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-ink-soft">
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${HEATMAP_DOT[day.level]}`}
-                      aria-hidden="true"
-                    />
-                    {HEATMAP_LABELS[day.level]}
+                  <span className="text-xs text-ink-soft">
+                    {day.wins_count}/3 wins
+                    {day.cope_chosen ? ` · ${day.cope_chosen}` : ''}
                   </span>
-                </span>
-                <span className="text-xs text-ink-soft">
-                  {day.wins_count}/3 wins
-                  {day.cope_chosen ? ` · ${day.cope_chosen}` : ''}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </Card>
   );
 }
 
@@ -161,54 +165,55 @@ export function DayDetail({ date, onClose }: DayDetailProps) {
   }, [date]);
 
   return (
-    <section
-      ref={panelRef}
-      tabIndex={-1}
-      aria-labelledby="day-detail-title"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') close();
-      }}
-      className="k-card k-enter scroll-mt-28 space-y-5 p-6 focus:outline-none"
-      data-testid="day-detail"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-ink-faint">
-            <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-            Day details
-          </p>
-          <h2 id="day-detail-title" className="text-2xl font-bold text-ink">
-            {formatLongDate(date)}
-          </h2>
+    <Card asChild className="k-enter scroll-mt-28 space-y-5 p-6 focus:outline-none">
+      <section
+        ref={panelRef}
+        tabIndex={-1}
+        aria-labelledby="day-detail-title"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') close();
+        }}
+        data-testid="day-detail"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-ink-faint">
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+              Day details
+            </p>
+            <h2 id="day-detail-title" className="text-2xl font-bold text-ink">
+              {formatLongDate(date)}
+            </h2>
+          </div>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={close}
+            aria-label="Close day details"
+            data-testid="day-detail-close"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </Button>
         </div>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={close}
-          aria-label="Close day details"
-          data-testid="day-detail-close"
-        >
-          <X className="h-4 w-4" aria-hidden="true" />
-        </Button>
-      </div>
 
-      {state.kind === 'loading' && (
-        <div className="flex items-center gap-3 text-sm text-ink-soft" role="status">
-          <div className="k-spinner h-6 w-6" />
-          Opening that day...
-        </div>
-      )}
+        {state.kind === 'loading' && (
+          <div className="flex items-center gap-3 text-sm text-ink-soft" role="status">
+            <div className="k-spinner h-6 w-6" />
+            Opening that day...
+          </div>
+        )}
 
-      {state.kind === 'error' && <div className="k-error">{state.message}</div>}
+        {state.kind === 'error' && <div className="k-error">{state.message}</div>}
 
-      {state.kind === 'rest' && (
-        <MascotBubble mood="sleepy" title="A rest day" size="sm" testId="day-detail-rest">
-          <p>Nothing was logged on this day, and that's completely okay. Resting counts too.</p>
-        </MascotBubble>
-      )}
+        {state.kind === 'rest' && (
+          <MascotBubble mood="sleepy" title="A rest day" size="sm" testId="day-detail-rest">
+            <p>Nothing was logged on this day, and that's completely okay. Resting counts too.</p>
+          </MascotBubble>
+        )}
 
-      {state.kind === 'ready' && <DayLog log={state.log} />}
-    </section>
+        {state.kind === 'ready' && <DayLog log={state.log} />}
+      </section>
+    </Card>
   );
 }
 
@@ -221,9 +226,7 @@ function DayLog({ log }: { log: DailyLog }) {
         <span className={`k-chip ${tier.badgeClass}`} data-testid="day-detail-tier">
           {tier.label}
         </span>
-        <span className="k-chip" data-testid="day-detail-wins-count">
-          {log.wins_completed_count}/3 wins
-        </span>
+        <Badge data-testid="day-detail-wins-count">{log.wins_completed_count}/3 wins</Badge>
       </div>
 
       <MascotBubble
@@ -276,7 +279,7 @@ function DayLog({ log }: { log: DailyLog }) {
             return (
               <li
                 key={pillar}
-                className="flex items-start gap-3 rounded-2xl border-[1.5px] border-ink/15 p-3"
+                className="flex items-start gap-3 rounded-2xl border border-line/15 p-3"
                 data-testid={`day-detail-win-${pillar}`}
               >
                 <Mascot

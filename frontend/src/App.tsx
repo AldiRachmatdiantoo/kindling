@@ -21,6 +21,9 @@ const CopePage = lazy(() =>
 const WinsPage = lazy(() =>
   import('./features/wins/WinsPage').then((m) => ({ default: m.WinsPage })),
 );
+const WelcomePage = lazy(() =>
+  import('./features/onboarding/WelcomePage').then((m) => ({ default: m.WelcomePage })),
+);
 const ProfilePage = lazy(() =>
   import('./features/profile/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 );
@@ -38,6 +41,7 @@ export function App() {
 
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<HomeRedirect />} />
+              <Route path="/welcome" element={<WelcomePage />} />
               <Route element={<AppShell />}>
                 <Route path="/checkin" element={<CheckinPage />} />
                 <Route path="/cope" element={<CopePage />} />

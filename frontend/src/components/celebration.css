@@ -5,7 +5,7 @@
 */
 .kc-overlay {
   /* The stage is always dark, so mascot limbs (drawn in --color-ink) switch to light ink. */
-  --color-ink: #f1efff;
+  --color-ink: #f4f4f6;
   position: fixed;
   inset: 0;
   z-index: 70;
@@ -14,8 +14,8 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: #15132a;
-  color: #f1efff;
+  background: #0e0e11;
+  color: #f4f4f6;
   cursor: pointer;
   animation: kc-fade-in 280ms ease-out both;
   -webkit-tap-highlight-color: transparent;
@@ -55,7 +55,7 @@
   height: 34px;
   margin: -17px 0 0 -5px;
   border-radius: 8px;
-  background: var(--kc-accent, #e6f04a);
+  background: var(--kc-accent, #7c8cff);
   opacity: 0;
   will-change: transform, opacity;
   animation: kc-ray 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -68,7 +68,7 @@
   height: 11px;
   margin: -5.5px;
   border-radius: 50%;
-  background: #fff6a8;
+  background: #c3cbff;
   opacity: 0;
   will-change: transform, opacity;
   animation: kc-spark 1200ms 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -85,7 +85,7 @@
   position: absolute;
   inset: 0;
   font: 800 84px/92px var(--font-serif, Georgia, serif);
-  color: #e6f04a;
+  color: #7c8cff;
   will-change: transform, opacity;
 }
 .kc-num-old {
@@ -108,12 +108,12 @@
 .kc-caption h2 {
   margin: 0;
   font: 700 26px/1.2 var(--font-serif, Georgia, serif);
-  color: #f1efff;
+  color: #f4f4f6;
 }
 .kc-caption p {
   margin: 4px 0 0;
   font-size: 15px;
-  color: #c5c1de;
+  color: #a9a9b4;
 }
 .kc-hint {
   position: absolute;
@@ -123,12 +123,12 @@
   background: transparent;
   padding: 6px 14px;
   font-size: 13px;
-  color: #a8a4c6;
+  color: #8e8e99;
   cursor: pointer;
   animation: kc-rise 500ms 1100ms ease-out both;
 }
 .kc-hint:focus-visible {
-  outline: 2px solid #e6f04a;
+  outline: 2px solid #7c8cff;
   outline-offset: 4px;
 }
 
@@ -312,5 +312,5 @@
 
 /* The reserved scrollbar gutter sits outside the fixed overlay; paint it to match. */
 html:has(.kc-overlay) {
-  background-color: #15132a;
+  background-color: #0e0e11;
 }

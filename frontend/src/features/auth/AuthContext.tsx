@@ -21,6 +21,8 @@ interface AuthContextValue {
   setUser: (user: User | null) => void;
   refreshUser: () => Promise<User | null>;
   logout: () => Promise<void>;
+  /** True after the user signed out on purpose, until someone signs in again. */
+  signedOut: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -29,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [unreachable, setUnreachable] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
   const userIdRef = useRef<string | null>(null);
   userIdRef.current = user?.id ?? null;
 
@@ -81,13 +84,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (activeUserId) {
         clearUserTimers(activeUserId);
       }
+      setSignedOut(true);
       setUser(null);
     }
   }, []);
 
+  useEffect(() => {
+    if (user) setSignedOut(false);
+  }, [user]);
+
   const value = useMemo(
-    () => ({ user, loading, unreachable, setUser, refreshUser, logout }),
-    [user, loading, unreachable, refreshUser, logout],
+    () => ({ user, loading, unreachable, setUser, refreshUser, logout, signedOut }),
+    [user, loading, unreachable, refreshUser, logout, signedOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

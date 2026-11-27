@@ -55,7 +55,7 @@ export function RecoveryLockedView({ logDate, onSkipRecovery }: RecoveryLockedVi
         {PILLARS.map((pillar) => (
           <li
             key={pillar}
-            className={`flex items-center gap-3 rounded-3xl border-[1.5px] border-dashed border-ink p-4 ${PILLAR_META[pillar].bg}`}
+            className={`flex items-center gap-3 rounded-3xl border border-dashed border-line-strong bg-surface p-4`}
           >
             <Mascot pillar={pillar} mood="calm" className="h-11 w-10 shrink-0" />
             <span className="min-w-0 flex-1">

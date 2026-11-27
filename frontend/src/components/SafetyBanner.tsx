@@ -8,13 +8,11 @@ export function SafetyBanner() {
       role="alert"
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-[1.5px] border-ink bg-surface text-peach-strong">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-line bg-surface text-peach-strong">
           <ShieldAlert className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="space-y-2">
-          <h2 className="text-lg font-bold text-ink">
-            You don't have to go through this alone
-          </h2>
+          <h2 className="text-lg font-bold text-ink">You don't have to go through this alone</h2>
           <p className="text-sm leading-relaxed text-ink">
             If things feel really heavy right now, or you're having thoughts of hurting yourself,
             please reach out to a professional or an emergency support line. Kindling can't replace
@@ -23,14 +21,14 @@ export function SafetyBanner() {
           <div className="flex flex-wrap gap-3 pt-1 text-sm font-medium">
             <a
               href="tel:119"
-              className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3 py-1.5 font-semibold text-ink hover:bg-primary-soft"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 font-semibold text-ink hover:bg-primary-soft"
             >
               <PhoneCall className="h-4 w-4" aria-hidden="true" />
               SEJIWA hotline: 119 ext. 8
             </a>
             <a
               href="tel:112"
-              className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-ink bg-surface px-3 py-1.5 font-semibold text-ink hover:bg-primary-soft"
+              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 font-semibold text-ink hover:bg-primary-soft"
             >
               <PhoneCall className="h-4 w-4" aria-hidden="true" />
               Indonesia emergency: 112

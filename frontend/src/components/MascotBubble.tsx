@@ -48,11 +48,11 @@ export function MascotBubble({
       />
 
       <div
-        className={`relative mb-4 min-w-0 flex-1 rounded-3xl border-[1.5px] border-ink bg-surface ${small ? 'p-4' : 'p-5 sm:p-6'}`}
+        className={`relative mb-4 min-w-0 flex-1 rounded-3xl border border-line bg-surface ${small ? 'p-4' : 'p-5 sm:p-6'}`}
       >
         {/* Tail: a rotated square showing only its left and bottom borders. */}
         <span
-          className="absolute bottom-6 -left-[9px] h-4 w-4 rotate-45 border-b-[1.5px] border-l-[1.5px] border-ink bg-surface"
+          className="absolute bottom-6 -left-[9px] h-4 w-4 rotate-45 border-b border-l border-line bg-surface"
           aria-hidden="true"
         />
 
@@ -72,7 +72,9 @@ export function MascotBubble({
           </TitleTag>
         )}
         {children && <div className="mt-1.5 text-sm leading-relaxed text-ink-soft">{children}</div>}
-        {actions && <div className="mt-3 flex flex-wrap items-center justify-end gap-2">{actions}</div>}
+        {actions && (
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">{actions}</div>
+        )}
       </div>
     </div>
   );
