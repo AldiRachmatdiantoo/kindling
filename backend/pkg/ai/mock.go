@@ -65,7 +65,7 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 					Guidance:          "Pour out everything on your mind, unedited, so your head feels lighter.",
 				},
 			},
-			Wins: PlanWins(in.CalibrationTier, in.Scores, seed),
+			Wins: ApplyHabits(PlanWins(in.CalibrationTier, in.Scores, seed), in.CalibrationTier, in.Scores, in.Habits),
 		}, nil
 
 	case TierBalanced:
@@ -101,7 +101,7 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 					Guidance:          "Write down what is bugging you, then mark the one thing that matters most today.",
 				},
 			},
-			Wins: PlanWins(in.CalibrationTier, in.Scores, seed),
+			Wins: ApplyHabits(PlanWins(in.CalibrationTier, in.Scores, seed), in.CalibrationTier, in.Scores, in.Habits),
 		}, nil
 
 	default: // TierStandard
@@ -137,7 +137,7 @@ func (m *MockAiProvider) GenerateCheckin(_ context.Context, in CheckinInput) (Ch
 					Guidance:          "Jot down how you want to feel and what you want to finish today.",
 				},
 			},
-			Wins: PlanWins(in.CalibrationTier, in.Scores, seed),
+			Wins: ApplyHabits(PlanWins(in.CalibrationTier, in.Scores, seed), in.CalibrationTier, in.Scores, in.Habits),
 		}, nil
 	}
 }
@@ -211,4 +211,9 @@ func hashSeed(parts ...string) uint64 {
 	}
 	sum := h.Sum(nil)
 	return binary.BigEndian.Uint64(sum[:8])
+}
+
+// PlanWin builds a deterministic win from the activity the user picked for today.
+func (m *MockAiProvider) PlanWin(_ context.Context, in PlanWinInput) (WinPlan, error) {
+	return HabitWin(in.CalibrationTier, in.Scores, in.Pillar, in.Activity, in.Struggle), nil
 }

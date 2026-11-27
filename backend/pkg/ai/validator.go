@@ -124,6 +124,9 @@ func ValidateCheckinOutput(out CheckinOutput) error {
 	return nil
 }
 
+// ValidateWinPlan checks a single pillar's win, e.g. one planned for a swapped activity.
+func ValidateWinPlan(pillar string, w WinPlan) error { return validateWinPlan(pillar, w) }
+
 // validateWinPlan checks one card is ready to run: a title, a reason, exactly 2 steps, a duration.
 func validateWinPlan(pillar string, w WinPlan) error {
 	t := strings.TrimSpace(w.Title)

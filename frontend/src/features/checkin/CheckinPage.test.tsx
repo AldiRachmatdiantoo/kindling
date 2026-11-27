@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../api/client';
-import { authApi, checkinApi } from '../../api/endpoints';
+import { authApi, checkinApi, habitsApi } from '../../api/endpoints';
 import { AuthProvider } from '../auth/AuthContext';
 import { TodayStatusProvider } from '../today/TodayStatus';
 import { CheckinPage } from './CheckinPage';
@@ -18,6 +18,7 @@ const mockUser = {
 
 function renderCheckin() {
   vi.spyOn(authApi, 'me').mockResolvedValue({ user: mockUser });
+  vi.spyOn(habitsApi, 'get').mockResolvedValue({ physical: null, work: null, soul: null });
   vi.spyOn(checkinApi, 'getToday').mockRejectedValue(
     new ApiError(404, 'NOT_FOUND', 'No check-in today'),
   );
@@ -104,6 +105,9 @@ describe('CheckinPage keyboard navigation', () => {
       'Gentle Mode',
     );
     fireEvent.click(screen.getByTestId('conclusion-continue'));
+    // Then the habits the wins are built from; with none set yet, the form can be skipped
+    expect(screen.getByTestId('checkin-step-label')).toHaveTextContent('Your habits');
+    fireEvent.click(await screen.findByTestId('habits-skip'));
     expect(screen.getByTestId('checkin-step-label')).toHaveTextContent('Last step');
   }, 15000);
 });

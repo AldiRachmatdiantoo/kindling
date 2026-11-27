@@ -14,6 +14,7 @@ import (
 
 	"github.com/kindling/backend/internal/database"
 	"github.com/kindling/backend/internal/database/sqlc"
+	"github.com/kindling/backend/internal/features/habits"
 	"github.com/kindling/backend/internal/shared"
 	"github.com/kindling/backend/pkg/ai"
 )
@@ -27,6 +28,7 @@ type Repository interface {
 	GetDailyLogByDate(ctx context.Context, userID uuid.UUID, logDate time.Time) (sqlc.DailyLog, error)
 	ChooseCopeOption(ctx context.Context, userID uuid.UUID, logDate time.Time, copeOptionID string) (string, error)
 	InsertAiAuditLog(ctx context.Context, arg sqlc.InsertAiAuditLogParams) error
+	GetUserHabits(ctx context.Context, userID uuid.UUID) (habits.HabitsData, error)
 }
 
 // PostgresRepository implements Repository using pgxpool + sqlc with mandatory RLS via WithUserTx.
@@ -157,6 +159,11 @@ func (r *PostgresRepository) ChooseCopeOption(ctx context.Context, userID uuid.U
 		return "", err
 	}
 	return chosenTitle, nil
+}
+
+// GetUserHabits reads the user's standing habits, which today's wins are built from.
+func (r *PostgresRepository) GetUserHabits(ctx context.Context, userID uuid.UUID) (habits.HabitsData, error) {
+	return habits.Load(ctx, r.pool, userID)
 }
 
 // InsertAiAuditLog records metadata-only AI call telemetry (PRD NFR-06 & §5.2).

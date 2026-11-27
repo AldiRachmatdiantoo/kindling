@@ -13,6 +13,7 @@ import (
 	"github.com/kindling/backend/internal/config"
 	"github.com/kindling/backend/internal/features/auth"
 	"github.com/kindling/backend/internal/features/checkin"
+	"github.com/kindling/backend/internal/features/habits"
 	"github.com/kindling/backend/internal/features/profile"
 	"github.com/kindling/backend/internal/features/wins"
 	"github.com/kindling/backend/internal/middleware"
@@ -151,7 +152,8 @@ func NewHandler(deps Dependencies) http.Handler {
 		winsHandler := wins.NewHandler(winsSvc)
 		sliceTaskIdemMW := middleware.Idempotency(idemStore, "POST:/wins/slice-task", deps.Logger)
 		recalibrateIdemMW := middleware.Idempotency(idemStore, "POST:/wins/recalibrate", deps.Logger)
-		wins.RegisterRoutes(apiMux, winsHandler, authMW, aiRateLimitMW, sliceTaskIdemMW, recalibrateIdemMW)
+		swapIdemMW := middleware.Idempotency(idemStore, "POST:/wins/swap", deps.Logger)
+		wins.RegisterRoutes(apiMux, winsHandler, authMW, aiRateLimitMW, sliceTaskIdemMW, recalibrateIdemMW, swapIdemMW)
 
 		profileRepo := profile.NewPostgresRepository(deps.Pool)
 		profileSvc := profile.NewService(profileRepo)
@@ -160,6 +162,9 @@ func NewHandler(deps Dependencies) http.Handler {
 		}
 		profileHandler := profile.NewHandler(profileSvc)
 		profile.RegisterRoutes(apiMux, profileHandler, authMW)
+
+		habitsHandler := habits.NewHandler(habits.NewService(habits.NewPostgresRepository(deps.Pool)))
+		habits.RegisterRoutes(apiMux, habitsHandler, authMW)
 	}
 
 	csrfMW := middleware.CSRF(

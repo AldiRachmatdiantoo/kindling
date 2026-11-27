@@ -332,7 +332,7 @@ export function DayConclusion({
           className="mt-5 w-full"
           data-testid="conclusion-continue"
         >
-          One last thing
+          Continue
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Button>
       )}

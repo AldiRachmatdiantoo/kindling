@@ -1,6 +1,9 @@
 package ai
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Limits for the per-card detail fields (PRD §5.1 wins_data).
 const (
@@ -133,4 +136,50 @@ func WhyThis(pillar string, s Scores) string {
 			return fmt.Sprintf("Your well-being is a healthy %d today. A quiet moment helps you hold on to that.", v)
 		}
 	}
+}
+
+// habitSizes is how big a habit gets on each kind of day: title pattern and duration.
+var habitSizes = map[CalibrationTier]struct {
+	title    string
+	duration int
+}{
+	TierGentle:   {"Just start: 2 minutes of %s", 120},
+	TierBalanced: {"10 easy minutes of %s", 600},
+	TierStandard: {"20 focused minutes of %s", 1200},
+}
+
+// HabitWin builds a deterministic win from a habit, sized to today's tier. The mock provider
+// uses it, and so does every fallback when the AI is unavailable, so a habit is never lost.
+func HabitWin(tier CalibrationTier, scores Scores, pillar, activity, struggle string) WinPlan {
+	size, ok := habitSizes[tier]
+	if !ok {
+		size = habitSizes[TierBalanced]
+	}
+	act := strings.TrimSpace(activity)
+	title := TruncateRunes(fmt.Sprintf(size.title, TruncateRunes(act, 50)), MaxTitleRunes)
+	first := TruncateRunes(fmt.Sprintf("Get what you need for %s ready, nothing more", TruncateRunes(act, 60)), MaxWinStepRunes)
+	second := "Set a timer and stop when it rings, even if you are mid-way"
+	if s := strings.TrimSpace(struggle); s != "" {
+		second = TruncateRunes(fmt.Sprintf("If \"%s\" shows up, shrink it to the first minute and begin", TruncateRunes(s, 55)), MaxWinStepRunes)
+	}
+	return WinPlan{
+		Title:           title,
+		WhyThis:         TruncateRunes("Built from what you picked. "+WhyThis(pillar, scores), MaxWhyThisRunes),
+		Steps:           []string{first, second},
+		DurationSeconds: size.duration,
+	}
+}
+
+// ApplyHabits swaps in a habit-built win for every pillar that has a habit.
+func ApplyHabits(plan WinsPlan, tier CalibrationTier, scores Scores, habits Habits) WinsPlan {
+	if h, ok := habits["physical"]; ok {
+		plan.Physical = HabitWin(tier, scores, "physical", h.Activity, h.Struggle)
+	}
+	if h, ok := habits["work"]; ok {
+		plan.Work = HabitWin(tier, scores, "work", h.Activity, h.Struggle)
+	}
+	if h, ok := habits["soul"]; ok {
+		plan.Soul = HabitWin(tier, scores, "soul", h.Activity, h.Struggle)
+	}
+	return plan
 }

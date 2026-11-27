@@ -96,6 +96,7 @@ export function WinsPage() {
 
   const [togglingPillars, setTogglingPillars] = useState<Set<Pillar>>(() => new Set());
   const [recalibratingPillar, setRecalibratingPillar] = useState<Pillar | null>(null);
+  const [swappingPillar, setSwappingPillar] = useState<Pillar | null>(null);
 
   const [slicing, setSlicing] = useState(false);
   // The micro-step whose focus block is finished; the choice "next step or win here" shows for it.
@@ -271,6 +272,35 @@ export function WinsPage() {
         );
       } finally {
         setRecalibratingPillar(null);
+      }
+    },
+    [startMorph, finishMorph],
+  );
+
+  const handleSwap = useCallback(
+    async (pillar: Pillar, activity: string): Promise<string | null> => {
+      const current = dailyLogRef.current;
+      if (!current) return null;
+      setError(null);
+      setSwappingPillar(pillar);
+      startMorph({ kind: 'swap', pillar, from: current.wins_data[pillar].title });
+      try {
+        const [res] = await Promise.all([
+          winsApi.swap(current.log_date, pillar, activity, generateIdempotencyKey()),
+          holdMorph(),
+        ]);
+        finishMorph(res.win.title, 'Just for today', aiNoteText(res.ai_note));
+        setPreviousTitle((prev) => ({ ...prev, [pillar]: undefined }));
+        setOpenDetails((prev) => ({ ...prev, [pillar]: true }));
+        setDailyLog((prev) =>
+          prev ? { ...prev, wins_data: { ...prev.wins_data, [pillar]: res.win } } : prev,
+        );
+        return null;
+      } catch (err) {
+        setMorph(null);
+        return err instanceof ApiError ? err.message : "We couldn't swap that just now. Try again?";
+      } finally {
+        setSwappingPillar(null);
       }
     },
     [startMorph, finishMorph],
@@ -504,6 +534,8 @@ export function WinsPage() {
             onToggleDetails={handleToggleDetails}
             onToggle={handleToggle}
             onRecalibrate={handleRecalibrate}
+            onSwap={pillar === 'work' ? undefined : handleSwap}
+            isSwapping={swappingPillar === pillar}
             workSlicer={
               pillar === 'work' ? (
                 <WorkTaskSlicer

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kindling/backend/internal/database/sqlc"
+	"github.com/kindling/backend/internal/features/habits"
 	"github.com/kindling/backend/internal/shared"
 	"github.com/kindling/backend/pkg/ai"
 )
@@ -79,6 +80,17 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 	// Deterministic crisis phrase detection before LLM call (PRD FR-09 & §8.4).
 	safetyFlag := DetectCrisis(req.BrainDump, req.FunCopeInput)
 
+	// The user's habits are what their wins are built from. A failed read only means the AI
+	// picks this time; it never blocks the check-in.
+	userHabits, habitsErr := s.repo.GetUserHabits(ctx, userID)
+	if habitsErr != nil && s.logger != nil {
+		s.logger.Warn("could not read habits; wins will be picked without them",
+			"request_id", shared.RequestIDFromContext(ctx),
+			"err", habitsErr,
+		)
+	}
+	aiHabits := userHabits.ToAI()
+
 	// Call AI provider outside any DB transaction (PRD §8.1–8.2).
 	start := time.Now()
 	var (
@@ -94,6 +106,7 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 			CalibrationTier: tier,
 			BrainDump:       req.BrainDump,
 			FunCopeInput:    req.FunCopeInput,
+			Habits:          aiHabits,
 		})
 		if aiErr == nil {
 			aiErr = ai.ValidateCheckinOutput(aiOut)
@@ -107,7 +120,7 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 		if aiNote == "" {
 			aiNote = shared.AINoteUnavailable
 		}
-		aiOut = BuildCheckinFallback(tier, scores)
+		aiOut = BuildCheckinFallbackWithHabits(tier, scores, aiHabits)
 		if s.logger != nil {
 			// NFR-06: never log brain_dump, fun_cope_input, or LLM output.
 			s.logger.Warn("ai checkin generation failed; using deterministic fallback",
@@ -142,7 +155,7 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 	}
 
 	winsData := WinsData{
-		Physical: newWinItem(aiOut.Wins.Physical),
+		Physical: newWinItem(aiOut.Wins.Physical, habitActivity(userHabits.Physical)),
 		Work: WorkWinItem{
 			Title:           strings.TrimSpace(aiOut.Wins.Work.Title),
 			WhyThis:         strings.TrimSpace(aiOut.Wins.Work.WhyThis),
@@ -152,8 +165,9 @@ func (s *Service) SubmitCheckin(ctx context.Context, userID uuid.UUID, req Check
 			MainTask:        nil,
 			MicroStep:       nil,
 			DurationSeconds: intPtr(aiOut.Wins.Work.DurationSeconds),
+			Habit:           habitActivity(userHabits.Work),
 		},
-		Soul: newWinItem(aiOut.Wins.Soul),
+		Soul: newWinItem(aiOut.Wins.Soul, habitActivity(userHabits.Soul)),
 	}
 
 	rawAnswersJSON, err := json.Marshal(answers)
@@ -301,13 +315,21 @@ func clampLatencyMs(d time.Duration) int32 {
 	return int32(ms)
 }
 
-func newWinItem(w ai.WinPlan) WinItem {
+func newWinItem(w ai.WinPlan, habit string) WinItem {
 	return WinItem{
 		Title:           strings.TrimSpace(w.Title),
 		WhyThis:         strings.TrimSpace(w.WhyThis),
 		Steps:           trimSteps(w.Steps),
 		DurationSeconds: intPtr(w.DurationSeconds),
+		Habit:           habit,
 	}
+}
+
+func habitActivity(h *habits.Habit) string {
+	if h == nil {
+		return ""
+	}
+	return h.Activity
 }
 
 func trimSteps(steps []string) []string {

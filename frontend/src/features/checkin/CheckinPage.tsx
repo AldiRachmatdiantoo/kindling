@@ -25,6 +25,7 @@ import {
   type CheckinQuestion,
   type DemoPreset,
 } from './constants';
+import { HabitsStep } from '../habits/HabitsStep';
 import { DayConclusion, PILLAR_META, PillarReading } from './CheckinReading';
 import {
   PILLAR_ORDER,
@@ -109,7 +110,7 @@ export function CheckinPage() {
   const [guideDirection, setGuideDirection] = useState<'next' | 'prev'>('next');
   // Between questions: an early read after each pillar, then the conclusion after the last.
   const [interlude, setInterlude] = useState<
-    { kind: 'pillar'; pillar: Pillar } | { kind: 'summary' } | null
+    { kind: 'pillar'; pillar: Pillar } | { kind: 'summary' } | { kind: 'habits' } | null
   >(null);
   const [skipProgressTransition, setSkipProgressTransition] = useState(false);
   const [showSympathy, setShowSympathy] = useState(false);
@@ -277,9 +278,11 @@ export function CheckinPage() {
     ? 'Last step'
     : interlude?.kind === 'summary'
       ? 'Your day'
-      : interlude
-        ? `${PILLAR_META[interlude.pillar].label} read`
-        : `${step + 1} of ${TOTAL_QUESTIONS}`;
+      : interlude?.kind === 'habits'
+        ? 'Your habits'
+        : interlude
+          ? `${PILLAR_META[interlude.pillar].label} read`
+          : `${step + 1} of ${TOTAL_QUESTIONS}`;
 
   const continueFromPillar = (pillar: Pillar) => {
     if (pillar === PILLAR_ORDER[PILLAR_ORDER.length - 1]) {
@@ -300,7 +303,8 @@ export function CheckinPage() {
               size="icon"
               onClick={() => {
                 // From a read, step back to the question that finished the pillar.
-                if (interlude) setInterlude(null);
+                if (interlude?.kind === 'habits') setInterlude({ kind: 'summary' });
+                else if (interlude) setInterlude(null);
                 else goToStep(Math.max(0, step - 1));
               }}
               disabled={step === 0 && !interlude}
@@ -507,10 +511,7 @@ export function CheckinPage() {
           <DayConclusion
             scores={scores}
             tier={previewTier(scores)}
-            onContinue={() => {
-              setInterlude(null);
-              goToStep(FINAL_STEP);
-            }}
+            onContinue={() => setInterlude({ kind: 'habits' })}
           />
         )}
 
@@ -611,7 +612,7 @@ export function CheckinPage() {
           </fieldset>
         )}
 
-        {started && isFinal && (
+        {started && isFinal && !interlude && (
           <div className={`space-y-5 ${direction === 'next' ? 'k-step-next' : 'k-step-prev'}`}>
             <FeatureTip id="checkin-final" title="Last bit, I promise">
               <p>
@@ -721,6 +722,16 @@ export function CheckinPage() {
             );
           })()}
       </form>
+
+      {/* Outside the check-in form: the habits form is a form of its own. */}
+      {started && interlude?.kind === 'habits' && (
+        <HabitsStep
+          onDone={() => {
+            setInterlude(null);
+            goToStep(FINAL_STEP);
+          }}
+        />
+      )}
     </div>
   );
 }

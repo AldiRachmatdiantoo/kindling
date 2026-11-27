@@ -5,6 +5,18 @@ import "github.com/kindling/backend/pkg/ai"
 // BuildCheckinFallback returns a deterministic, schema-valid template per calibration_tier (PRD §8.2).
 // The wins still explain themselves from today's scores.
 func BuildCheckinFallback(tier ai.CalibrationTier, scores ai.Scores) ai.CheckinOutput {
+	return buildCheckinFallback(tier, scores)
+}
+
+// BuildCheckinFallbackWithHabits is the fallback when the user has habits: those pillars keep
+// a habit-built win, so an AI outage never drops what the user chose to work on.
+func BuildCheckinFallbackWithHabits(tier ai.CalibrationTier, scores ai.Scores, habits ai.Habits) ai.CheckinOutput {
+	out := buildCheckinFallback(tier, scores)
+	out.Wins = ai.ApplyHabits(out.Wins, tier, scores, habits)
+	return out
+}
+
+func buildCheckinFallback(tier ai.CalibrationTier, scores ai.Scores) ai.CheckinOutput {
 	switch tier {
 	case ai.TierGentle:
 		return ai.CheckinOutput{

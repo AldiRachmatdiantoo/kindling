@@ -130,6 +130,50 @@
   animation: tm-rise 1000ms cubic-bezier(0.22, 1, 0.36, 1) 700ms both;
 }
 
+/* ---------- swap ---------- */
+.tm-shuffle {
+  animation: tm-shuffle 1.2s ease-in-out infinite;
+}
+.tm-swapped {
+  animation: tm-swap-away 700ms cubic-bezier(0.55, 0, 0.75, 0) forwards;
+}
+.tm-swap .tm-result {
+  width: 250px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+  animation: tm-swap-in 900ms cubic-bezier(0.22, 1, 0.36, 1) 450ms both;
+}
+@keyframes tm-shuffle {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0);
+  }
+  25% {
+    transform: translateX(-14px) rotate(-3deg);
+  }
+  75% {
+    transform: translateX(14px) rotate(3deg);
+  }
+}
+@keyframes tm-swap-away {
+  to {
+    opacity: 0;
+    transform: translateX(-120%) rotate(-12deg);
+  }
+}
+@keyframes tm-swap-in {
+  from {
+    opacity: 0;
+    transform: translateX(120%) rotate(12deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .tm-label {
   display: table;
   margin-bottom: 8px;
@@ -347,6 +391,7 @@
     display: none;
   }
   .tm-shrunk,
+  .tm-swapped,
   .tm-apart {
     opacity: 0;
   }

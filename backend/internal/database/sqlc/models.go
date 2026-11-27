@@ -57,3 +57,11 @@ type User struct {
 	AiConsentAt  pgtype.Timestamptz `json:"ai_consent_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
+
+type UserHabit struct {
+	UserID    uuid.UUID          `json:"user_id"`
+	Pillar    string             `json:"pillar"`
+	Activity  string             `json:"activity"`
+	Struggle  string             `json:"struggle"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}

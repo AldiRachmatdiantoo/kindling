@@ -9,6 +9,7 @@ import { Mascot } from '../../components/Mascot';
 import { useAuth } from '../auth/AuthContext';
 import { useWelcomeTour } from '../onboarding/WelcomeTour';
 import { PageLoading } from '../../components/PageLoading';
+import { HabitsCard } from '../habits/HabitsCard';
 import { PatternDiscovery } from './PatternDiscovery';
 import { DayDetail, RecentDays } from './DayHistory';
 import { Button } from '@/components/watermelon-ui/button';
@@ -152,11 +153,15 @@ export function ProfilePage() {
               <span className="text-xs font-semibold text-ink-soft">{label}</span>
               <Icon className={`h-4 w-4 shrink-0 ${tint}`} aria-hidden="true" />
             </div>
-            <p className={`mt-2 k-tinted-num font-serif text-4xl font-bold tracking-tight ${tint}`}>{value}</p>
+            <p className={`mt-2 k-tinted-num font-serif text-4xl font-bold tracking-tight ${tint}`}>
+              {value}
+            </p>
             <p className="mt-1 text-[11px] text-ink-soft">All time</p>
           </div>
         ))}
       </section>
+
+      <HabitsCard />
 
       <PatternDiscovery />
 

@@ -36,12 +36,32 @@ type CopeOption struct {
 	Guidance          string `json:"guidance"`
 }
 
+// Habit is a user's standing activity for one pillar and what usually gets in the way.
+type Habit struct {
+	Activity string
+	Struggle string
+}
+
+// Habits maps a pillar ("physical", "work", "soul") to its habit; a missing pillar has none.
+type Habits map[string]Habit
+
 // CheckinInput contains ONLY non-PII calibration inputs sent to the AI layer (PRD §8.2).
 type CheckinInput struct {
 	Scores          Scores
 	CalibrationTier CalibrationTier
 	BrainDump       string
 	FunCopeInput    string
+	// Habits, when set, are what that pillar's win is built from.
+	Habits Habits
+}
+
+// PlanWinInput asks for one pillar's win built from an activity the user picked for today.
+type PlanWinInput struct {
+	CalibrationTier CalibrationTier
+	Scores          Scores
+	Pillar          string
+	Activity        string
+	Struggle        string
 }
 
 // CheckinOutput is the structured AI response for POST /checkin.
@@ -86,4 +106,5 @@ type AiProvider interface {
 	GenerateCheckin(ctx context.Context, in CheckinInput) (CheckinOutput, error)
 	SliceTask(ctx context.Context, in SliceTaskInput) (SliceTaskOutput, error)
 	Recalibrate(ctx context.Context, in RecalibrateInput) (RecalibrateOutput, error)
+	PlanWin(ctx context.Context, in PlanWinInput) (WinPlan, error)
 }

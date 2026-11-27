@@ -39,6 +39,10 @@ type WinItem struct {
 	DurationSeconds *int     `json:"duration_seconds"`
 	Level           int      `json:"level"`
 	Completed       bool     `json:"completed"`
+	// Habit is the user's activity this win was built from; empty when the AI picked it.
+	Habit string `json:"habit,omitempty"`
+	// Swapped marks a win the user traded for another activity, for today only.
+	Swapped bool `json:"swapped,omitempty"`
 }
 
 // WorkWinItem represents the work win JSONB object with AI Task Slicer fields (PRD §5.1).
@@ -54,6 +58,8 @@ type WorkWinItem struct {
 	DurationSeconds *int     `json:"duration_seconds"`
 	// StepsDone counts micro-steps finished before the current one (progressive slicing).
 	StepsDone int `json:"steps_done,omitempty"`
+	// Habit is the user's activity this win was built from; empty when the AI picked it.
+	Habit string `json:"habit,omitempty"`
 }
 
 // WinsData matches the wins_data JSONB structure in PRD §5.1.

@@ -1,11 +1,12 @@
-import { Check, ChevronDown, Feather, Lightbulb, RefreshCw } from 'lucide-react';
-import { memo, useEffect, useState, type ReactNode } from 'react';
+import { Check, ChevronDown, Feather, Lightbulb, RefreshCw, Shuffle, Sprout } from 'lucide-react';
+import { memo, useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import type { Pillar, WinItem, WorkWinItem } from '../../api/types';
 import { CountdownTimer } from '../../components/CountdownTimer';
 import { FeatureTip } from '../../components/FeatureTip';
 import { Mascot, PILLAR_MASCOT } from '../../components/Mascot';
 import { Button } from '@/components/watermelon-ui/button';
+import { Input } from '@/components/ui/input';
 import { PILLAR_META, timerKey } from './constants';
 
 export interface WinCardProps {
@@ -23,7 +24,113 @@ export interface WinCardProps {
   onToggleDetails: (pillar: Pillar) => void;
   onToggle: (pillar: Pillar) => void;
   onRecalibrate: (pillar: Pillar) => void;
+  /** Trade the win for another activity today; resolves with an error message, or null. */
+  onSwap?: (pillar: Pillar, activity: string) => Promise<string | null>;
+  isSwapping?: boolean;
   workSlicer?: ReactNode;
+}
+
+/**
+ * "Do something else today": the user names another activity and the win is rebuilt from it,
+ * for today only. The standing habit is untouched and returns tomorrow.
+ */
+function SwapToday({
+  pillar,
+  onSwap,
+  busy,
+}: {
+  pillar: Pillar;
+  onSwap: (pillar: Pillar, activity: string) => Promise<string | null>;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activity, setActivity] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const inputId = useId();
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const clean = activity.trim();
+    if (!clean) {
+      setError('Tell me what you would rather do today.');
+      return;
+    }
+    setError(null);
+    const err = await onSwap(pillar, clean);
+    if (err) setError(err);
+    else {
+      setOpen(false);
+      setActivity('');
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={busy}
+        data-testid={`swap-open-${pillar}`}
+        className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full text-xs font-semibold text-ink-soft hover:text-ink disabled:opacity-60"
+      >
+        <Shuffle className="h-3.5 w-3.5" aria-hidden="true" />
+        Do something else today
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="space-y-2 rounded-2xl border border-line bg-surface-2 p-3"
+      data-testid={`swap-form-${pillar}`}
+      noValidate
+    >
+      <label htmlFor={inputId} className="block text-xs font-semibold text-ink">
+        What would you rather do today?
+        <span className="block font-normal text-ink-soft">Your habit comes back tomorrow.</span>
+      </label>
+      <Input
+        id={inputId}
+        value={activity}
+        maxLength={120}
+        autoFocus
+        onChange={(e) => setActivity(e.target.value)}
+        placeholder={pillar === 'physical' ? 'e.g. yoga in my room' : 'e.g. call a friend'}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${inputId}-error` : undefined}
+        data-testid={`swap-input-${pillar}`}
+      />
+      {error && (
+        <p id={`${inputId}-error`} className="text-xs font-semibold text-peach-strong" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+          }}
+          className="flex-1"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={busy}
+          data-testid={`swap-submit-${pillar}`}
+          className="flex-1"
+        >
+          {busy ? 'Swapping...' : 'Swap it'}
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 export const WinCard = memo(function WinCard({
@@ -41,6 +148,8 @@ export const WinCard = memo(function WinCard({
   onToggleDetails,
   onToggle,
   onRecalibrate,
+  onSwap,
+  isSwapping = false,
   workSlicer,
 }: WinCardProps) {
   const meta = PILLAR_META[pillar];
@@ -101,6 +210,22 @@ export const WinCard = memo(function WinCard({
           </p>
         )}
         <p className="mt-1 text-xs text-ink-soft">{meta.subtitle}</p>
+        {item.habit && (
+          <span
+            className="mt-2.5 mr-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-ink"
+            data-testid={`win-habit-${pillar}`}
+          >
+            {item.swapped ? (
+              <Shuffle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            ) : (
+              <Sprout className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            )}
+            <span className="truncate">
+              {item.swapped ? 'Just for today: ' : 'From your habit: '}
+              {item.habit}
+            </span>
+          </span>
+        )}
         {item.level > 0 && (
           <span
             className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-ink"
@@ -263,6 +388,10 @@ export const WinCard = memo(function WinCard({
             )}
           </Button>
         ) : null}
+
+        {onSwap && !item.completed && (
+          <SwapToday pillar={pillar} onSwap={onSwap} busy={isSwapping || isRecalibrating} />
+        )}
       </div>
     </article>
   );
