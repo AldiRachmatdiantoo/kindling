@@ -3,9 +3,10 @@
 **Nama Produk:** **Kindling**
 **Tagline:** *"Small sparks, steady fire."*
 **Makna Nama:** *Kindling is the small twigs and dry leaves you use to start a fire. Nobody lights a log with a match; you start small, and the fire grows on its own. Kindling works the same way: on low-energy days you don't need a big flame — a recovery moment or a few small wins is enough to keep the spark alive.*
+**Maskot:** **Ember**, bara kecil yang dijaga tetap hangat. Kindling adalah kayunya, Ember adalah baranya. Nama produk tetap Kindling: kata umum bahasa Inggris yang berbeda dari merek "Kindle", sedangkan "Ember" sudah ramai dipakai produk lain (mis. Ember.js, Ember mug), jadi lebih cocok sebagai nama maskot di dalam app.
 
 **Proyek:** Holistic Self-Calibration & Anti-Burnout App (SLAY HACKS 2026)
-**Versi Dokumen:** 1.1 (revisi 26 Nov 2026: perbaikan konsistensi & celah keamanan, lihat §13)
+**Versi Dokumen:** 1.2 (revisi 27 Nov 2026: data empiris, habit per pilar, tukar win harian, peta status fitur, lihat §13)
 **Target Selesai Kode:** 1 Desember 2026
 **Deadline Submisi:** 7 Desember 2026
 
@@ -27,10 +28,24 @@ Di tengah tuntutan produktivitas tinggi, banyak mahasiswa, pekerja, maupun indiv
 2. **Stigma Negatif terhadap *Coping Mechanism*.** Pelarian saat lelah sering dianggap kemalasan, padahal secara psikologi (Carver, 1997) *coping* adalah respons alami terhadap stres. Sistem saraf perlu dipulihkan terlebih dahulu lewat *positive cope* pilihan pengguna sendiri sebelum mulai bekerja.
 3. **Pendekatan yang Tidak Menyeluruh.** Kebiasaan bertahan lama membutuhkan keseimbangan pada tiga sisi kehidupan sekaligus: **Physical** (tubuh), **Work** (karya/studi), dan **Soul** (batin).
 
+**Data pendukung.** Hanya angka yang sudah dicek ke sumbernya; setiap angka ditulis bersama tahunnya.
+
+| Data | Sumber | Catatan pemakaian |
+| :--- | :--- | :--- |
+| ±280 juta orang mengalami depresi (5% orang dewasa); estimasi 2023 naik menjadi ±322 juta | WHO, *Depression fact sheet* (estimasi 2019 dan 2023) | Sebut tahun estimasinya; angka 2023 lebih baru |
+| Prevalensi kecemasan dan depresi global naik ±25% pada tahun pertama pandemi; dewasa muda (20–24) termasuk yang paling terdampak | WHO, *Scientific brief* 2 Maret 2022 | Angka 25% adalah angka global, **bukan** khusus usia 18–29 |
+| Prevalensi depresi tertinggi ada di usia 15–24 tahun (2%, nasional 1,4%), dan hanya 10,4% dari mereka yang berobat | Kemenkes, Survei Kesehatan Indonesia (SKI) 2023 | Kelompok dengan akses pengobatan terendah |
+| 44% pekerja mengalami stres "sepanjang banyak waktu" dalam sehari kemarin; hanya 21% yang *engaged* di pekerjaan | Gallup, *State of the Global Workplace 2022* | Ini keterlibatan **kerja**, bukan makna hidup secara umum. Angka berubah tiap edisi (edisi 2026: stres ±40%, *engaged* ±20%), jadi selalu sebut edisinya |
+| Pembentukan habit butuh median 66 hari (rentang 18–254); melewatkan satu hari tidak merusak prosesnya secara berarti | Lally dkk. (2010) | **Median**, bukan rata-rata |
+
+Tidak dipakai karena tidak ada sumbernya: klaim ">80% pengguna berhenti karena *streak*". Efek *what-the-hell* (satu pelanggaran memicu menyerah total) berasal dari riset diet Polivy & Herman, bukan Lally; boleh disebut sebagai analogi dengan sumber yang benar, bukan sebagai data aplikasi habit.
+
 ### 1.2 Filosofi Produk
 - **"Siapa Peduli 66 Hari Baru Kebentuk".** Fokus penuh pada kemenangan realistis **hari ini** sesuai kapasitas energi pengguna. Konsistensi jangka panjang terjadi sebagai efek samping alami, bukan beban *countdown*.
 - **"Having a Coping Mechanism is Not a Bad Thing — Choose Your Own Positive Cope".** Sistem tidak menghakimi pelarian pengguna saat lelah, melainkan menerjemahkannya menjadi 3 opsi *positive cope* yang **100% dipilih sendiri** oleh pengguna untuk mengembalikan rasa kendali (*agency*).
 - **Istirahat adalah hasil yang sah.** Hari tanpa *win* tidak pernah ditampilkan sebagai kegagalan; heatmap tidak mengenal *reset streak*.
+- **Tidak ada metrik yang menghukum.** Aplikasi tidak menampilkan *streak* maupun persentase *win rate*, karena angka yang turun saat pengguna absen memicu kecemasan baru. Semua statistik bersifat kumulatif: hanya bisa naik atau diam.
+- **Habit milik pengguna, langkahnya dari AI.** Pengguna menentukan sendiri kegiatan yang ia nikmati atau ingin ia tingkatkan per pilar; AI hanya menerjemahkannya menjadi langkah kecil sesuai energi hari itu, tanpa mendikte detail teknis (mis. program gym) kecuali diminta.
 
 ### 1.3 Referensi Ilmiah
 | Instrumen | Referensi | Dipakai untuk |
@@ -52,13 +67,15 @@ Di tengah tuntutan produktivitas tinggi, banyak mahasiswa, pekerja, maupun indiv
 | ID | Modul | Kebutuhan Fungsional |
 | :--- | :--- | :--- |
 | **FR-01** | Auth & Session | Registrasi, login, `GET /auth/me`, refresh token otomatis, dan logout. **Access JWT (15m)** dan **Refresh Token opak (7d)** disimpan di cookie **HttpOnly**; token CSRF disimpan di cookie **non-HttpOnly** agar bisa dibaca JS (double-submit). Rotasi refresh token dengan *reuse detection* (grace period 10 detik untuk request paralel). Registrasi memuat persetujuan pemrosesan teks oleh AI. |
-| **FR-02** | Psychometric Check-In | Form 9 butir skala Likert 1–4 (Lampiran A), kotak *brain dump* (maks 2.000 karakter), dan pertanyaan kunci: *"What fun thing do you always want to do when everything feels tired?"* (maks 200 karakter). Satu log per pengguna per hari. |
+| **FR-02** | Psychometric Check-In | Form 9 butir skala Likert 1–4 (Lampiran A), kotak *brain dump* (maks 2.000 karakter), dan pertanyaan kunci: *"What fun thing do you always want to do when everything feels tired?"* (maks 200 karakter). Satu log per pengguna per hari. Disajikan percakapan: panduan 3 halaman di awal (bisa dilewati), 1 pertanyaan per layar dengan label bahasa manusia (bukan angka 1–4), animasi *reading* setelah tiap pilar selesai ("memprediksi tingkat"), dan kartu kesimpulan hari itu setelah pertanyaan terakhir. Pengguna baru disambut halaman *welcome* setelah registrasi. |
 | **FR-03** | Demo Presets | Halaman `/checkin` menyediakan 2 tombol sekali klik (`Preset A: High Exhaustion`, `Preset B: High Disengagement`) yang mengisi form dengan nilai tetap (Lampiran B). Preset hanya mengisi form; pengguna tetap menekan Submit. |
 | **FR-04** | Deterministic Scorer | Backend menghitung 4 skor dimensi (0–100) dengan rumus pada §2.1, plus `calibration_tier`, **sebelum** memanggil LLM. Skor tidak pernah berasal dari LLM. |
-| **FR-05** | Choose Your Own Positive Cope | AI memetakan jawaban *fun thing* ke kategori **Brief-COPE adaptif** (enum §2.2) dan menyusun tepat 3 opsi pemulihan (60–600 detik). Pengguna memilih 1 kartu untuk menjalankan *tool* interaktif: *Breathing Pacer*, *Activity Timer*, atau *Guided Brain-Dump*. |
-| **FR-06** | Calibrated 3 Daily Wins | AI menyusun 1 target per pilar **Physical, Work, Soul** sesuai `calibration_tier`. Pilar **Work** memiliki **AI Task Slicer**: pengguna memasukkan 1 tugas (maks 300 karakter), AI mengembalikan 1 langkah mikro 5–10 menit + *Focus Timer*. |
+| **FR-05** | Choose Your Own Positive Cope | AI memetakan jawaban *fun thing* ke kategori **Brief-COPE adaptif** (enum §2.2) dan menyusun tepat 3 opsi pemulihan (60–600 detik). Pengguna memilih 1 kartu untuk masuk ke ruang interaktif layar penuh: *Breathing Pacer* beranimasi (pola 4-7-8, *box*, atau *slow*), *Activity Timer* untuk hobinya, atau *Guided Brain-Dump* yang dilipat dan diarsipkan saat selesai. |
+| **FR-06** | Calibrated 3 Daily Wins | Tepat 3 target, 1 per pilar **Physical, Work, Soul**, sesuai `calibration_tier`. Bila pengguna punya habit untuk pilar itu (FR-10), AI membangun target **dari habit tersebut**; bila tidak, AI memilihkan. Pilar **Work** memiliki **AI Task Slicer**: pengguna memasukkan 1 tugas (maks 300 karakter), AI mengembalikan 1 langkah mikro 5–10 menit + *Focus Timer*. |
 | **FR-07** | Dynamic Target Renegotiation | Setiap kartu *win* memiliki tombol *"Masih Terlalu Berat"* yang menurunkan skala target satu tingkat (`level` 0 → 3). Penulisan hasil dilakukan di transaksi `SELECT ... FOR UPDATE` dengan pengecekan versi (§8.3). Pada level 3 tombol berubah menjadi pesan bahwa istirahat juga merupakan pilihan sah. |
 | **FR-08** | Anti-Burnout Heatmap | Halaman `/profile` merender grid 365 hari ala GitHub tanpa *reset streak* + statistik kumulatif seumur hidup. Level warna lihat §2.3. |
+| **FR-10** | Standing Habits per Pilar | Pengguna menyimpan maks 1 habit per pilar: kegiatan yang ia nikmati atau ingin ia tingkatkan (maks 120 karakter) + opsional hambatan yang biasanya muncul (maks 200 karakter). Diisi pada langkah *"Your habits"* di akhir check-in (bisa dilewati; bila sudah ada, cukup "Keep these" atau "Edit") dan bisa diubah kapan saja di kartu *Your habits* di `/profile`. Perubahan berlaku mulai check-in berikutnya. Ukuran langkah mengikuti tier: `gentle` ±2 menit, `balanced` ±10 menit, `standard` ±20 menit; hambatan dipakai AI untuk memilih langkah yang mengakalinya. Kartu win menampilkan asalnya: *"From your habit: …"*. |
+| **FR-11** | Swap for Today | Kartu win **Physical** dan **Soul** yang belum selesai punya tombol *"Do something else today"*. Pengguna menulis kegiatan lain (maks 120 karakter) dan AI menyusun ulang win pilar itu dari kegiatan tersebut, **khusus hari itu**. Habit tetap tidak berubah dan kembali besok. Kartu menampilkan *"Just for today: …"*. Pilar Work tidak memakai swap karena sudah punya Task Slicer. |
 | **FR-09** | Safety & Privacy | (a) Deteksi kata kunci krisis secara deterministik pada `brain_dump`/`fun_cope_input` sebelum LLM; bila terpicu, response membawa `safety_flag: true` dan UI menampilkan banner layanan bantuan. (b) Isi teks pengguna tidak pernah ditulis ke log aplikasi. (c) Disclaimer §1.4 tampil di `/checkin` dan `/cope`. |
 
 ### 2.1 Rumus Skor Deterministik
@@ -123,7 +140,9 @@ Backend hanya mengembalikan tanggal yang punya log; frontend mengisi tanggal kos
         │  (register: centang persetujuan pemrosesan AI)
         ▼
 [2. Daily Check-In (/checkin)]
-        │  9 butir Likert + Brain Dump + "Fun Thing When Tired"
+        │  Panduan 3 halaman → 9 butir (1 per layar, reading tiap pilar)
+        │  → kartu kesimpulan → "Your habits" (FR-10, bisa dilewati)
+        │  → Brain Dump + "Fun Thing When Tired"
         │  (opsional: klik Demo Preset A / B untuk auto-fill)
         │  Jika sudah check-in hari ini → langsung redirect ke /wins
         ▼
@@ -133,9 +152,9 @@ Backend hanya mengembalikan tanggal yang punya log; frontend mengisi tanggal kos
         │   (boleh dilewati — tombol "Lanjut ke Wins")
         ▼
 [4. Calibrated 3 Daily Wins (/wins)]
-        ├─► Physical Win
+        ├─► Physical Win (dari habit) ─► opsional "Do something else today" (FR-11)
         ├─► Work Win ─► Input 1 tugas ─► AI Task Slicer (5–10 mnt) ─► Focus Timer
-        └─► Soul Win
+        └─► Soul Win (dari habit)     ─► opsional "Do something else today" (FR-11)
             └─► "Masih Terlalu Berat" ─► AI turunkan level target (maks level 3)
         ▼
 [5. Profile & Anti-Burnout Heatmap (/profile)]
@@ -178,6 +197,19 @@ Backend hanya mengembalikan tanggal yang punya log; frontend mengisi tanggal kos
 +--------------------------------------+
 ```
 
+```text
++--------------------------+
+|       user_habits        |   users 1:N (maks 3 baris per user)
++--------------------------+
+| PK user_id (FK) ┐        |
+|    pillar       ┘        |   physical | work | soul
+|    activity (≤120)       |
+|    struggle (≤200, '')   |
+|    updated_at            |
++--------------------------+
+```
+Migrasi `000002_user_habits`: RLS `ENABLE` + `FORCE` dengan policy isolasi per `app.current_user_id` (sama seperti `daily_logs`), grant `SELECT/INSERT/UPDATE/DELETE` ke `app_runtime`.
+
 `ai_audit_logs.user_id` sengaja tanpa FK agar audit tetap ada walau user dihapus dan insert append-only tidak membebani FK check.
 
 ### 5.1 Struktur JSONB
@@ -216,6 +248,10 @@ Setiap kartu pilar dibuat **siap eksekusi tanpa berpikir** (mengurangi *decision
 - `duration_seconds`: panjang timer aktivitas di kartu (60–3600 detik). Untuk `work`, nilai awalnya panjang rencana dan diganti durasi `micro_step` setelah AI Task Slicer dipakai.
 
 Setelah recalibrate, `why_this` diganti kalimat tetap ("You asked for something lighter…"), `steps` dikosongkan, dan `duration_seconds` pilar physical/soul menjadi `null` (timer disembunyikan), karena alasan dan langkah lama tidak lagi cocok dengan target yang lebih kecil. Log lama yang belum punya `why_this`/`steps` tetap valid; kartu cukup menampilkan judulnya.
+
+Field opsional per kartu:
+- `habit` (≤ 120): kegiatan asal win ini, dari habit (FR-10) atau dari swap hari itu (FR-11). Tidak ada bila AI yang memilihkan.
+- `swapped`: `true` bila win ditukar khusus hari itu (FR-11).
 
 `level` 0 = target awal, 3 = paling ringan. `wins_completed_count` **selalu** dihitung ulang dari `wins_data` dalam statement UPDATE yang sama.
 
@@ -422,14 +458,14 @@ Format tanggal path `{date}` = `YYYY-MM-DD`. Untuk mutasi, `{date}` hanya boleh 
 | 429 | `RATE_LIMITED` | + header `Retry-After` |
 | 500 | `INTERNAL` | |
 
-**Idempotency-Key** (wajib pada `POST /checkin`, `POST /wins/{date}/slice-task`, `POST /wins/{date}/recalibrate`)
+**Idempotency-Key** (wajib pada `POST /checkin`, `POST /wins/{date}/slice-task`, `POST /wins/{date}/recalibrate`, `POST /wins/{date}/swap`)
 - Format UUID. Kunci Redis: `idem:{user_id}:{route}:{key}`.
 - Request pertama: `SET NX` status `processing` (TTL 30s) + hash SHA-256 body.
 - Selesai: simpan status HTTP + body response (TTL 24 jam). Request ulang dengan key & body sama → response yang sama di-*replay*.
 - Key sama + body beda → `422 IDEMPOTENCY_KEY_REUSED`. Masih `processing` → `409 IDEMPOTENCY_IN_PROGRESS`.
 - Response 5xx tidak disimpan (key dihapus agar bisa dicoba ulang).
 
-**Rate limit:** endpoint bertanda 🤖 dihitung ke kuota AI 10 req/menit/user.
+**Rate limit:** endpoint bertanda 🤖 dihitung ke kuota AI 10 req/menit/user dan ke kuota AI harian per user (`AI_DAILY_LIMIT`, default 30). Saat kuota harian habis, server memakai fallback deterministik dan response membawa `ai_note: "daily_limit"`.
 
 ### 7.1 Health
 - `GET /api/v1/health` → `200 { "status": "ok" }` (liveness, tanpa dependensi).
@@ -524,6 +560,8 @@ Response `200`:
 
 **`POST /wins/{date}/recalibrate`** 🤖 — Header `X-CSRF-Token`, `Idempotency-Key`, Body `{ "pillar": "physical|work|soul" }` → `200 { "pillar": "work", "new_title": "...", "level": 1 }`. Alur §8.3. Untuk pilar `work` yang sudah punya `micro_step`, yang diperkecil adalah `micro_step` (dan `duration_seconds`). Recalibrate mereset `completed` pilar tsb menjadi `false`.
 
+**`POST /wins/{date}/swap`** 🤖 — Header `X-CSRF-Token`, `Idempotency-Key`, Body `{ "pillar": "physical|soul", "activity": "string (1–120)" }` → `200 { "pillar": "physical", "win": { ...WinItem, "habit": "yoga in my room", "swapped": true }, "ai_note"?: "daily_limit|unavailable" }`. Alur sama dengan §8.3: baca tanpa lock, panggil `AiProvider.PlanWin` di luar transaksi, lalu tulis dengan `FOR UPDATE`. Win yang sudah `completed` ditolak `400`. `user_habits` tidak diubah. Bila AI gagal, win dibangun dari template deterministik (`ai.HabitWin`).
+
 **`PATCH /wins/{date}/toggle`** — Header `X-CSRF-Token`, Body `{ "pillar": "physical|work|soul", "completed": true }` → `200 { "pillar": "physical", "completed": true, "wins_completed_count": 1 }`. Dalam transaksi `FOR UPDATE`; `wins_completed_count` dihitung ulang dari `wins_data`.
 
 ### 7.5 Profile Heatmap (`/api/v1/profile`)
@@ -540,6 +578,12 @@ Response `200`:
 - `milestones` dihitung seumur hidup (bukan hanya 365 hari).
 - Query heatmap hanya menyentuh kolom `user_id, log_date, wins_completed_count, positive_cope_chosen` agar memenuhi syarat *Index-Only Scan* (verifikasi dengan `EXPLAIN (ANALYZE, BUFFERS)` di integration test; *Heap Fetches* bisa > 0 sampai autovacuum memperbarui visibility map — itu normal).
 
+### 7.6 Habits (`/api/v1/habits`)
+
+**`GET /habits`** → `200 { "physical": { "activity": "morning run", "struggle": "too sleepy" } | null, "work": … | null, "soul": … | null }`.
+
+**`PUT /habits`** — Header `X-CSRF-Token`, Body berbentuk sama → `200` habit yang tersimpan. Mengganti ketiga pilar sekaligus; `null` atau `activity` kosong menghapus habit pilar itu. Spasi di-*trim*; `activity` > 120 atau `struggle` > 200 karakter → `400 VALIDATION_ERROR`. Bukan endpoint AI.
+
 ---
 
 ## 8. Spesifikasi Lapisan AI (`pkg/ai`)
@@ -550,16 +594,18 @@ type AiProvider interface {
     GenerateCheckin(ctx context.Context, in CheckinInput) (CheckinOutput, error)   // summary + 3 cope + 3 wins
     SliceTask(ctx context.Context, in SliceTaskInput) (SliceTaskOutput, error)
     Recalibrate(ctx context.Context, in RecalibrateInput) (RecalibrateOutput, error)
+    PlanWin(ctx context.Context, in PlanWinInput) (WinPlan, error)                 // 1 win dari 1 kegiatan (swap)
 }
 ```
+`CheckinInput` membawa `Habits` (map pilar → `{activity, struggle}`); bila ada, AI wajib membangun win pilar itu dari habit tersebut.
 - `MockAiProvider`: output deterministik berdasarkan `calibration_tier` + hash input; dipakai di semua test & demo default.
 - `GeminiProvider`: structured output dengan JSON schema; dibungkus `gobreaker` (buka setelah 5 kegagalan beruntun, half-open setelah 30s) dan timeout 8s.
 
 ### 8.2 Prompt Guard & Validasi Output
 - Teks pengguna dibungkus delimiter XML, mis. `<user_brain_dump>…</user_brain_dump>`; karakter `<` dan `>` di dalam input di-escape. System prompt menyatakan isi tag adalah data, bukan instruksi.
-- Input ke LLM hanya: skor, tier, `fun_cope_input`, `brain_dump` (terpotong 2.000 karakter), `main_task`. Tidak ada email/nama.
+- Input ke LLM hanya: skor, tier, `fun_cope_input`, `brain_dump` (terpotong 2.000 karakter), `main_task`, dan habit (`<user_habit pillar="..."><habit_activity>…</habit_activity><habit_struggle>…</habit_struggle></user_habit>`, di-escape sama seperti teks lain). Tidak ada email/nama.
 - Output divalidasi ketat di Go: tepat 3 cope option, enum kategori & tool sesuai §2.2, durasi dalam rentang, panjang judul ≤ 80, guidance ≤ 240. Setiap win wajib punya `title` ≤ 80, `why_this` tidak kosong ≤ 240, tepat 2 `steps` (≤ 120), dan `duration_seconds` 60–3600 (§5.1). Gagal validasi = error → fallback.
-- **Fallback deterministik** (`checkin/fallback.go`): template per `calibration_tier` & pilar; win diambil dari `ai.PlanWins` sehingga `why_this` tetap menyebut skor hari itu. Setiap pemakaian fallback mencatat `is_fallback = true` di `ai_audit_logs`. Response ke pengguna tetap `200`.
+- **Fallback deterministik** (`checkin/fallback.go`): template per `calibration_tier` & pilar; win diambil dari `ai.PlanWins` sehingga `why_this` tetap menyebut skor hari itu. Pilar yang punya habit memakai `ai.HabitWin`, jadi fallback tetap memakai kegiatan pilihan pengguna. Setiap pemakaian fallback mencatat `is_fallback = true` di `ai_audit_logs`. Response ke pengguna tetap `200`.
 
 ### 8.3 Alur Recalibrate (menghindari lock selama panggilan LLM)
 1. `WithUserTx`: baca `wins_data` (tanpa lock) → ambil `title` & `level` pilar. Jika `level = 3` → `422 MIN_LEVEL_REACHED`.
@@ -580,8 +626,8 @@ Daftar frasa (lowercase, normalisasi spasi) mis. "bunuh diri", "ingin mati", "me
 | **1 — Infra & Core Backend** | Monorepo, `docker-compose.yml` (nginx, api-1, api-2, migrate, postgres, redis), `01-roles.sh`, migrasi 000001 + `sqlc`, `pgxpool` + `WithTx`/`WithUserTx`, Redis Lua limiter, middleware (RequestID, RealIP, SecurityHeaders, RateLimit, Recoverer), UUIDv7, envelope & AppError, `/health` & `/health/ready`, kerangka `openapi.yaml`, `.env.example`. | `docker compose up` sehat; `curl localhost/api/v1/health/ready` = 200 dan request tersebar ke 2 instans; integration test limiter & test RLS (query tanpa `WithUserTx` = 0 baris) lulus. |
 | **2 — Auth & Security** | `features/auth`, Argon2id, JWT + cookie, refresh rotation + reuse detection + grace period, CSRF middleware, Auth middleware, `/auth/me`, login rate limit. | Unit + Testcontainers test: rotasi, reuse → family dicabut, refresh paralel tidak logout, request tanpa `X-CSRF-Token` = 403. |
 | **3 — Check-In & AI** | `features/checkin` + `pkg/ai`: `scorer.go` (table-driven test), tier, safety, Mock & Gemini provider + breaker + fallback, idempotency store, UPSERT + `CHECKIN_LOCKED`, `GET` & `PATCH cope`. | Test scorer mencakup Preset A/B & contoh §7.3; replay idempotency; fallback saat provider error; `safety_flag` terpicu. |
-| **4 — Wins & Profile** | `features/wins` (slice-task, recalibrate §8.3, toggle) + `features/profile` (heatmap, milestones). | Concurrency test `-race` untuk recalibrate & toggle paralel; `EXPLAIN` heatmap memakai `idx_daily_logs_heatmap`. |
-| **5 — Frontend** | Halaman `/login`, `/register`, `/checkin` (+ Preset A/B), `/cope` (skor, Breathing Pacer, Countdown Timer, Guided Brain-Dump, SafetyBanner), `/wins` (3 kartu, Task Slicer, Focus Timer, "Masih Terlalu Berat"), `/profile` (HeatmapGrid). API wrapper dengan single-flight refresh. Vite dev proxy `/api` → backend. | `npm run build` lulus; Vitest untuk HeatmapGrid, timer, api wrapper. |
+| **4 — Wins & Profile** | `features/wins` (slice-task, recalibrate §8.3, toggle, swap) + `features/habits` (GET/PUT, RLS) + `features/profile` (heatmap, milestones). | Concurrency test `-race` untuk recalibrate & toggle paralel; `EXPLAIN` heatmap memakai `idx_daily_logs_heatmap`. |
+| **5 — Frontend** | Halaman `/login`, `/register`, `/welcome`, `/checkin` (+ Preset A/B, panduan, reading per pilar, kesimpulan, langkah habit), `/cope` (skor, Breathing Pacer, Countdown Timer, Guided Brain-Dump, SafetyBanner), `/wins` (3 kartu, label habit, swap hari ini, Task Slicer, Focus Timer, "Masih Terlalu Berat"), `/profile` (HeatmapGrid, kartu Your habits). API wrapper dengan single-flight refresh. Vite dev proxy `/api` → backend. | `npm run build` lulus; Vitest untuk HeatmapGrid, timer, api wrapper. |
 | **6 — E2E, Security & CI** | Playwright full flow, `ci.yml` (lint, gosec via golangci-lint, govulncheck, `go test -race`, Testcontainers, Vitest, Playwright, Trivy, ZAP API scan dari `openapi.yaml`). | Workflow hijau di GitHub Actions. |
 
 ### 9.1 Jadwal & Prioritas Potong (5 hari kerja)
@@ -600,6 +646,31 @@ Jika terlambat, potong dalam urutan ini (paling aman dipotong lebih dulu): OWASP
 ### 9.2 Aturan Git Commit & Push Per Modul
 - Setiap kali **1 modul selesai** dan seluruh test + `openapi.yaml` + `progress.md` telah diperbarui, lakukan `git commit` dan `git push` ke remote `origin` (`https://github.com/AldiRachmatdiantoo/kindling.git`).
 - **Hanya satu contributor (pemilik repo):** seluruh commit wajib memakai identitas git pemilik repo (`user.name` & `user.email` lokal/global) dan **dilarang keras** menambahkan trailer `Co-Authored-By`, `Signed-off-by` pihak lain, atau atribusi contributor lain.
+
+### 9.3 Peta Status Fitur
+
+Status: ✅ sudah ada di app · 🟡 sebagian · ⬜ rencana (belum dibangun). Item ⬜ **bukan** acceptance criteria v1; ditulis agar arah produk jelas tanpa menjanjikan fitur yang belum ada.
+
+| Fitur | Status | Yang sudah ada | Yang belum / rencana |
+| :--- | :---: | :--- | :--- |
+| Check-in percakapan (FR-02) | ✅ | Panduan, 1 pertanyaan per layar, reading per pilar, kesimpulan | — |
+| Habit per pilar (FR-10) & swap hari ini (FR-11) | ✅ | Langkah check-in, kartu profil, label di kartu win, `POST /wins/{date}/swap` | — |
+| Cope Room interaktif (FR-05) | 🟡 | Pilih 1 dari 3 kartu; ruang Breathing (4-7-8/box/slow), Activity Timer, Brain-Dump | Rangkuman refleksi AI setelah brain dump. Isi brain dump sangat pribadi, jadi wajib izin eksplisit sebelum dikirim ke AI, tidak di-log (NFR-06), dan tetap ada fallback tanpa AI |
+| Auto-advance check-in | ⬜ | Sekarang: pilih jawaban lalu tekan Next | Pilih jawaban langsung lanjut setelah jeda ±400 ms agar pilihan sempat terlihat; tombol Back tetap ada untuk salah tap; animasi reading per pilar tetap jalan |
+| Quick-pick chips | ⬜ | Input teks bebas | 4–5 *chip* contoh untuk "fun thing" dan habit, mengurangi *decision fatigue*; tetap bisa mengetik sendiri |
+| Milestone Path per pilar | ⬜ | Statistik kumulatif di `/profile` (`total_daily_wins`, hari aktif, hari *recovery*) | Jalur node per pilar yang hanya maju atau diam. Setiap 3 win pilar itu selesai membuka 1 *checkpoint* berisi catatan apresiasi + tanggal, dengan penanda posisi terakhir ("Kemarin kamu sampai di sini"). Isi checkpoint berupa apresiasi, bukan hadiah yang membuat pengguna merasa wajib kembali |
+| Adaptive Atmosphere | ⬜ | Tema light/dark | Warna aksen dan tempo transisi mengikuti tier hari itu (mis. amber/slate teduh untuk `gentle`, teal segar untuk `standard`). Setiap palet wajib lolos kontras WCAG AA di kedua tema dan menghormati `prefers-reduced-motion` |
+
+**Rancangan data Milestone Path (rencana).** Dihitung dari `daily_logs.wins_data` yang sudah ada, tanpa tabel baru, sehingga tidak ada state yang bisa "mundur":
+```json
+"pillar_progress": {
+  "physical": { "completed_total": 7, "checkpoints": 2, "next_checkpoint_at": 9,
+                "last_completed_on": "2026-11-26" },
+  "work":     { "completed_total": 4, "checkpoints": 1, "next_checkpoint_at": 6, "last_completed_on": "2026-11-25" },
+  "soul":     { "completed_total": 2, "checkpoints": 0, "next_checkpoint_at": 3, "last_completed_on": "2026-11-24" }
+}
+```
+Rencananya ditambahkan ke response `GET /profile/heatmap`, dengan `checkpoints = floor(completed_total / 3)`.
 
 ---
 
@@ -649,3 +720,11 @@ Perubahan dari draft awal (detail alasan ada di `progress.md` → Log Keputusan)
 9. Kategori Brief-COPE dibatasi ke subskala asli ("Emotional Regulation" bukan subskala Brief-COPE); "4-7-8" tidak lagi disebut "Physiological Sigh" (dua teknik berbeda).
 10. Lally (2010): "rata-rata 66 hari" → "median 66 hari".
 11. FR-09 Safety & Privacy, NFR-06, `openapi.yaml`, migrator one-shot, env vars, jadwal & daftar potong ditambahkan.
+
+## 14. Catatan Revisi v1.2 (27 Nov 2026)
+1. §1.1: tabel data pendukung (WHO, SKI 2023, Gallup, Lally) dengan sumber dan tahun. Klaim tanpa sumber (">80% berhenti karena *streak*") tidak dipakai; efek *what-the-hell* diatribusikan ke Polivy & Herman, bukan Lally.
+2. Nama produk tetap **Kindling**; **Ember** sebagai maskot.
+3. Filosofi: larangan *streak* dan *win rate*; habit ditentukan pengguna, langkahnya dari AI.
+4. FR-02 diperbarui (check-in percakapan, halaman *welcome*); FR-05 merinci ruang interaktif; FR-06 memakai habit.
+5. Baru: FR-10 Standing Habits, FR-11 Swap for Today, tabel `user_habits` (migrasi 000002, RLS), field `habit`/`swapped` di `wins_data`, `POST /wins/{date}/swap`, `GET/PUT /habits`, `AiProvider.PlanWin`, kuota AI harian.
+6. §9.3 Peta Status Fitur: Cope Room refleksi AI, auto-advance, quick-pick chips, Milestone Path (`pillar_progress`), dan Adaptive Atmosphere dicatat sebagai rencana, bukan acceptance criteria v1.
