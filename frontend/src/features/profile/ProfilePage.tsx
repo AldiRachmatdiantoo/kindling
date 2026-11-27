@@ -10,6 +10,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useWelcomeTour } from '../onboarding/WelcomeTour';
 import { PageLoading } from '../../components/PageLoading';
 import { HabitsCard } from '../habits/HabitsCard';
+import { AtmosphereToggle } from '../theme/AtmosphereToggle';
 import { MilestonePath } from './MilestonePath';
 import { PatternDiscovery } from './PatternDiscovery';
 import { DayDetail, RecentDays } from './DayHistory';
@@ -168,6 +169,8 @@ export function ProfilePage() {
       )}
 
       <HabitsCard />
+
+      <AtmosphereToggle />
 
       <PatternDiscovery />
 

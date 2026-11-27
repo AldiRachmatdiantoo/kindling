@@ -1,9 +1,10 @@
 import { CalendarCheck, HeartHandshake, LogOut, Sun, Trophy, User } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { m, useReducedMotion } from 'motion/react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
 import { WelcomeTourProvider } from '../features/onboarding/WelcomeTour';
+import { useAtmosphereSync } from '../features/theme/atmosphere';
 import { ThemeToggle } from '../features/theme/ThemeToggle';
 import { TodayStatusProvider, useTodayStatus } from '../features/today/TodayStatus';
 import { KindlingMark } from './KindlingMark';
@@ -60,16 +61,9 @@ function AppShellLayout() {
     status !== 'unknown' && (location.pathname !== '/checkin' || status === 'done');
   const firstName = user?.full_name?.trim().split(/\s+/)[0] ?? '';
 
-  // Adaptive atmosphere: today's energy mode tints the whole app (see the mood block in
-  // index.css). Signed-out pages never carry it.
-  useEffect(() => {
-    const root = document.documentElement;
-    if (mood) root.dataset.mood = mood;
-    else delete root.dataset.mood;
-    return () => {
-      delete root.dataset.mood;
-    };
-  }, [mood]);
+  // Adaptive atmosphere: today's tier tints the accent and paces the motion (the atmosphere
+  // block in index.css). Signed-out pages never carry it.
+  useAtmosphereSync(mood, status, user?.timezone || 'Asia/Jakarta');
 
   // A new tab starts at its top, not wherever the previous page was scrolled to. Below md
   // the page scrolls inside scrollRef, from md up the window does.

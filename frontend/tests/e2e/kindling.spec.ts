@@ -82,8 +82,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('welcome-tour')).toHaveCount(0);
 
     await expect(page.getByTestId('calibration-tier-badge')).toContainText('Gentle Mode');
-    // Adaptive atmosphere: the whole app takes on the gentle mood and Ember quotes the reading
-    await expect(page.locator('html')).toHaveAttribute('data-mood', 'gentle');
+    // Adaptive atmosphere: Preset A is a gentle day, so <html> takes the gentle palette and Ember quotes the reading
+    await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'gentle');
     await expect(page.getByTestId('mood-greeting')).toContainText('physical energy is at 0%');
     await expect(page.getByTestId('score-physical_exhaustion')).toContainText('100');
     await expect(page.getByTestId('score-work_exhaustion')).toContainText('100');
@@ -195,6 +195,14 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     }
     await expect(page.getByTestId('milestone-physical-marker')).toHaveText('Today you got here');
     await expect(page.getByRole('button', { name: /^Checkpoint/ })).toHaveCount(0);
+
+    // "Match colors to my day" switches the atmosphere off and back on, without a request
+    const atmosphere = page.getByRole('switch', { name: 'Match colors to my day' });
+    await expect(atmosphere).toHaveAttribute('aria-checked', 'true');
+    await atmosphere.click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-atmosphere');
+    await atmosphere.click();
+    await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'gentle');
 
     // 9. After checking in, the first tab becomes "Today" and opens the day overview
     await expect(page.getByTestId('nav-checkin')).toContainText('Today');
