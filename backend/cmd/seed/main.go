@@ -124,8 +124,8 @@ func buildDemoDays(yesterday time.Time) []demoDay {
 
 func intPtr(v int) *int { return &v }
 
-func winsData(d demoDay, variant int) checkin.WinsData {
-	plan := ai.PlanWins(d.tier, d.scores, uint64(variant))
+func winsData(d demoDay, variant uint64) checkin.WinsData {
+	plan := ai.PlanWins(d.tier, d.scores, variant)
 	item := func(w ai.WinPlan, done bool) checkin.WinItem {
 		return checkin.WinItem{Title: w.Title, WhyThis: w.WhyThis, Steps: w.Steps,
 			DurationSeconds: intPtr(w.DurationSeconds), Completed: done}
@@ -222,10 +222,12 @@ func writeDays(ctx context.Context, pool *pgxpool.Pool, userID uuid.UUID, days [
 		return err
 	}
 	copeJSON, _ := json.Marshal(demoCopeOptions)
-	for i, d := range days {
+	var variant uint64
+	for _, d := range days {
 		answersJSON, _ := json.Marshal(d.answers)
 		scoresJSON, _ := json.Marshal(d.scores)
-		winsJSON, _ := json.Marshal(winsData(d, i))
+		winsJSON, _ := json.Marshal(winsData(d, variant))
+		variant++
 		var cope pgtype.Text
 		if d.cope != "" {
 			cope = pgtype.Text{String: d.cope, Valid: true}
