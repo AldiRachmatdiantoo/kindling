@@ -649,7 +649,7 @@ Jika terlambat, potong dalam urutan ini (paling aman dipotong lebih dulu): OWASP
 
 ### 9.3 Peta Status Fitur
 
-Status: ✅ sudah ada di app · 🟡 sebagian · ⬜ rencana (belum dibangun). Item ⬜ **bukan** acceptance criteria v1; ditulis agar arah produk jelas tanpa menjanjikan fitur yang belum ada.
+Status: ✅ sudah ada di app · 🟡 sebagian · ⬜ rencana (belum dibangun). Item ⬜ **bukan** acceptance criteria v1; ditulis agar arah produk jelas tanpa menjanjikan fitur yang belum ada. Pengerjaannya dibagi ke Modul 7–11 (Fase 2) di `progress.md`: 7 auto-advance + quick-pick chips, 8 refleksi AI brain-dump, 9 Milestone Path, 10 Adaptive Atmosphere, 11 sinkronisasi akhir.
 
 | Fitur | Status | Yang sudah ada | Yang belum / rencana |
 | :--- | :---: | :--- | :--- |

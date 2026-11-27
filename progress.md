@@ -1,6 +1,6 @@
 # progress.md — Kindling: Pelacak Progres & Prompt Handoff Antar-Modul
 
-**Status Terkini:** Seluruh Modul 1–6 selesai & terverifikasi. Siap untuk demo, buffer perbaikan, dan submisi.
+**Status Terkini:** Modul 1–6 selesai & terverifikasi, plus habits & swap (PRD v1.2, di `main`). **Fase 2 (Modul 7–11)** mengerjakan sisa PRD §9.3 di branch `feat/prd-v1.2-roadmap`. Modul berikutnya: **Modul 7**.
 **Target Selesai Kode:** 1 Desember 2026 · **Deadline Submisi:** 7 Desember 2026
 
 ---
@@ -16,6 +16,18 @@
 | 5 | Frontend React TS: auth, check-in + preset, cope tools, wins board, heatmap, Vitest | 30 Nov | ☑ |
 | 6 | Playwright E2E, security scan, GitHub Actions CI | 1 Des | ☑ |
 
+**Fase 2 — sisa PRD v1.2 §9.3** (branch `feat/prd-v1.2-roadmap`, 1 modul = 1 sesi)
+
+| # | Modul | Lingkup | Status |
+| :-: | :--- | :--- | :-: |
+| 7 | Check-in lebih cepat | Auto-advance + quick-pick chips | ☐ |
+| 8 | Refleksi AI Brain-Dump | `POST /checkin/{date}/reflect` + izin eksplisit di ruang Brain-Dump | ☐ |
+| 9 | Milestone Path | `pillar_progress` + jalur checkpoint per pilar di `/profile` | ☐ |
+| 10 | Adaptive Atmosphere | Warna & tempo animasi mengikuti tier hari itu | ☐ |
+| 11 | Sinkronisasi akhir | Celah `openapi.yaml`, PRD §9.3 jadi ✅, E2E penuh, CI hijau | ☐ |
+
+Urutan sengaja: Milestone Path (UI baru) dikerjakan sebelum Adaptive Atmosphere supaya palet baru ikut diuji di komponen itu.
+
 Ganti ☐ menjadi ☑ setelah **Definition of Done** modul (PRD §9) terpenuhi.
 
 ---
@@ -27,6 +39,23 @@ Ganti ☐ menjadi ☑ setelah **Definition of Done** modul (PRD §9) terpenuhi.
 4. Jangan menulis isi `brain_dump` / `fun_cope_input` / `main_task` ke log, fixture publik, atau screenshot.
 5. Setiap kali suatu modul selesai, selalu tampilkan **prompt siap pakai untuk modul berikutnya** di akhir respons agar pengguna bisa langsung menyalinnya ke sesi baru.
 6. Setiap kali suatu modul selesai (setelah semua test lulus, `openapi.yaml` & `progress.md` diperbarui), langsung `git commit` dan `git push` ke `origin main` **hanya atas nama pemilik repo** (tanpa `Co-Authored-By` atau contributor lain, sesuai PRD §9.2).
+   - **Fase 2 (Modul 7–11):** commit & push ke branch `feat/prd-v1.2-roadmap` (bukan langsung ke `main`). Satu PR ke `main` tetap terbuka selama fase ini supaya CI berjalan tiap push; merge hanya bila pemilik repo memintanya.
+
+### Aturan Tambahan Fase 2 (berlaku di setiap sesi Modul 7–11)
+- Balas pengguna dalam **bahasa Indonesia**; teks UI tetap bahasa Inggris seperti yang sudah ada.
+- Jangan commit `.claude/`, `preview/`, atau `.env`. `.env` berisi API key Gemini pemilik repo: jangan pernah dibaca ke output, dicetak, di-commit, atau dikirim ke mana pun.
+- Tanpa atribusi AI di commit/PR (tanpa `Co-Authored-By`, tanpa "Generated with ...").
+- File repo memakai CRLF. Untuk edit lewat skrip, pakai skrip Python yang mempertahankan CRLF (jangan heredoc Bash untuk string berisi backslash).
+- Frontend: `npx prettier --single-quote --print-width 100 --write <file>`, `npx tsc -b --noEmit`, `npx vitest run`.
+- Backend: `go vet ./...`, `golangci-lint run ./...` (0 issues, termasuk gosec; jangan tutup temuan dengan `#nosec` bila bisa diperbaiki), integration `TESTCONTAINERS_RYUK_DISABLED=true go test -count=1 -p 1 ./...`. `sqlc` tidak terpasang lokal: tulis kode bergaya sqlc secara manual seperti `internal/database/sqlc/habits.sql.go`. Integration test memuat semua migrasi lewat `database.ReadUpMigrations`.
+- E2E (mode mock):
+  1. `AI_PROVIDER=mock docker compose up -d api-1 api-2` (setelah mengubah backend: `docker compose build api-1` lalu `docker compose up -d migrate api-1 api-2` dengan `AI_PROVIDER=mock`).
+  2. Tunggu `curl -sf http://localhost/api/v1/health`.
+  3. `cd frontend && E2E_BASE_URL=http://localhost:5173 npx playwright test`.
+  4. Kembalikan ke Gemini: `docker compose up -d api-1 api-2`.
+  - Bila gagal dengan "getting a lot of requests" (429), itu rate limit registrasi dari run sebelumnya: tunggu ±70 detik lalu ulangi, jangan ubah limiter.
+- Data teks pengguna (`brain_dump`, `fun_cope_input`, `main_task`, habit, teks refleksi) tidak boleh masuk log, fixture publik, atau screenshot.
+- Akhir setiap modul, urut: semua test lulus → perbarui PRD (FR terkait + status di §9.3) → `openapi.yaml` → centang checklist Fase 2 + isi baris *Catatan Handoff Fase 2* → commit → push → cek CI PR (perbaiki bila merah) → tampilkan prompt modul berikutnya **persis** dari bagian *Prompt Siap Pakai Fase 2* di bawah.
 
 ---
 
@@ -50,6 +79,46 @@ Ganti ☐ menjadi ☑ setelah **Definition of Done** modul (PRD §9) terpenuhi.
 ### Modul 6
 > Baca `PRD.md` dan `progress.md`. Modul 1–5 sudah selesai. Kerjakan **hanya Modul 6**. Tulis suite Playwright (`frontend/tests/e2e/`) yang berjalan terhadap `docker compose` dengan `AI_PROVIDER=mock`: register → klik Preset A → submit → pilih positive cope → slice task Work Win → recalibrate satu pilar → toggle 3 win → buka `/profile` dan pastikan kotak hari ini berlevel `complete`; plus skenario refresh token setelah access token kedaluwarsa. Buat `.github/workflows/ci.yml` dengan job: `golangci-lint` (aktifkan `gosec`), `govulncheck`, `go test -race` + Testcontainers, Vitest, build image, **Trivy** (gagal pada HIGH/CRITICAL), Playwright, dan **OWASP ZAP API scan** memakai `backend/api/openapi.yaml` + `deploy/zap/zap-rules.tsv`. Pastikan workflow valid dan hijau, lalu perbarui `progress.md`.
 
+### Prompt Siap Pakai Fase 2
+
+#### Modul 7 — Check-in lebih cepat
+> Baca `PRD.md` (FR-02, FR-10, FR-11, §9.3) dan `progress.md` (terutama *Aturan Tambahan Fase 2*). Kerjakan **hanya Modul 7** di branch `feat/prd-v1.2-roadmap` (`git fetch && git switch feat/prd-v1.2-roadmap && git pull`). Frontend saja:
+> 1. **Auto-advance** di `frontend/src/features/checkin/CheckinPage.tsx`: memilih jawaban Likert dengan klik/tap atau Enter/Space langsung lanjut ke pertanyaan berikutnya setelah ±400 ms (pilihan sempat terlihat ter-highlight). Memindah pilihan dengan tombol panah **tidak** memicu auto-advance (keyboard user harus bisa menjelajah opsi). Tombol Next dihapus untuk pertanyaan yang belum dijawab, tapi tetap muncul saat user kembali ke pertanyaan yang sudah dijawab. Tombol Back tetap ada. Reading per pilar, kartu kesimpulan, dan langkah habits tetap jalan seperti sekarang. Klik ganda cepat tidak boleh melompati 2 pertanyaan. Dengan `prefers-reduced-motion`, tetap auto-advance tanpa animasi.
+> 2. **Quick-pick chips** (4–5 per input, `type="button"`, mengisi input dan tetap bisa diedit, nama aksesibel jelas): input "fun thing" di check-in, input activity tiap pilar di `HabitsForm.tsx`, dan input swap di `WinCard.tsx` (`SwapToday`). Isi chip spesifik per pilar, bahasa Inggris, tanpa emoji.
+> 3. Perbarui test: `CheckinPage.test.tsx`, test baru untuk chips, dan E2E `frontend/tests/e2e/kindling.spec.ts` (alur yang tadinya menekan `sympathy-next` kini cukup memilih jawaban; pertahankan `data-testid` yang ada).
+> Kriteria selesai: tsc, Vitest, dan keempat E2E lulus; PRD FR-02 menyebut auto-advance + chips dan §9.3 baris Auto-advance & Quick-pick chips jadi ✅. Lalu jalankan langkah akhir modul di `progress.md`. Karena ini modul pertama Fase 2, buka PR **draft** dari `feat/prd-v1.2-roadmap` ke `main` bila belum ada (judul: "PRD v1.2 roadmap: modules 7–11"). Akhiri dengan prompt Modul 8.
+
+#### Modul 8 — Refleksi AI Brain-Dump
+> Baca `PRD.md` (FR-05, FR-09, NFR-04, NFR-06, §7.0, §8, §9.3) dan `progress.md` (*Aturan Tambahan Fase 2*, handoff Modul 7). Modul 7 sudah selesai. Kerjakan **hanya Modul 8** di branch `feat/prd-v1.2-roadmap`.
+> **Backend:** `POST /api/v1/checkin/{date}/reflect` 🤖 (Auth, `X-CSRF-Token`, `Idempotency-Key`, rate limit AI 10/menit/user, kuota `AI_DAILY_LIMIT`). Body `{ "text": "1–2000 karakter", "consent": true }`; `consent` bukan `true` → `400 VALIDATION_ERROR`. Log tanggal itu harus ada (`404` bila tidak) karena tier dipakai untuk nada. Response `{ "reflection": "≤ 280 karakter", "themes": ["≤ 3 item, masing-masing ≤ 40 karakter"], "safety_flag": bool, "ai_note"?: "daily_limit|unavailable" }`. Jalankan `checkin/safety.go` lebih dulu: bila terpicu, **jangan panggil AI**, kembalikan template empatik + `safety_flag: true`. Tambah `AiProvider.Reflect` (mock deterministik + Gemini dengan JSON schema, `<user_brain_dump>` di-escape, validator: tanpa diagnosis, tanpa saran medis, bahasa Inggris, tidak mengutip ulang kalimat user secara utuh). Fallback deterministik tanpa menyalin isi teks. **Teks tidak disimpan** di DB dan tidak di-log; `ai_audit_logs` hanya metadata. Pastikan cache idempotency di Redis hanya menyimpan hash body dan response (yang tidak memuat teks).
+> **Frontend:** di `BrainDumpRoom` (`frontend/src/components/FocusRoom.tsx`), setelah tulisan dilipat, tampilkan pilihan: "Read it back to me" atau "Keep it private". Sebelum mengirim, jelaskan singkat bahwa teks dikirim ke layanan AI (Google Gemini) hanya untuk refleksi ini dan tidak disimpan. Tampilkan kartu refleksi + tema, lalu tombol "On to my 3 Daily Wins". Tampilkan `SafetyBanner` bila `safety_flag`. Ada state loading, error (bisa coba lagi atau lanjut tanpa refleksi), dan pesan `ai_note`.
+> **Test:** unit (validator, escaping prompt, fallback tidak menyalin teks), integration Testcontainers (happy path, safety path tanpa panggilan AI lewat fake provider yang menghitung panggilan, `consent` false → 400, replay idempotency, teks tidak ada di `daily_logs` maupun `ai_audit_logs`), Vitest untuk alur izin di `FocusRoom`, dan tambahkan langkah refleksi di E2E bila tidak membuat suite rapuh.
+> Kriteria selesai: semua test + golangci-lint lulus; PRD FR-05 (+ catatan privasi di NFR-06) dan §9.3 baris Cope Room jadi ✅; `openapi.yaml` memuat endpoint baru. Lalu langkah akhir modul di `progress.md`, akhiri dengan prompt Modul 9.
+
+#### Modul 9 — Milestone Path
+> Baca `PRD.md` (§1.2, §2.3, §5.1, §7.5, §9.3 termasuk rancangan `pillar_progress`) dan `progress.md` (*Aturan Tambahan Fase 2*, handoff Modul 8). Modul 7–8 sudah selesai. Kerjakan **hanya Modul 9** di branch `feat/prd-v1.2-roadmap`.
+> **Backend** (`internal/features/profile`): tambahkan `pillar_progress` ke response `GET /profile/heatmap`, dihitung seumur hidup dari `daily_logs.wins_data` lewat `WithUserTx` dengan **query terpisah** (query heatmap yang ada harus tetap *Index-Only Scan*; test `EXPLAIN` tetap lulus). Per pilar: `completed_total`, `checkpoints` (array `{ "number": n, "reached_on": "YYYY-MM-DD" }`, tanggal saat win ke-3n selesai, urut tanggal), `next_checkpoint_at`, `last_completed_on` (null bila belum ada). Tambah `total_checkpoints` di `milestones`. Tidak ada tabel baru. Catat di PRD: hari lampau terkunci (mutasi hanya hari ini/kemarin), jadi progres lama tidak pernah turun; yang bisa mengurangi hanya user membatalkan centang hari itu sendiri.
+> **Frontend** (`/profile`): komponen `MilestonePath` per pilar (Physical, Work, Soul) dengan node per win yang selesai, checkpoint tiap 3 win berupa "peti apresiasi" yang bisa dibuka: catatan apresiasi deterministik per pilar & nomor checkpoint + tanggal, tanpa hadiah/poin. Penanda posisi terakhir: "Yesterday you got here" bila `last_completed_on` kemarin, selain itu "Last time you got here · <tanggal>". Tampilkan kartu statistik kumulatif: Total wins, Checkpoints reached, Active & Recovery days. Tanpa persentase, tanpa streak. Dukung empty state (belum ada win), keyboard, nama aksesibel (mis. "Physical: 7 wins, 2 checkpoints"), dan `prefers-reduced-motion`. Gunakan Mascot pilar yang sudah ada; ikuti gaya visual app.
+> **Test:** integration (urutan tanggal & centang campuran → `completed_total`, `reached_on` tepat, user lain tidak terlihat karena RLS), Vitest `MilestonePath` (empty, sebagian, checkpoint terbuka), E2E: setelah 3 win selesai di alur penuh, `/profile` menunjukkan 1 win per pilar dan 0 checkpoint.
+> Kriteria selesai: semua test lulus; PRD §5.1/§7.5 diperbarui dengan bentuk final dan §9.3 baris Milestone Path jadi ✅; `openapi.yaml` diperbarui. Lalu langkah akhir modul di `progress.md`, akhiri dengan prompt Modul 10.
+
+#### Modul 10 — Adaptive Atmosphere
+> Baca `PRD.md` (§1.2, §2.1 tier, §9.3) dan `progress.md` (*Aturan Tambahan Fase 2*, handoff Modul 9). Modul 7–9 sudah selesai. Kerjakan **hanya Modul 10** di branch `feat/prd-v1.2-roadmap`. Frontend saja.
+> 1. Ambil `calibration_tier` dari check-in hari ini (pakai data/hook yang sudah ada, jangan menambah request bila bisa dihindari) dan pasang `data-atmosphere="gentle|balanced|standard"` di `<html>`; tanpa check-in hari ini = tanpa atribut (tema default).
+> 2. Di CSS tema, override token aksen dan variabel tempo animasi per atmosfer, untuk light **dan** dark: `gentle` = amber hangat / slate teduh, transisi lebih lambat; `balanced` = palet sekarang; `standard` = teal/emerald segar. Perubahan halus, bukan mengganti seluruh tampilan; light mode tetap kalem (warna sudah pernah diredam).
+> 3. Setiap pasangan teks/latar dan komponen di tiap palet dicek dengan `contrast-check.py` dari skill antislop-human (AA: 4.5:1 teks normal, 3:1 teks besar & komponen); cantumkan hasilnya di handoff. Hormati `prefers-reduced-motion`. Tidak ada kilatan warna saat load; pergantian atmosfer memakai transisi warna singkat.
+> 4. Toggle di `/profile`: "Match colors to my day" (default on, simpan di localStorage).
+> **Test:** Vitest (pemetaan tier → atribut, toggle off), E2E: setelah check-in Preset A, `<html>` punya `data-atmosphere="gentle"`. Cek visual cepat di 390 px dan desktop, light & dark.
+> Kriteria selesai: semua test lulus; PRD §9.3 baris Adaptive Atmosphere jadi ✅ dengan ringkasan palet. Lalu langkah akhir modul di `progress.md`, akhiri dengan prompt Modul 11.
+
+#### Modul 11 — Sinkronisasi akhir
+> Baca `PRD.md` dan `progress.md` (*Aturan Tambahan Fase 2*, semua handoff Fase 2). Modul 7–10 sudah selesai. Kerjakan **hanya Modul 11** di branch `feat/prd-v1.2-roadmap`.
+> 1. Lengkapi `backend/api/openapi.yaml` yang masih tertinggal: `GET /profile/insights`, `next_step` & `steps_done` di slice-task, `ai_note` di semua respons AI, serta cocokkan ulang semua endpoint Fase 2 dengan handler sebenarnya. Jalankan ZAP API scan lokal (perintah di handoff Modul 6) dan pastikan 0 FAIL.
+> 2. PRD: pastikan setiap baris §9.3 berstatus sesuai kenyataan, FR/§5/§7/§8 cocok dengan kode, tambahkan *Catatan Revisi v1.3* di akhir. Jangan menulis fitur yang tidak ada.
+> 3. Jalankan seluruh verifikasi: golangci-lint, govulncheck, integration test, Vitest, tsc, keempat+ E2E. Perbaiki yang gagal.
+> 4. Perbarui deskripsi PR (ringkasan per modul, cara menguji) dan ubah PR dari draft ke ready. **Jangan merge**; tanyakan pemilik repo.
+> Kriteria selesai: CI PR hijau. Lalu centang Modul 11, isi handoff, commit, push, dan laporkan ringkasan Fase 2 (tidak ada prompt berikutnya).
+
 ---
 
 ## Catatan Handoff (diisi tiap akhir sesi)
@@ -62,6 +131,16 @@ Ganti ☐ menjadi ☑ setelah **Definition of Done** modul (PRD §9) terpenuhi.
 | 4 | `internal/features/wins` (`route → handler → service → repository`, `dto`, `fallback`) + `internal/features/profile` (`route → handler → service → repository`, `dto`), query `sqlc` (`queries/wins.sql` → `wins.sql.go`, `queries/profile.sql` → `profile.sql.go`), endpoint `POST /wins/{date}/slice-task` (AI Task Slicer 5–10 mnt + idempotency + AI rate limit + fallback + audit log), `POST /wins/{date}/recalibrate` (alur 3 langkah §8.3: baca tanpa lock → panggil AI di luar transaksi → `SELECT ... FOR UPDATE` + cek versi level → `409 CONCURRENT_MODIFICATION`; `422 MIN_LEVEL_REACHED` di level 3; reset `completed=false`; perkecil `micro_step` & `duration_seconds` pada `work` bila sudah di-slice), `PATCH /wins/{date}/toggle` (transaksional `FOR UPDATE`, `wins_completed_count` dihitung ulang dari `wins_data`), `GET /profile/heatmap` (365 hari per timezone user, level `rest/recovery/steady/complete`, milestones seumur hidup), semua akses `daily_logs` lewat `database.WithUserTx`, `openapi.yaml` v0.4.0, unit + Testcontainers concurrency test `-race` (10 recalibrate paralel → level naik tepat 1; toggle paralel → count konsisten) & `EXPLAIN (ANALYZE, BUFFERS)` (`Index Only Scan using idx_daily_logs_heatmap`, `Heap Fetches: 0`) lulus. | — (catatan: di Windows tanpa `gcc`, jalankan `-race` via `docker run --rm -v ${PWD}:/work -v /var/run/docker.sock:/var/run/docker.sock -w /work/backend -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal golang:1.27.3 go test -race -count=1 -p 1 ./internal/features/wins/... ./internal/features/profile/...`) | Unit test: `cd backend && go test -short -v ./...` · Full + Testcontainers: `cd backend && $env:TESTCONTAINERS_RYUK_DISABLED="true"; go test -count=1 -p 1 ./...` · Race (Docker Linux): `docker run --rm -v c:\projects\kindling:/work -v /var/run/docker.sock:/var/run/docker.sock -w /work/backend -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal golang:1.27.3 go test -race -count=1 -p 1 ./internal/features/wins/... ./internal/features/profile/...` |
 | 5 | `frontend/` React 19 + TypeScript + Vite 6 + Tailwind CSS v4 + Zod + React Router v7 + Vitest: API wrapper (`src/api/client.ts` dengan `credentials: 'include'`, `X-CSRF-Token` dari cookie, `Idempotency-Key` UUID per aksi, refresh single-flight saat 401 lalu retry sekali), `AuthContext` + `ProtectedRoute`/`GuestRoute` via `GET /auth/me`, halaman `/login`, `/register` (checkbox persetujuan AI), `/checkin` (9 butir Lampiran A, brain dump, fun thing, Demo Preset A & B Lampiran B, redirect ke `/wins` jika sudah check-in hari ini), `/cope` (4 skor + calibration tier, disclaimer, `SafetyBanner` bila `safety_flag`, 3 kartu cope → `BreathingPacer` 4-7-8 / `CountdownTimer` / `GuidedBrainDump`), `/wins` (3 kartu pilar, AI Task Slicer + Focus Timer, tombol "Masih Terlalu Berat" berubah jadi pesan istirahat di level 3), `/profile` (`HeatmapGrid` 365 hari dengan tanggal kosong = `rest` + statistik seumur hidup), `data-testid` pada elemen kunci untuk Playwright, Vite dev proxy `/api`, multi-stage `frontend/Dockerfile` (Node 22 → NGINX), `npm run build` & Vitest (8/8 tests: `client.test.ts`, `HeatmapGrid.test.tsx`, `CountdownTimer.test.tsx`) lulus. | — (catatan: di Windows PowerShell dengan ExecutionPolicy terbatas, jalankan `npm.cmd run build` & `npm.cmd run test`) | Build: `cd frontend && npm run build` · Vitest: `cd frontend && npm run test` · Dev: `cd frontend && npm run dev` (proxy `/api` → `http://localhost:8080` atau `VITE_API_PROXY_TARGET`) |
 | 6 | Suite Playwright E2E (`frontend/playwright.config.ts`, `frontend/tests/e2e/kindling.spec.ts`) lulus 2/2 terhadap `docker compose` (`AI_PROVIDER=mock`): (1) full flow register → Preset A → submit → pilih positive cope → slice task Work Win → recalibrate pilar `physical` (Level 0→1) → toggle 3 wins → `/profile` heatmap hari ini berlevel `complete`, (2) refresh token transparan setelah `access_token` kedaluwarsa (rotasi cookie `access_token` & `refresh_token` + reload tetap terautentikasi). Konfigurasi `backend/.golangci.yml` (v2 + `gosec`, 0 issues setelah perbaikan bounds check & `nolint` terjustifikasi), `deploy/zap/zap-rules.tsv`, `.dockerignore`, upgrade base `frontend/Dockerfile` ke `nginx:stable-alpine-slim` (Trivy 0 HIGH/CRITICAL pada `kindling-api` & `kindling-web`), dan `.github/workflows/ci.yml` (7 job: `golangci-lint` + `gosec`, `govulncheck`, `go test -race` + Testcontainers, Vitest + build, build image + Trivy HIGH/CRITICAL, Playwright E2E, dan OWASP ZAP API scan dari `backend/api/openapi.yaml` + `deploy/zap/zap-rules.tsv` — 112 PASS, 0 FAIL). | — | E2E: `$env:AI_PROVIDER="mock"; docker compose up -d --build --wait` lalu `cd frontend && npm run test:e2e` · Lint: `cd backend && golangci-lint run ./...` · Vuln: `cd backend && govulncheck ./...` · Trivy: `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 kindling-api:local` · ZAP: `docker run --rm --network kindling_kindling_net -v ${PWD}:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py -t /zap/wrk/backend/api/openapi.yaml -f openapi -O nginx -c /zap/wrk/deploy/zap/zap-rules.tsv -I` |
+
+### Catatan Handoff Fase 2
+
+| Modul | Selesai | Tertunda / Utang Teknis | Cara Menjalankan Test |
+| :-: | :--- | :--- | :--- |
+| 7 | | | |
+| 8 | | | |
+| 9 | | | |
+| 10 | | | |
+| 11 | | | |
 
 ---
 
@@ -106,3 +185,13 @@ Fitur tambahan setelah Modul 1–6 (sesudah commit `7f33cdb`):
 **Tertunda:** `backend/api/openapi.yaml` belum memuat `/profile/insights`, `next_step`, `steps_done`, dan `ai_note`. Banner `ai_note` di halaman Cope belum dicek visual.
 
 **Test:** `go test ./...` (integration: `TESTCONTAINERS_RYUK_DISABLED=true`), `npx vitest run` (32/32), E2E `E2E_BASE_URL=http://localhost:5173 npx playwright test` dengan `AI_PROVIDER=mock` (3/3).
+
+---
+
+## Catatan Pasca-Modul (27 Nov 2026, PR #2 `feat/figma-redesign-v2`, sudah di-merge ke `main`)
+
+- **Onboarding** — halaman `/welcome` setelah register/login; check-in dengan panduan 3 halaman, reading per pilar, dan kartu kesimpulan (`CheckinReading.tsx`, `reading.ts` mencerminkan `scorer.go`).
+- **Habits (FR-10)** — tabel `user_habits` (migrasi `000002`, RLS forced), `GET/PUT /api/v1/habits`, langkah "Your habits" di check-in (`HabitsStep.tsx`), kartu `HabitsCard.tsx` di Profile. Win dibangun dari habit (`ai.HabitWin`, `ai.ApplyHabits`), label "From your habit" di `WinCard`.
+- **Swap for today (FR-11)** — `POST /api/v1/wins/{date}/swap` (`wins/swap.go`, `AiProvider.PlanWin`), tombol "Do something else today" untuk Physical & Soul, animasi `swap` di `TaskMorphOverlay`.
+- **PRD v1.2** — data empiris bersumber, peta status fitur §9.3 (sisa pekerjaannya = Fase 2 di atas).
+- **Test:** integration semua lulus (`TESTCONTAINERS_RYUK_DISABLED=true`), Vitest 52/52, E2E 4/4 (mock), CI 7/7 hijau.
