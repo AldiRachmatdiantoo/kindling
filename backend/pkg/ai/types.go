@@ -107,4 +107,6 @@ type AiProvider interface {
 	SliceTask(ctx context.Context, in SliceTaskInput) (SliceTaskOutput, error)
 	Recalibrate(ctx context.Context, in RecalibrateInput) (RecalibrateOutput, error)
 	PlanWin(ctx context.Context, in PlanWinInput) (WinPlan, error)
+	// Reflect reads a brain dump back in a few sentences and up to 3 themes (FR-05).
+	Reflect(ctx context.Context, in ReflectInput) (ReflectOutput, error)
 }

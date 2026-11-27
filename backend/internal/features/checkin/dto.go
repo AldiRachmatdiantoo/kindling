@@ -179,3 +179,36 @@ type CopeUpdateRequest struct {
 type CopeUpdateResponse struct {
 	PositiveCopeChosen string `json:"positive_cope_chosen"`
 }
+
+// ReflectRequest is the payload for POST /api/v1/checkin/{date}/reflect (PRD FR-05).
+// Consent is a pointer so a missing field and false are both rejected.
+type ReflectRequest struct {
+	Text    string `json:"text"`
+	Consent *bool  `json:"consent"`
+}
+
+// Validate checks the text length and that the user explicitly agreed to send it.
+func (r ReflectRequest) Validate() *shared.AppError {
+	details := make(map[string]any)
+	if strings.TrimSpace(r.Text) == "" {
+		details["text"] = "is required"
+	} else if utf8.RuneCountInString(r.Text) > ai.MaxReflectTextRunes {
+		details["text"] = fmt.Sprintf("must be at most %d characters", ai.MaxReflectTextRunes)
+	}
+	if r.Consent == nil || !*r.Consent {
+		details["consent"] = "must be true: the text is only sent to the AI with explicit consent"
+	}
+	if len(details) > 0 {
+		return shared.ErrValidation("Invalid reflection input", details)
+	}
+	return nil
+}
+
+// ReflectResponse is the reply for POST /api/v1/checkin/{date}/reflect. It never carries the
+// user's text, so it is safe to keep in the idempotency cache.
+type ReflectResponse struct {
+	Reflection string   `json:"reflection"`
+	Themes     []string `json:"themes"`
+	SafetyFlag bool     `json:"safety_flag"`
+	AINote     string   `json:"ai_note,omitempty"`
+}

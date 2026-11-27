@@ -101,6 +101,10 @@ func (p *controllableAiProvider) PlanWin(ctx context.Context, in ai.PlanWinInput
 	return p.inner.PlanWin(ctx, in)
 }
 
+func (p *controllableAiProvider) Reflect(ctx context.Context, in ai.ReflectInput) (ai.ReflectOutput, error) {
+	return p.inner.Reflect(ctx, in)
+}
+
 type authSession struct {
 	cookies []*http.Cookie
 	csrf    string

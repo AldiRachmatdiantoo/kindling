@@ -38,7 +38,7 @@ function buildExpiredJwt(): string {
 }
 
 test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
-  test('full daily calibration flow: register -> Preset A -> cope -> slice task -> recalibrate -> 3 wins -> profile heatmap complete', async ({
+  test('full daily calibration flow: register -> Preset A -> cope -> brain-dump reflection -> slice task -> recalibrate -> 3 wins -> profile heatmap complete', async ({
     page,
   }) => {
     const email = uniqueEmail('e2e-flow');
@@ -91,18 +91,32 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     // 3. Choose a positive cope option. The 3 Wins stay locked until one is picked.
     await expect(page.getByTestId('skip-to-wins')).toHaveCount(0);
     await expect(page.getByTestId('skip-recovery')).toBeVisible();
-    const firstCopeCard = page.getByTestId('cope-card-cope_1');
-    await expect(firstCopeCard).toBeVisible();
-    await firstCopeCard.click();
-    await expect(firstCopeCard).toContainText('Picked for today');
-    // The pick opens the full-screen focus room; closing it leaves a way back in
-    await expect(page.getByTestId('focus-room')).toBeVisible();
+    // The gentle mock's third card is the brain dump. Picking it opens the full-screen focus
+    // room; closing it leaves a way back in without another request.
+    const dumpCard = page.getByTestId('cope-card-cope_3');
+    await expect(dumpCard).toBeVisible();
+    await dumpCard.click();
+    await expect(dumpCard).toContainText('Picked for today');
+    await expect(page.getByTestId('focus-room')).toHaveAttribute('data-tool', 'brain_dump');
     await page.getByTestId('focus-room-close').click();
     await expect(page.getByTestId('focus-room')).toHaveCount(0);
     await expect(page.getByTestId('active-cope-tool')).toBeVisible();
+    await expect(page.getByTestId('skip-to-wins')).toBeVisible();
 
-    // 4. Navigate to /wins
-    await page.getByTestId('skip-to-wins').click();
+    // 3b. Back in the room: fold the brain dump away and ask for a read-back (mock AI)
+    await page.getByTestId('open-focus-room').click();
+    await page
+      .getByTestId('focus-dump-input')
+      .fill('Too many deadlines this week and I keep sleeping late.');
+    await page.getByTestId('focus-fold').click();
+    await expect(page.getByTestId('focus-reflect-consent')).toContainText('Google Gemini');
+    await page.getByTestId('focus-reflect-send').click();
+    await expect(page.getByTestId('focus-reflection-text')).not.toBeEmpty();
+    await expect(page.getByTestId('focus-reflection-theme').first()).toBeVisible();
+    await expect(page.getByTestId('safety-banner')).toHaveCount(0);
+
+    // 4. On to /wins from the reflection
+    await page.getByTestId('focus-go-wins').click();
     await expect(page).toHaveURL(/\/wins$/);
     await expect(page.getByTestId('wins-progress-badge')).toContainText('0 / 3');
 

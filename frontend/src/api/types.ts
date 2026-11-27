@@ -127,6 +127,14 @@ export interface DailyLog {
   ai_note?: AINote;
 }
 
+/** A short read-back of a brain dump. It never contains the text the user wrote. */
+export interface ReflectData {
+  reflection: string;
+  themes: string[];
+  safety_flag: boolean;
+  ai_note?: AINote;
+}
+
 export interface SliceTaskData {
   main_task: string;
   micro_step: string;

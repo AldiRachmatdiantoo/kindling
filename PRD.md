@@ -70,7 +70,7 @@ Tidak dipakai karena tidak ada sumbernya: klaim ">80% pengguna berhenti karena *
 | **FR-02** | Psychometric Check-In | Form 9 butir skala Likert 1–4 (Lampiran A), kotak *brain dump* (maks 2.000 karakter), dan pertanyaan kunci: *"What fun thing do you always want to do when everything feels tired?"* (maks 200 karakter). Satu log per pengguna per hari. Disajikan percakapan: panduan 3 halaman di awal (bisa dilewati), 1 pertanyaan per layar dengan label bahasa manusia (bukan angka 1–4), animasi *reading* setelah tiap pilar selesai ("memprediksi tingkat"), dan kartu kesimpulan hari itu setelah pertanyaan terakhir. **Auto-advance:** memilih jawaban (klik/tap, Enter, atau Space) langsung lanjut ke pertanyaan berikutnya setelah ±400 ms agar pilihan sempat terlihat; tombol panah hanya memindah pilihan tanpa lanjut, ketukan ganda cepat hanya maju 1 pertanyaan, tombol Back selalu ada, dan tombol Next hanya muncul saat kembali ke pertanyaan yang sudah dijawab. Dengan `prefers-reduced-motion` tetap auto-advance tanpa animasi. **Quick-pick chips:** 4–5 *chip* contoh spesifik per pilar di bawah input *fun thing*, input habit (FR-10), dan input swap (FR-11); chip mengisi input dan teksnya tetap bisa diedit. Pengguna baru disambut halaman *welcome* setelah registrasi. |
 | **FR-03** | Demo Presets | Halaman `/checkin` menyediakan 2 tombol sekali klik (`Preset A: High Exhaustion`, `Preset B: High Disengagement`) yang mengisi form dengan nilai tetap (Lampiran B). Preset hanya mengisi form; pengguna tetap menekan Submit. |
 | **FR-04** | Deterministic Scorer | Backend menghitung 4 skor dimensi (0–100) dengan rumus pada §2.1, plus `calibration_tier`, **sebelum** memanggil LLM. Skor tidak pernah berasal dari LLM. |
-| **FR-05** | Choose Your Own Positive Cope | AI memetakan jawaban *fun thing* ke kategori **Brief-COPE adaptif** (enum §2.2) dan menyusun tepat 3 opsi pemulihan (60–600 detik). Pengguna memilih 1 kartu untuk masuk ke ruang interaktif layar penuh: *Breathing Pacer* beranimasi (pola 4-7-8, *box*, atau *slow*), *Activity Timer* untuk hobinya, atau *Guided Brain-Dump* yang dilipat dan diarsipkan saat selesai. |
+| **FR-05** | Choose Your Own Positive Cope | AI memetakan jawaban *fun thing* ke kategori **Brief-COPE adaptif** (enum §2.2) dan menyusun tepat 3 opsi pemulihan (60–600 detik). Pengguna memilih 1 kartu untuk masuk ke ruang interaktif layar penuh: *Breathing Pacer* beranimasi (pola 4-7-8, *box*, atau *slow*), *Activity Timer* untuk hobinya, atau *Guided Brain-Dump* yang dilipat dan diarsipkan saat selesai. Setelah dilipat, pengguna memilih **"Read it back to me"** atau **"Keep it private"**; di atas tombol tertulis bahwa teks dikirim ke layanan AI (Google Gemini) hanya untuk refleksi ini dan tidak disimpan. Bila dipilih, `POST /checkin/{date}/reflect` (§7.3) mengembalikan refleksi ≤ 280 karakter + ≤ 3 tema dengan nada mengikuti tier hari itu, lalu tombol "On to my 3 Daily Wins". "Keep it private" tidak mengirim apa pun. |
 | **FR-06** | Calibrated 3 Daily Wins | Tepat 3 target, 1 per pilar **Physical, Work, Soul**, sesuai `calibration_tier`. Bila pengguna punya habit untuk pilar itu (FR-10), AI membangun target **dari habit tersebut**; bila tidak, AI memilihkan. Pilar **Work** memiliki **AI Task Slicer**: pengguna memasukkan 1 tugas (maks 300 karakter), AI mengembalikan 1 langkah mikro 5–10 menit + *Focus Timer*. |
 | **FR-07** | Dynamic Target Renegotiation | Setiap kartu *win* memiliki tombol *"Masih Terlalu Berat"* yang menurunkan skala target satu tingkat (`level` 0 → 3). Penulisan hasil dilakukan di transaksi `SELECT ... FOR UPDATE` dengan pengecekan versi (§8.3). Pada level 3 tombol berubah menjadi pesan bahwa istirahat juga merupakan pilihan sah. |
 | **FR-08** | Anti-Burnout Heatmap | Halaman `/profile` merender grid 365 hari ala GitHub tanpa *reset streak* + statistik kumulatif seumur hidup. Level warna lihat §2.3. |
@@ -129,7 +129,7 @@ Backend hanya mengembalikan tanggal yang punya log; frontend mengisi tanggal kos
 | **NFR-03** | Database Engineering | PostgreSQL 16, `sqlc` + `pgxpool`. **UUIDv7 dibangkitkan di Go** (PG16 belum punya `uuidv7()` bawaan) untuk mengurangi fragmentasi B-Tree. Composite index `INCLUDE` untuk *Index-Only Scan* heatmap, partial index statistik, BRIN index pada audit log. Migrasi via `golang-migrate`. |
 | **NFR-04** | Security-First | Argon2id (m=19 MiB, t=2, p=1 — baseline OWASP). Cookie `Secure` (bisa dimatikan via env hanya untuk dev), `SameSite=Strict`. CSRF double-submit (`X-CSRF-Token` == cookie `csrf_token`) pada semua method non-GET kecuali `register`/`login`. **RLS** di `daily_logs` dengan `FORCE ROW LEVEL SECURITY`, role runtime `app_runtime` (bukan owner tabel). Refresh token disimpan sebagai SHA-256. XML delimiter + JSON schema ketat anti-*prompt injection*. React escaping default; `DOMPurify` hanya bila merender HTML. Pesan error auth generik (anti user enumeration). |
 | **NFR-05** | Testing & CI/CD | GitHub Actions: `golangci-lint` (termasuk `gosec`), `govulncheck`, `go test -race`, integration test via **Testcontainers-go** (Postgres + Redis asli), Vitest, E2E **Playwright**, **Trivy** image scan, **OWASP ZAP** API scan berbasis `backend/api/openapi.yaml`. |
-| **NFR-06** | Observability & Privacy | Log JSON terstruktur (`log/slog`) dengan `request_id`; isi `brain_dump`, `fun_cope_input`, `main_task`, dan output LLM **tidak** di-log. `ai_audit_logs` hanya menyimpan metadata (endpoint, latency, fallback). |
+| **NFR-06** | Observability & Privacy | Log JSON terstruktur (`log/slog`) dengan `request_id`; isi `brain_dump`, `fun_cope_input`, `main_task`, dan output LLM **tidak** di-log. `ai_audit_logs` hanya menyimpan metadata (endpoint, latency, fallback). **Teks refleksi brain-dump** (§7.3) hanya dikirim ke AI dengan `consent: true`, tidak disimpan di tabel mana pun (termasuk `daily_logs`), tidak di-log, dan tidak muncul di response; cache idempotency Redis hanya menyimpan hash SHA-256 body + response tersebut. |
 
 ---
 
@@ -458,7 +458,7 @@ Format tanggal path `{date}` = `YYYY-MM-DD`. Untuk mutasi, `{date}` hanya boleh 
 | 429 | `RATE_LIMITED` | + header `Retry-After` |
 | 500 | `INTERNAL` | |
 
-**Idempotency-Key** (wajib pada `POST /checkin`, `POST /wins/{date}/slice-task`, `POST /wins/{date}/recalibrate`, `POST /wins/{date}/swap`)
+**Idempotency-Key** (wajib pada `POST /checkin`, `POST /checkin/{date}/reflect`, `POST /wins/{date}/slice-task`, `POST /wins/{date}/recalibrate`, `POST /wins/{date}/swap`)
 - Format UUID. Kunci Redis: `idem:{user_id}:{route}:{key}`.
 - Request pertama: `SET NX` status `processing` (TTL 30s) + hash SHA-256 body.
 - Selesai: simpan status HTTP + body response (TTL 24 jam). Request ulang dengan key & body sama → response yang sama di-*replay*.
@@ -554,6 +554,18 @@ Response `200`:
 
 **`PATCH /checkin/{date}/cope`** — Header `X-CSRF-Token`, Body `{ "cope_option_id": "cope_2" }` → `200 { "positive_cope_chosen": "Pernapasan 4-7-8" }`. Server memvalidasi ID ada di `cope_options` lalu menyimpan **judul**-nya (dipakai heatmap). Boleh diganti selama hari yang sama.
 
+**`POST /checkin/{date}/reflect`** 🤖 — Header `X-CSRF-Token`, `Idempotency-Key`. Refleksi singkat atas brain dump di ruang Brain-Dump (FR-05).
+
+Request: `{ "text": "1–2000 karakter", "consent": true }`. `consent` yang tidak ada / bukan `true` → `400 VALIDATION_ERROR` (AI tidak dipanggil). `{date}` hari ini atau kemarin (`422 DATE_OUT_OF_RANGE`), dan log tanggal itu harus ada (`404 NOT_FOUND`) karena `calibration_tier`-nya menentukan nada.
+
+Response `200`:
+```json
+{ "reflection": "It sounds like work pressure is taking up a lot of room right now. ...",
+  "themes": ["Work pressure", "Running low on rest"],
+  "safety_flag": false }
+```
+Aturan: `reflection` ≤ 280 karakter, `themes` ≤ 3 item (masing-masing ≤ 40 karakter), `ai_note` (`daily_limit` / `unavailable`) hanya ada bila template menggantikan AI. Urutan: validasi → log harus ada → `DetectCrisis(text)`; bila terpicu, **AI tidak dipanggil** dan response berisi template empatik + `safety_flag: true` (UI menampilkan `SafetyBanner`) → kuota harian → `AiProvider.Reflect` + validator → fallback deterministik bila gagal. Teks tidak disimpan, tidak di-log, dan tidak ada di response (NFR-06); `ai_audit_logs` mencatat `endpoint = 'POST /checkin/{date}/reflect'`, latency, dan `is_fallback` saja.
+
 ### 7.4 3 Daily Wins (`/api/v1/wins`)
 
 **`POST /wins/{date}/slice-task`** 🤖 — Header `X-CSRF-Token`, `Idempotency-Key`, Body `{ "main_task": "string (≤300)" }` → `200 { "main_task": "...", "micro_step": "...", "duration_seconds": 300 }`. Disimpan ke `wins_data.work`. `duration_seconds` ∈ [300, 600].
@@ -595,8 +607,10 @@ type AiProvider interface {
     SliceTask(ctx context.Context, in SliceTaskInput) (SliceTaskOutput, error)
     Recalibrate(ctx context.Context, in RecalibrateInput) (RecalibrateOutput, error)
     PlanWin(ctx context.Context, in PlanWinInput) (WinPlan, error)                 // 1 win dari 1 kegiatan (swap)
+    Reflect(ctx context.Context, in ReflectInput) (ReflectOutput, error)           // refleksi brain dump (FR-05)
 }
 ```
+`ReflectInput` hanya berisi `calibration_tier` dan teks brain dump (terpotong 2.000 karakter, dibungkus `<user_brain_dump>` yang di-escape). Validator `ValidateReflectOutput` menolak: `reflection` kosong / > 280, `themes` > 3 atau > 40 karakter, kata diagnosis (mis. *depression*, *disorder*, *ADHD*), saran medis (mis. *medication*, *pills*, *melatonin*), teks non-Inggris (aksara non-Latin atau ≥ 2 kata umum bahasa Indonesia), dan kutipan ulang teks user (satu kalimat utuh ≥ 4 kata, atau 8 kata berurutan, tanpa membedakan huruf besar & tanda baca). Fallback `ai.ReflectTemplate` disusun dari kalimat tetap per tier + label tema tetap yang dipilih dari kata kunci, jadi tidak pernah menyalin teks.
 `CheckinInput` membawa `Habits` (map pilar → `{activity, struggle}`); bila ada, AI wajib membangun win pilar itu dari habit tersebut.
 - `MockAiProvider`: output deterministik berdasarkan `calibration_tier` + hash input; dipakai di semua test & demo default.
 - `GeminiProvider`: structured output dengan JSON schema; dibungkus `gobreaker` (buka setelah 5 kegagalan beruntun, half-open setelah 30s) dan timeout 8s.
@@ -615,7 +629,7 @@ type AiProvider interface {
 Dengan pola ini, dua klik paralel menghasilkan tepat satu kenaikan level (diuji dengan `go test -race`).
 
 ### 8.4 Deteksi Krisis (`checkin/safety.go`)
-Daftar frasa (lowercase, normalisasi spasi) mis. "bunuh diri", "ingin mati", "mengakhiri hidup", "menyakiti diri", "self harm", "kill myself". Jika cocok → `safety_flag = true`; LLM tetap dipanggil, tetapi `diagnostic_summary` diganti template empatik yang mengarahkan ke bantuan profesional. Banner UI menampilkan layanan bantuan (nomor hotline **wajib diverifikasi ulang sebelum demo**, mis. layanan SEJIWA 119 ext. 8 dan nomor darurat 112).
+Daftar frasa (lowercase, normalisasi spasi) mis. "bunuh diri", "ingin mati", "mengakhiri hidup", "menyakiti diri", "self harm", "kill myself". Jika cocok → `safety_flag = true`; LLM tetap dipanggil, tetapi `diagnostic_summary` diganti template empatik yang mengarahkan ke bantuan profesional. Pada `POST /checkin/{date}/reflect`, deteksi berjalan sebelum AI dan **LLM tidak dipanggil sama sekali**: response berisi `CrisisReflection` + `safety_flag: true`. Banner UI menampilkan layanan bantuan (nomor hotline **wajib diverifikasi ulang sebelum demo**, mis. layanan SEJIWA 119 ext. 8 dan nomor darurat 112).
 
 ---
 
@@ -655,7 +669,7 @@ Status: ✅ sudah ada di app · 🟡 sebagian · ⬜ rencana (belum dibangun). I
 | :--- | :---: | :--- | :--- |
 | Check-in percakapan (FR-02) | ✅ | Panduan, 1 pertanyaan per layar, reading per pilar, kesimpulan | — |
 | Habit per pilar (FR-10) & swap hari ini (FR-11) | ✅ | Langkah check-in, kartu profil, label di kartu win, `POST /wins/{date}/swap` | — |
-| Cope Room interaktif (FR-05) | 🟡 | Pilih 1 dari 3 kartu; ruang Breathing (4-7-8/box/slow), Activity Timer, Brain-Dump | Rangkuman refleksi AI setelah brain dump. Isi brain dump sangat pribadi, jadi wajib izin eksplisit sebelum dikirim ke AI, tidak di-log (NFR-06), dan tetap ada fallback tanpa AI |
+| Cope Room interaktif (FR-05) | ✅ | Pilih 1 dari 3 kartu; ruang Breathing (4-7-8/box/slow), Activity Timer, Brain-Dump. Setelah dilipat: "Read it back to me" / "Keep it private" dengan penjelasan pengiriman ke Google Gemini; `POST /checkin/{date}/reflect` (izin eksplisit `consent: true`, deteksi krisis tanpa AI, teks tidak disimpan/di-log, fallback tanpa AI yang tidak menyalin teks); kartu refleksi + tema, `SafetyBanner`, pesan `ai_note`, coba lagi / lanjut tanpa refleksi | — |
 | Auto-advance check-in (FR-02) | ✅ | Pilih jawaban langsung lanjut setelah ±400 ms; panah hanya memindah pilihan; Back tetap ada; Next hanya saat kembali ke pertanyaan yang sudah dijawab; reading per pilar tetap jalan | — |
 | Quick-pick chips (FR-02, FR-10, FR-11) | ✅ | 4–5 *chip* per input untuk "fun thing", activity habit tiap pilar, dan swap hari ini; mengisi input dan tetap bisa diedit | — |
 | Milestone Path per pilar | ⬜ | Statistik kumulatif di `/profile` (`total_daily_wins`, hari aktif, hari *recovery*) | Jalur node per pilar yang hanya maju atau diam. Setiap 3 win pilar itu selesai membuka 1 *checkpoint* berisi catatan apresiasi + tanggal, dengan penanda posisi terakhir ("Kemarin kamu sampai di sini"). Isi checkpoint berupa apresiasi, bukan hadiah yang membuat pengguna merasa wajib kembali |

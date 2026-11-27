@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -33,6 +34,9 @@ type spyAiProvider struct {
 	inner     ai.AiProvider
 	failNext  atomic.Bool
 	callCount atomic.Int32
+	// reflectCalls counts Reflect calls so the safety path can prove the AI was skipped.
+	reflectCalls atomic.Int32
+	failReflect  atomic.Bool
 }
 
 func (s *spyAiProvider) GenerateCheckin(ctx context.Context, in ai.CheckinInput) (ai.CheckinOutput, error) {
@@ -53,6 +57,14 @@ func (s *spyAiProvider) Recalibrate(ctx context.Context, in ai.RecalibrateInput)
 
 func (s *spyAiProvider) PlanWin(ctx context.Context, in ai.PlanWinInput) (ai.WinPlan, error) {
 	return s.inner.PlanWin(ctx, in)
+}
+
+func (s *spyAiProvider) Reflect(ctx context.Context, in ai.ReflectInput) (ai.ReflectOutput, error) {
+	s.reflectCalls.Add(1)
+	if s.failReflect.Load() {
+		return ai.ReflectOutput{}, errors.New("simulated reflect llm failure")
+	}
+	return s.inner.Reflect(ctx, in)
 }
 
 type authSession struct {
@@ -478,6 +490,181 @@ func TestCheckinModule_Integration(t *testing.T) {
 		}
 		if rec11.Header().Get("Retry-After") == "" {
 			t.Error("expected Retry-After header on 429")
+		}
+	})
+	t.Run("POST /checkin/{date}/reflect: consent, safety, replay, fallback, and the text is never stored", func(t *testing.T) {
+		userD := registerUser(t, handler, "dana@example.com", "Asia/Jakarta")
+		if rec := doAuthRequest(handler, userD, http.MethodPost, "/api/v1/checkin",
+			makeCheckinPayload("2026-11-26", "Check-in brain dump.", "Baca buku"), uuid.NewString()); rec.Code != http.StatusOK {
+			t.Fatalf("check-in for reflect: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+
+		// A marker that appears nowhere else, so finding it anywhere means the text leaked.
+		const marker = "Vexorith Plumbline"
+		text := "The " + marker + " deadline is crushing me and my manager keeps adding more work every single morning. I barely sleep."
+		reflectBody := func(text string, consent any) []byte {
+			b, _ := json.Marshal(map[string]any{"text": text, "consent": consent})
+			return b
+		}
+		type reflectEnv struct {
+			Data  checkin.ReflectResponse `json:"data"`
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		decode := func(t *testing.T, rec *httptest.ResponseRecorder) reflectEnv {
+			t.Helper()
+			var env reflectEnv
+			if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
+				t.Fatalf("decode reflect response: %v", err)
+			}
+			return env
+		}
+		path := "/api/v1/checkin/2026-11-26/reflect"
+
+		// consent false, missing, or not a boolean -> 400, and the AI is never asked.
+		before := spyAI.reflectCalls.Load()
+		for _, consent := range []any{false, nil, "true"} {
+			rec := doAuthRequest(handler, userD, http.MethodPost, path, reflectBody(text, consent), uuid.NewString())
+			if rec.Code != http.StatusBadRequest || decode(t, rec).Error.Code != "VALIDATION_ERROR" {
+				t.Fatalf("consent=%v: expected 400 VALIDATION_ERROR, got %d body=%s", consent, rec.Code, rec.Body.String())
+			}
+		}
+		if spyAI.reflectCalls.Load() != before {
+			t.Fatal("AI must not be called without consent")
+		}
+
+		// No log for that date -> 404.
+		if rec := doAuthRequest(handler, userD, http.MethodPost, "/api/v1/checkin/2026-11-25/reflect",
+			reflectBody(text, true), uuid.NewString()); rec.Code != http.StatusNotFound {
+			t.Fatalf("expected 404 without a log, got %d body=%s", rec.Code, rec.Body.String())
+		}
+
+		// Happy path.
+		idemKey := uuid.NewString()
+		rec := doAuthRequest(handler, userD, http.MethodPost, path, reflectBody(text, true), idemKey)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("reflect: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		env := decode(t, rec)
+		if env.Data.Reflection == "" || len([]rune(env.Data.Reflection)) > ai.MaxReflectionRunes {
+			t.Fatalf("bad reflection length: %q", env.Data.Reflection)
+		}
+		if len(env.Data.Themes) == 0 || len(env.Data.Themes) > ai.MaxReflectThemes {
+			t.Fatalf("bad themes: %v", env.Data.Themes)
+		}
+		if env.Data.SafetyFlag || env.Data.AINote != "" {
+			t.Fatalf("expected a plain AI reflection, got %+v", env.Data)
+		}
+		if strings.Contains(rec.Body.String(), marker) {
+			t.Fatal("response must not contain the user's text")
+		}
+		if got := spyAI.reflectCalls.Load(); got != before+1 {
+			t.Fatalf("expected 1 Reflect call, got %d", got-before)
+		}
+
+		// Replay: same key and body -> same response, no second AI call.
+		replay := doAuthRequest(handler, userD, http.MethodPost, path, reflectBody(text, true), idemKey)
+		if replay.Code != http.StatusOK || replay.Header().Get("Idempotency-Replayed") != "true" {
+			t.Fatalf("expected a replay, got %d headers=%v", replay.Code, replay.Header())
+		}
+		if replay.Body.String() != rec.Body.String() {
+			t.Fatal("replayed body differs")
+		}
+		if got := spyAI.reflectCalls.Load(); got != before+1 {
+			t.Fatal("AI must not be called on replay")
+		}
+
+		// Safety path: crisis phrase -> template + safety_flag, the AI is never called.
+		crisis := doAuthRequest(handler, userD, http.MethodPost, path,
+			reflectBody("Everything is too much and I want to die.", true), uuid.NewString())
+		if crisis.Code != http.StatusOK {
+			t.Fatalf("crisis reflect: status=%d body=%s", crisis.Code, crisis.Body.String())
+		}
+		cEnv := decode(t, crisis)
+		if !cEnv.Data.SafetyFlag || cEnv.Data.Reflection != checkin.CrisisReflection {
+			t.Fatalf("expected the crisis template with safety_flag, got %+v", cEnv.Data)
+		}
+		if got := spyAI.reflectCalls.Load(); got != before+1 {
+			t.Fatal("AI must not be called on the safety path")
+		}
+
+		// Provider failure -> deterministic fallback that does not copy the text.
+		spyAI.failReflect.Store(true)
+		fb := doAuthRequest(handler, userD, http.MethodPost, path, reflectBody(text, true), uuid.NewString())
+		spyAI.failReflect.Store(false)
+		if fb.Code != http.StatusOK {
+			t.Fatalf("fallback reflect: status=%d body=%s", fb.Code, fb.Body.String())
+		}
+		fEnv := decode(t, fb)
+		if fEnv.Data.AINote != "unavailable" || fEnv.Data.Reflection != checkin.BuildReflectFallback(ai.TierGentle, text).Reflection {
+			t.Fatalf("expected the fallback with ai_note=unavailable, got %+v", fEnv.Data)
+		}
+		if strings.Contains(fb.Body.String(), marker) {
+			t.Fatal("fallback must not contain the user's text")
+		}
+
+		// The text is in no daily_logs row (RLS context set so the row is actually visible).
+		var danaID uuid.UUID
+		if err := migratorPool.QueryRow(ctx, `SELECT id FROM users WHERE email = 'dana@example.com'`).Scan(&danaID); err != nil {
+			t.Fatalf("lookup dana id: %v", err)
+		}
+		tx, err := runtimePool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin tx: %v", err)
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		if _, err := tx.Exec(ctx, `SELECT set_config('app.current_user_id', $1, true)`, danaID.String()); err != nil {
+			t.Fatalf("set rls context: %v", err)
+		}
+		var visible, leaked int
+		if err := tx.QueryRow(ctx,
+			`SELECT COUNT(*), COUNT(*) FILTER (WHERE row_to_json(d)::text ILIKE '%' || $1 || '%') FROM daily_logs d`,
+			marker).Scan(&visible, &leaked); err != nil {
+			t.Fatalf("scan daily_logs: %v", err)
+		}
+		if visible == 0 {
+			t.Fatal("expected dana's log to be visible inside the RLS context")
+		}
+		if leaked != 0 {
+			t.Fatalf("reflection text found in %d daily_logs rows", leaked)
+		}
+
+		// ai_audit_logs holds metadata only.
+		var audits, auditLeaks int
+		if err := migratorPool.QueryRow(ctx,
+			`SELECT COUNT(*) FILTER (WHERE endpoint = 'POST /checkin/{date}/reflect' AND user_id = $2),
+			        COUNT(*) FILTER (WHERE row_to_json(a)::text ILIKE '%' || $1 || '%')
+			   FROM ai_audit_logs a`, marker, danaID).Scan(&audits, &auditLeaks); err != nil {
+			t.Fatalf("scan ai_audit_logs: %v", err)
+		}
+		if audits != 2 { // happy path + fallback; the safety path makes no AI call
+			t.Fatalf("expected 2 reflect audit rows, got %d", audits)
+		}
+		if auditLeaks != 0 {
+			t.Fatal("reflection text found in ai_audit_logs")
+		}
+
+		// The idempotency cache keeps a body hash and the response, never the text.
+		keys, err := redisClient.Keys(ctx, "idem:"+danaID.String()+":POST:/checkin/reflect:*").Result()
+		if err != nil || len(keys) == 0 {
+			t.Fatalf("expected reflect idempotency keys, got %v (err %v)", keys, err)
+		}
+		for _, k := range keys {
+			raw, err := redisClient.Get(ctx, k).Bytes()
+			if err != nil {
+				t.Fatalf("get %s: %v", k, err)
+			}
+			var recd cache.IdempotencyRecord
+			if err := json.Unmarshal(raw, &recd); err != nil {
+				t.Fatalf("decode idempotency record: %v", err)
+			}
+			if strings.Contains(string(raw), marker) || strings.Contains(string(recd.ResponseBody), marker) {
+				t.Fatal("idempotency cache holds the user's text")
+			}
+			if len(recd.BodyHash) != 64 {
+				t.Fatalf("expected a SHA-256 body hash, got %q", recd.BodyHash)
+			}
 		}
 	})
 }

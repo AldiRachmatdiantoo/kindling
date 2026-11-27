@@ -115,3 +115,9 @@ func buildCheckinFallback(tier ai.CalibrationTier, scores ai.Scores) ai.CheckinO
 		}
 	}
 }
+
+// BuildReflectFallback is the read-back used when the AI is out of budget or fails. It is built
+// from fixed sentences and fixed theme labels, so it never repeats what the user wrote.
+func BuildReflectFallback(tier ai.CalibrationTier, text string) ai.ReflectOutput {
+	return ai.ReflectTemplate(tier, text, 0)
+}

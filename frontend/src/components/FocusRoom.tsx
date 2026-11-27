@@ -1,13 +1,20 @@
-import { Archive, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { Archive, Lock, Pause, Play, RotateCcw, Sparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import type { CopeOption } from '../api/types';
+import { ApiError, generateIdempotencyKey } from '../api/client';
+import { checkinApi } from '../api/endpoints';
+import type { CopeOption, ReflectData } from '../api/types';
+import { aiNoteText } from '../features/today/aiNote';
 import { formatSecondsMMSS } from '../utils/date';
 import { BREATHING_PATTERNS, getBreathingPhase, pickBreathingPattern } from './breathingPatterns';
+import { SafetyBanner } from './SafetyBanner';
 import { useClockTimer } from './useClockTimer';
 import { Button } from '@/components/watermelon-ui/button';
 import './focus-room.css';
+
+/** Matches the server's limit for a reflection request. */
+const MAX_REFLECT_CHARS = 2000;
 
 const PHASE_ACCENT: Record<string, string> = {
   'Breathe in': '#8dbbff',
@@ -194,17 +201,47 @@ function archiveLine(words: number): string {
   return 'Even a few words count. They are out, folded, and set aside.';
 }
 
-function BrainDumpRoom({ option, persistKey }: { option: CopeOption; persistKey: string }) {
+type DumpStage = 'writing' | 'folding' | 'choice' | 'loading' | 'reflected' | 'error' | 'archived';
+
+function reflectErrorText(err: unknown): string {
+  if (err instanceof ApiError && err.status === 429) {
+    return "That's a lot of requests in a short time. Give it a minute, then try again.";
+  }
+  return "Something went wrong on our side, so there's no reflection yet. Your words are still only on this screen.";
+}
+
+function BrainDumpRoom({
+  option,
+  persistKey,
+  logDate,
+}: {
+  option: CopeOption;
+  persistKey: string;
+  /** The check-in day; without it there is no reflection step and the page simply folds away. */
+  logDate?: string;
+}) {
   const duration = Math.max(1, Math.floor(option.duration_seconds));
   const timer = useClockTimer(duration, persistKey);
   const finished = timer.elapsed >= duration;
   const [draft, setDraft] = useState('');
-  const [stage, setStage] = useState<'writing' | 'folding' | 'archived'>('writing');
+  const [stage, setStage] = useState<DumpStage>('writing');
   const [words, setWords] = useState(0);
+  const [result, setResult] = useState<ReflectData | null>(null);
+  const [errorText, setErrorText] = useState('');
+  const [sent, setSent] = useState(false);
   const foldTimerRef = useRef<number | null>(null);
+  // The folded text waits here only until the user picks: sent once for a reflection, or dropped.
+  const pendingRef = useRef('');
+  // One key per folded text, so "Try again" replays a request that did reach the server.
+  const idemKeyRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
+      pendingRef.current = '';
       if (foldTimerRef.current !== null) {
         window.clearTimeout(foldTimerRef.current);
         foldTimerRef.current = null;
@@ -212,21 +249,186 @@ function BrainDumpRoom({ option, persistKey }: { option: CopeOption; persistKey:
     };
   }, []);
 
+  // Each new screen moves focus to its heading, so screen readers hear what changed.
+  useEffect(() => {
+    if (stage !== 'writing' && stage !== 'folding') headingRef.current?.focus();
+  }, [stage]);
+
   const fold = () => {
     setWords(draft.trim().split(/\s+/).filter(Boolean).length);
     timer.pause();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     setStage('folding');
     if (foldTimerRef.current !== null) window.clearTimeout(foldTimerRef.current);
+    const text = draft;
     foldTimerRef.current = window.setTimeout(
       () => {
         foldTimerRef.current = null;
-        setDraft(''); // gone from memory too, not just hidden
-        setStage('archived');
+        setDraft(''); // off the page either way
+        if (logDate) {
+          pendingRef.current = text;
+          idemKeyRef.current = null;
+          setStage('choice');
+        } else {
+          setStage('archived');
+        }
       },
       reduce ? 0 : 900,
     );
   };
+
+  const forget = () => {
+    pendingRef.current = '';
+    idemKeyRef.current = null;
+  };
+
+  const keepPrivate = () => {
+    forget();
+    setSent(false);
+    setStage('archived');
+  };
+
+  const continueWithout = () => {
+    forget();
+    setStage('archived');
+  };
+
+  const readBack = async () => {
+    const text = pendingRef.current;
+    if (!logDate || !text.trim()) {
+      keepPrivate();
+      return;
+    }
+    if (!idemKeyRef.current) idemKeyRef.current = generateIdempotencyKey();
+    setSent(true);
+    setStage('loading');
+    try {
+      const data = await checkinApi.reflect(logDate, text, idemKeyRef.current);
+      if (!mountedRef.current) return;
+      forget();
+      setResult(data);
+      setStage('reflected');
+    } catch (err) {
+      if (!mountedRef.current) return;
+      setErrorText(reflectErrorText(err));
+      setStage('error');
+    }
+  };
+
+  if (stage === 'reflected' && result) {
+    const note = aiNoteText(result.ai_note);
+    return (
+      <>
+        <h2 className="fr-title" id="fr-title" ref={headingRef} tabIndex={-1}>
+          Here's what I heard
+        </h2>
+        {result.safety_flag && (
+          <div className="fr-safety">
+            <SafetyBanner />
+          </div>
+        )}
+        <div className="fr-reflection" data-testid="focus-reflection">
+          <p data-testid="focus-reflection-text">{result.reflection}</p>
+          {result.themes.length > 0 && (
+            <ul className="fr-themes" aria-label="Themes in what you wrote">
+              {result.themes.map((theme) => (
+                <li key={theme} data-testid="focus-reflection-theme">
+                  {theme}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {note && (
+          <p className="fr-note" data-testid="focus-reflect-note">
+            {note}
+          </p>
+        )}
+        <div className="fr-controls">
+          <Button asChild>
+            <Link to="/wins" data-testid="focus-go-wins">
+              On to my 3 Daily Wins
+            </Link>
+          </Button>
+        </div>
+        <p className="fr-note">
+          What you wrote wasn't saved. This reflection is gone once you leave.
+        </p>
+      </>
+    );
+  }
+
+  if (stage === 'loading') {
+    return (
+      <>
+        <div className="fr-envelope fr-reading" aria-hidden="true">
+          <Sparkles className="h-9 w-9 text-[#b8acff]" />
+        </div>
+        <h2 className="fr-title" id="fr-title" ref={headingRef} tabIndex={-1}>
+          Reading it back
+        </h2>
+        <p className="fr-sub" role="status" data-testid="focus-reflect-loading">
+          Taking a moment with what you wrote...
+        </p>
+      </>
+    );
+  }
+
+  if (stage === 'error') {
+    return (
+      <>
+        <h2 className="fr-title" id="fr-title" ref={headingRef} tabIndex={-1}>
+          Couldn't read it back right now
+        </h2>
+        <p className="fr-sub" role="alert" data-testid="focus-reflect-error">
+          {errorText}
+        </p>
+        <div className="fr-controls">
+          <Button onClick={readBack} data-testid="focus-reflect-retry">
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            Try again
+          </Button>
+          <Button variant="secondary" onClick={continueWithout} data-testid="focus-reflect-skip">
+            Continue without a reflection
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  if (stage === 'choice') {
+    return (
+      <>
+        <div className="fr-envelope" aria-hidden="true">
+          <Archive className="h-9 w-9 text-[#b8acff]" />
+        </div>
+        <h2 className="fr-title" id="fr-title" ref={headingRef} tabIndex={-1}>
+          Folded and filed away
+        </h2>
+        <p className="fr-archived" data-testid="focus-archived">
+          {archiveLine(words)}
+        </p>
+        <p className="fr-sub">
+          Want a few kind words about what you wrote, or keep it to yourself?
+        </p>
+        <p className="fr-consent" id="fr-consent" data-testid="focus-reflect-consent">
+          <strong>Read it back to me</strong> sends what you wrote to an AI service (Google Gemini)
+          for this one reflection. It isn't saved anywhere. <strong>Keep it private</strong> sends
+          nothing.
+        </p>
+        <div className="fr-controls">
+          <Button onClick={readBack} aria-describedby="fr-consent" data-testid="focus-reflect-send">
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Read it back to me
+          </Button>
+          <Button variant="secondary" onClick={keepPrivate} data-testid="focus-keep-private">
+            <Lock className="h-4 w-4" aria-hidden="true" />
+            Keep it private
+          </Button>
+        </div>
+      </>
+    );
+  }
 
   if (stage === 'archived') {
     return (
@@ -234,7 +436,7 @@ function BrainDumpRoom({ option, persistKey }: { option: CopeOption; persistKey:
         <div className="fr-envelope" aria-hidden="true">
           <Archive className="h-9 w-9 text-[#b8acff]" />
         </div>
-        <h2 className="fr-title" id="fr-title">
+        <h2 className="fr-title" id="fr-title" ref={headingRef} tabIndex={-1}>
           Folded and filed away
         </h2>
         <p className="fr-archived" data-testid="focus-archived">
@@ -250,7 +452,9 @@ function BrainDumpRoom({ option, persistKey }: { option: CopeOption; persistKey:
             Write some more
           </Button>
         </div>
-        <p className="fr-note">Nothing you wrote was saved or sent anywhere.</p>
+        <p className="fr-note" data-testid="focus-archived-note">
+          {sent ? 'Nothing you wrote was saved.' : 'Nothing you wrote was saved or sent anywhere.'}
+        </p>
       </>
     );
   }
@@ -288,6 +492,7 @@ function BrainDumpRoom({ option, persistKey }: { option: CopeOption; persistKey:
             if (!timer.running && timer.elapsed === 0) timer.start();
           }}
           placeholder="Write down everything on your mind right now. It doesn't have to be neat..."
+          maxLength={logDate ? MAX_REFLECT_CHARS : undefined}
           data-testid="focus-dump-input"
           disabled={stage === 'folding'}
         />
@@ -295,7 +500,9 @@ function BrainDumpRoom({ option, persistKey }: { option: CopeOption; persistKey:
       <p className="fr-note">
         {finished
           ? 'Time is up. Fold it away whenever you are ready.'
-          : 'This only lives on your screen. Nothing is saved or sent.'}
+          : logDate
+            ? 'This only lives on your screen. Nothing is saved, and nothing is sent unless you ask.'
+            : 'This only lives on your screen. Nothing is saved or sent.'}
       </p>
       <Button
         onClick={fold}
@@ -313,6 +520,8 @@ export interface FocusRoomProps {
   option: CopeOption;
   /** Shared with the timers so time keeps counting while the room is closed. */
   persistKey: string;
+  /** The check-in day. With it, a folded brain dump can be read back by the AI on request. */
+  logDate?: string;
   onClose: () => void;
 }
 
@@ -321,7 +530,7 @@ export interface FocusRoomProps {
  * says the time is theirs, or a brain-dump page that folds itself away. Escape or the
  * close button leaves; timers keep running in the background either way.
  */
-export function FocusRoom({ option, persistKey, onClose }: FocusRoomProps) {
+export function FocusRoom({ option, persistKey, logDate, onClose }: FocusRoomProps) {
   const [leaving, setLeaving] = useState(false);
   const roomRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -335,10 +544,13 @@ export function FocusRoom({ option, persistKey, onClose }: FocusRoomProps) {
     closingRef.current = true;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     setLeaving(true);
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
-      onCloseRef.current();
-    }, reduce ? 0 : 260);
+    closeTimerRef.current = window.setTimeout(
+      () => {
+        closeTimerRef.current = null;
+        onCloseRef.current();
+      },
+      reduce ? 0 : 260,
+    );
   }, []);
 
   useEffect(() => {
@@ -427,7 +639,7 @@ export function FocusRoom({ option, persistKey, onClose }: FocusRoomProps) {
         )}
         {option.tool_type === 'timer' && <HobbyRoom option={option} persistKey={persistKey} />}
         {option.tool_type === 'brain_dump' && (
-          <BrainDumpRoom option={option} persistKey={persistKey} />
+          <BrainDumpRoom option={option} persistKey={persistKey} logDate={logDate} />
         )}
       </div>
     </div>,

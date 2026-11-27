@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Kindling API
-  version: 0.4.0
+  version: 0.5.0
   description: >
     Holistic Self-Calibration & Anti-Burnout API ("Small sparks, steady fire.").
     Updated incrementally per module (currently Modul 1–4: Health, Core, Auth, Check-In & AI, 3 Daily Wins, Profile Heatmap).
@@ -469,6 +469,101 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "422":
           description: Date is not today or yesterday in user's timezone (DATE_OUT_OF_RANGE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /checkin/{date}/reflect:
+    post:
+      summary: Read a brain dump back as a short AI reflection (explicit consent, text never stored; AI rate limited 10/min/user)
+      description: >
+        Sends the user's brain dump to the AI provider for one reflection, only when `consent` is true.
+        The text is not stored in the database, not logged, and not part of the response; ai_audit_logs
+        records metadata only and the idempotency cache keeps a SHA-256 body hash plus the response.
+        Crisis phrases skip the AI entirely and return an empathetic template with safety_flag true.
+        When the daily AI quota is used up or the provider fails, a deterministic template that never
+        copies the text is returned with ai_note.
+      operationId: reflectBrainDump
+      tags: [CheckIn]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: UUID identifying this request for idempotent replay (PRD §7.0)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReflectRequest"
+      responses:
+        "200":
+          description: Reflection (AI, fallback template, or crisis template)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ReflectData"
+        "400":
+          description: Validation error (text length, consent not true, date format, or Idempotency-Key)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Check-in log not found for date (NOT_FOUND); its tier sets the tone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: Idempotency key currently processing (IDEMPOTENCY_IN_PROGRESS)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Date out of range (DATE_OUT_OF_RANGE) or key reused with different body (IDEMPOTENCY_KEY_REUSED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: AI rate limit exceeded (10 req/min/user)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -1124,6 +1219,41 @@ components:
         positive_cope_chosen:
           type: string
           example: "Pernapasan 4-7-8"
+    ReflectRequest:
+      type: object
+      required: [text, consent]
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: The brain dump. Used for this one reflection only; never stored or logged.
+          example: "Too many deadlines this week and I keep sleeping late."
+        consent:
+          type: boolean
+          enum: [true]
+          description: Must be true; the user explicitly chose "Read it back to me".
+    ReflectData:
+      type: object
+      required: [reflection, themes, safety_flag]
+      properties:
+        reflection:
+          type: string
+          maxLength: 280
+        themes:
+          type: array
+          maxItems: 3
+          items:
+            type: string
+            maxLength: 40
+        safety_flag:
+          type: boolean
+          description: True when crisis phrases were found; the AI was not called and the UI shows support lines.
+        ai_note:
+          type: string
+          enum: [daily_limit, unavailable]
+          description: Set when the deterministic template replaced the AI answer.
     SliceTaskRequest:
       type: object
       required: [main_task]

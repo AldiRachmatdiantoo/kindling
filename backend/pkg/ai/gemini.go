@@ -254,6 +254,29 @@ func (g *GeminiProvider) PlanWin(ctx context.Context, in PlanWinInput) (WinPlan,
 	return out, nil
 }
 
+func (g *GeminiProvider) Reflect(ctx context.Context, in ReflectInput) (ReflectOutput, error) {
+	var out ReflectOutput
+	_, err := g.breaker.Execute(func() ([]byte, error) {
+		raw, err := g.generateJSON(ctx, reflectSystemInstruction, BuildReflectPrompt(in), reflectResponseSchema())
+		if err != nil {
+			return nil, err
+		}
+		var parsed ReflectOutput
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return nil, fmt.Errorf("unmarshal gemini reflect output: %w", err)
+		}
+		if err := ValidateReflectOutput(parsed, in.Text); err != nil {
+			return nil, fmt.Errorf("validate gemini reflect output: %w", err)
+		}
+		out = parsed
+		return raw, nil
+	})
+	if err != nil {
+		return ReflectOutput{}, err
+	}
+	return out, nil
+}
+
 type geminiRequest struct {
 	SystemInstruction *geminiContent         `json:"systemInstruction,omitempty"`
 	Contents          []geminiContent        `json:"contents"`
