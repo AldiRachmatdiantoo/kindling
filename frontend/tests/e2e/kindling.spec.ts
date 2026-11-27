@@ -323,11 +323,14 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('welcome-start').click();
     await page.getByTestId('checkin-guide-skip').click();
 
-    // Answer all 9 questions, stepping through each pillar's read and the conclusion
+    // Answer all 9 questions, stepping through each pillar's read and the conclusion.
+    // Picking an answer moves on by itself, so there is no Next to press.
+    await expect(page.getByTestId('checkin-next')).toHaveCount(0);
     for (let i = 0; i < 9; i++) {
+      const label = page.getByTestId('checkin-step-label');
+      await expect(label).toHaveText(`${i + 1} of 9`);
       const key = await page.locator('fieldset input[type=radio]').first().getAttribute('name');
       await page.getByTestId(`answer-${key}-2`).click();
-      await page.getByTestId('sympathy-next').click();
       if (i === 2 || i === 6 || i === 8) await page.getByTestId('reading-continue').click();
     }
     await expect(page.getByTestId('conclusion-tier')).toBeVisible();
@@ -337,10 +340,15 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('habits-form')).toBeVisible();
     await page.getByTestId('habit-physical-activity').fill('morning run');
     await page.getByTestId('habit-physical-struggle').fill('too sleepy');
-    await page.getByTestId('habit-soul-activity').fill('reading');
+    // A quick pick fills the soul habit in one tap
+    await page.getByTestId('checkin-habit-soul-pick-0').click();
+    await expect(page.getByTestId('habit-soul-activity')).toHaveValue('Reading');
     await page.getByTestId('habits-save').click();
 
-    await page.getByTestId('checkin-fun-cope').fill('Playing guitar');
+    await page.getByTestId('fun-pick-0').click();
+    await expect(page.getByTestId('checkin-fun-cope')).toHaveValue(
+      'Listening to my favorite playlist',
+    );
     await page.getByTestId('checkin-submit').click();
     await expect(page).toHaveURL(/\/cope$/);
     await page.getByTestId('welcome-skip').click();
@@ -352,17 +360,18 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     // Physical and soul come from the habits; work, without one, is picked for the user
     await expect(page.getByTestId('win-habit-physical')).toContainText('morning run');
     await expect(page.getByTestId('win-title-physical')).toContainText('morning run');
-    await expect(page.getByTestId('win-habit-soul')).toContainText('reading');
+    await expect(page.getByTestId('win-habit-soul')).toContainText(/reading/i);
     await expect(page.getByTestId('win-habit-work')).toHaveCount(0);
 
     // Swap the physical win for today only
     await page.getByTestId('swap-open-physical').click();
-    await page.getByTestId('swap-input-physical').fill('yoga in my room');
+    await page.getByTestId('swap-pick-physical-0').click();
+    await expect(page.getByTestId('swap-input-physical')).toHaveValue('Yoga in my room');
     await page.getByTestId('swap-submit-physical').click();
-    await expect(page.getByTestId('task-morph-result')).toContainText('yoga in my room');
+    await expect(page.getByTestId('task-morph-result')).toContainText(/yoga in my room/i);
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('win-habit-physical')).toContainText('Just for today');
-    await expect(page.getByTestId('win-title-physical')).toContainText('yoga');
+    await expect(page.getByTestId('win-title-physical')).toContainText(/yoga/i);
 
     // The standing habit is unchanged on the profile
     await page.getByTestId('nav-profile').click();

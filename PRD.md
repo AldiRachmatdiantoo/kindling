@@ -67,7 +67,7 @@ Tidak dipakai karena tidak ada sumbernya: klaim ">80% pengguna berhenti karena *
 | ID | Modul | Kebutuhan Fungsional |
 | :--- | :--- | :--- |
 | **FR-01** | Auth & Session | Registrasi, login, `GET /auth/me`, refresh token otomatis, dan logout. **Access JWT (15m)** dan **Refresh Token opak (7d)** disimpan di cookie **HttpOnly**; token CSRF disimpan di cookie **non-HttpOnly** agar bisa dibaca JS (double-submit). Rotasi refresh token dengan *reuse detection* (grace period 10 detik untuk request paralel). Registrasi memuat persetujuan pemrosesan teks oleh AI. |
-| **FR-02** | Psychometric Check-In | Form 9 butir skala Likert 1–4 (Lampiran A), kotak *brain dump* (maks 2.000 karakter), dan pertanyaan kunci: *"What fun thing do you always want to do when everything feels tired?"* (maks 200 karakter). Satu log per pengguna per hari. Disajikan percakapan: panduan 3 halaman di awal (bisa dilewati), 1 pertanyaan per layar dengan label bahasa manusia (bukan angka 1–4), animasi *reading* setelah tiap pilar selesai ("memprediksi tingkat"), dan kartu kesimpulan hari itu setelah pertanyaan terakhir. Pengguna baru disambut halaman *welcome* setelah registrasi. |
+| **FR-02** | Psychometric Check-In | Form 9 butir skala Likert 1–4 (Lampiran A), kotak *brain dump* (maks 2.000 karakter), dan pertanyaan kunci: *"What fun thing do you always want to do when everything feels tired?"* (maks 200 karakter). Satu log per pengguna per hari. Disajikan percakapan: panduan 3 halaman di awal (bisa dilewati), 1 pertanyaan per layar dengan label bahasa manusia (bukan angka 1–4), animasi *reading* setelah tiap pilar selesai ("memprediksi tingkat"), dan kartu kesimpulan hari itu setelah pertanyaan terakhir. **Auto-advance:** memilih jawaban (klik/tap, Enter, atau Space) langsung lanjut ke pertanyaan berikutnya setelah ±400 ms agar pilihan sempat terlihat; tombol panah hanya memindah pilihan tanpa lanjut, ketukan ganda cepat hanya maju 1 pertanyaan, tombol Back selalu ada, dan tombol Next hanya muncul saat kembali ke pertanyaan yang sudah dijawab. Dengan `prefers-reduced-motion` tetap auto-advance tanpa animasi. **Quick-pick chips:** 4–5 *chip* contoh spesifik per pilar di bawah input *fun thing*, input habit (FR-10), dan input swap (FR-11); chip mengisi input dan teksnya tetap bisa diedit. Pengguna baru disambut halaman *welcome* setelah registrasi. |
 | **FR-03** | Demo Presets | Halaman `/checkin` menyediakan 2 tombol sekali klik (`Preset A: High Exhaustion`, `Preset B: High Disengagement`) yang mengisi form dengan nilai tetap (Lampiran B). Preset hanya mengisi form; pengguna tetap menekan Submit. |
 | **FR-04** | Deterministic Scorer | Backend menghitung 4 skor dimensi (0–100) dengan rumus pada §2.1, plus `calibration_tier`, **sebelum** memanggil LLM. Skor tidak pernah berasal dari LLM. |
 | **FR-05** | Choose Your Own Positive Cope | AI memetakan jawaban *fun thing* ke kategori **Brief-COPE adaptif** (enum §2.2) dan menyusun tepat 3 opsi pemulihan (60–600 detik). Pengguna memilih 1 kartu untuk masuk ke ruang interaktif layar penuh: *Breathing Pacer* beranimasi (pola 4-7-8, *box*, atau *slow*), *Activity Timer* untuk hobinya, atau *Guided Brain-Dump* yang dilipat dan diarsipkan saat selesai. |
@@ -140,7 +140,7 @@ Backend hanya mengembalikan tanggal yang punya log; frontend mengisi tanggal kos
         │  (register: centang persetujuan pemrosesan AI)
         ▼
 [2. Daily Check-In (/checkin)]
-        │  Panduan 3 halaman → 9 butir (1 per layar, reading tiap pilar)
+        │  Panduan 3 halaman → 9 butir (1 per layar, auto-advance, reading tiap pilar)
         │  → kartu kesimpulan → "Your habits" (FR-10, bisa dilewati)
         │  → Brain Dump + "Fun Thing When Tired"
         │  (opsional: klik Demo Preset A / B untuk auto-fill)
@@ -656,8 +656,8 @@ Status: ✅ sudah ada di app · 🟡 sebagian · ⬜ rencana (belum dibangun). I
 | Check-in percakapan (FR-02) | ✅ | Panduan, 1 pertanyaan per layar, reading per pilar, kesimpulan | — |
 | Habit per pilar (FR-10) & swap hari ini (FR-11) | ✅ | Langkah check-in, kartu profil, label di kartu win, `POST /wins/{date}/swap` | — |
 | Cope Room interaktif (FR-05) | 🟡 | Pilih 1 dari 3 kartu; ruang Breathing (4-7-8/box/slow), Activity Timer, Brain-Dump | Rangkuman refleksi AI setelah brain dump. Isi brain dump sangat pribadi, jadi wajib izin eksplisit sebelum dikirim ke AI, tidak di-log (NFR-06), dan tetap ada fallback tanpa AI |
-| Auto-advance check-in | ⬜ | Sekarang: pilih jawaban lalu tekan Next | Pilih jawaban langsung lanjut setelah jeda ±400 ms agar pilihan sempat terlihat; tombol Back tetap ada untuk salah tap; animasi reading per pilar tetap jalan |
-| Quick-pick chips | ⬜ | Input teks bebas | 4–5 *chip* contoh untuk "fun thing" dan habit, mengurangi *decision fatigue*; tetap bisa mengetik sendiri |
+| Auto-advance check-in (FR-02) | ✅ | Pilih jawaban langsung lanjut setelah ±400 ms; panah hanya memindah pilihan; Back tetap ada; Next hanya saat kembali ke pertanyaan yang sudah dijawab; reading per pilar tetap jalan | — |
+| Quick-pick chips (FR-02, FR-10, FR-11) | ✅ | 4–5 *chip* per input untuk "fun thing", activity habit tiap pilar, dan swap hari ini; mengisi input dan tetap bisa diedit | — |
 | Milestone Path per pilar | ⬜ | Statistik kumulatif di `/profile` (`total_daily_wins`, hari aktif, hari *recovery*) | Jalur node per pilar yang hanya maju atau diam. Setiap 3 win pilar itu selesai membuka 1 *checkpoint* berisi catatan apresiasi + tanggal, dengan penanda posisi terakhir ("Kemarin kamu sampai di sini"). Isi checkpoint berupa apresiasi, bukan hadiah yang membuat pengguna merasa wajib kembali |
 | Adaptive Atmosphere | ⬜ | Tema light/dark | Warna aksen dan tempo transisi mengikuti tier hari itu (mis. amber/slate teduh untuk `gentle`, teal segar untuk `standard`). Setiap palet wajib lolos kontras WCAG AA di kedua tema dan menghormati `prefers-reduced-motion` |
 
@@ -728,3 +728,4 @@ Perubahan dari draft awal (detail alasan ada di `progress.md` → Log Keputusan)
 4. FR-02 diperbarui (check-in percakapan, halaman *welcome*); FR-05 merinci ruang interaktif; FR-06 memakai habit.
 5. Baru: FR-10 Standing Habits, FR-11 Swap for Today, tabel `user_habits` (migrasi 000002, RLS), field `habit`/`swapped` di `wins_data`, `POST /wins/{date}/swap`, `GET/PUT /habits`, `AiProvider.PlanWin`, kuota AI harian.
 6. §9.3 Peta Status Fitur: Cope Room refleksi AI, auto-advance, quick-pick chips, Milestone Path (`pillar_progress`), dan Adaptive Atmosphere dicatat sebagai rencana, bukan acceptance criteria v1.
+7. Fase 2 Modul 7 (27 Nov 2026): auto-advance check-in dan quick-pick chips selesai (FR-02, §9.3 ✅).

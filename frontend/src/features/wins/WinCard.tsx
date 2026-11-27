@@ -5,6 +5,7 @@ import type { Pillar, WinItem, WorkWinItem } from '../../api/types';
 import { CountdownTimer } from '../../components/CountdownTimer';
 import { FeatureTip } from '../../components/FeatureTip';
 import { Mascot, PILLAR_MASCOT } from '../../components/Mascot';
+import { QuickPicks } from '../../components/QuickPicks';
 import { Button } from '@/components/watermelon-ui/button';
 import { Input } from '@/components/ui/input';
 import { PILLAR_META, timerKey } from './constants';
@@ -29,6 +30,24 @@ export interface WinCardProps {
   isSwapping?: boolean;
   workSlicer?: ReactNode;
 }
+
+// Tap-to-fill ideas for the swap input; work has the Task Slicer instead of a swap.
+export const SWAP_PICKS: Partial<Record<Pillar, readonly string[]>> = {
+  physical: [
+    'Yoga in my room',
+    'A short walk',
+    'Light stretching',
+    'Dancing to one song',
+    'Taking the stairs',
+  ],
+  soul: [
+    'Call a friend',
+    'Listen to music',
+    'Read a few pages',
+    'Sit outside for a bit',
+    'Write a few lines',
+  ],
+};
 
 /**
  * "Do something else today": the user names another activity and the win is rebuilt from it,
@@ -101,6 +120,20 @@ function SwapToday({
         aria-describedby={error ? `${inputId}-error` : undefined}
         data-testid={`swap-input-${pillar}`}
       />
+      {SWAP_PICKS[pillar] && (
+        <QuickPicks
+          options={SWAP_PICKS[pillar]}
+          targetId={inputId}
+          value={activity}
+          onPick={(option) => {
+            setActivity(option);
+            setError(null);
+          }}
+          label={`Quick picks for today's ${pillar} win`}
+          disabled={busy}
+          testIdPrefix={`swap-pick-${pillar}`}
+        />
+      )}
       {error && (
         <p id={`${inputId}-error`} className="text-xs font-semibold text-peach-strong" role="alert">
           {error}

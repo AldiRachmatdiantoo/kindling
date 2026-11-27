@@ -1,6 +1,6 @@
 # progress.md — Kindling: Pelacak Progres & Prompt Handoff Antar-Modul
 
-**Status Terkini:** Modul 1–6 selesai & terverifikasi, plus habits & swap (PRD v1.2, di `main`). **Fase 2 (Modul 7–11)** mengerjakan sisa PRD §9.3 di branch `feat/prd-v1.2-roadmap`. Modul berikutnya: **Modul 7**.
+**Status Terkini:** Modul 1–6 selesai & terverifikasi, plus habits & swap (PRD v1.2, di `main`). **Fase 2 (Modul 7–11)** mengerjakan sisa PRD §9.3 di branch `feat/prd-v1.2-roadmap`. Modul 7 selesai. Modul berikutnya: **Modul 8**.
 **Target Selesai Kode:** 1 Desember 2026 · **Deadline Submisi:** 7 Desember 2026
 
 ---
@@ -20,7 +20,7 @@
 
 | # | Modul | Lingkup | Status |
 | :-: | :--- | :--- | :-: |
-| 7 | Check-in lebih cepat | Auto-advance + quick-pick chips | ☐ |
+| 7 | Check-in lebih cepat | Auto-advance + quick-pick chips | ☑ |
 | 8 | Refleksi AI Brain-Dump | `POST /checkin/{date}/reflect` + izin eksplisit di ruang Brain-Dump | ☐ |
 | 9 | Milestone Path | `pillar_progress` + jalur checkpoint per pilar di `/profile` | ☐ |
 | 10 | Adaptive Atmosphere | Warna & tempo animasi mengikuti tier hari itu | ☐ |
@@ -136,7 +136,7 @@ Ganti ☐ menjadi ☑ setelah **Definition of Done** modul (PRD §9) terpenuhi.
 
 | Modul | Selesai | Tertunda / Utang Teknis | Cara Menjalankan Test |
 | :-: | :--- | :--- | :--- |
-| 7 | | | |
+| 7 | Frontend saja. **Auto-advance** di `CheckinPage.tsx`: tap/klik, Enter, atau Space memilih lalu lanjut setelah `AUTO_ADVANCE_MS` = 400 ms lewat satu timer (`advanceTimerRef`; ketukan ganda me-restart timer, jadi tetap maju 1 pertanyaan); panah hanya memindah pilihan (klik dari panah diabaikan lewat `pointerSelectRef`); Back membatalkan timer; Next hanya muncul bila pertanyaan sudah terjawab dan tidak sedang menunggu auto-advance; fokus pindah ke radio pertanyaan berikutnya. Dialog *sympathy* (`sympathy-next`/`sympathy-change`) dihapus karena menggandakan langkah. **Quick-pick chips** lewat komponen baru `src/components/QuickPicks.tsx` (`type="button"`, grup ber-`aria-label`, tiap chip `Use "…"`, mengisi input lalu fokus ke input): `FUN_PICKS` di `checkin/constants.ts`, `HABIT_COPY[p].picks` di `HabitsForm.tsx`, `SWAP_PICKS` di `WinCard.tsx`. Test: `CheckinPage.test.tsx` (7 kasus auto-advance + chip fun thing), `QuickPicks.test.tsx` (4 kasus), E2E habits kini memilih jawaban tanpa Next dan memakai chip habit soul, fun thing, dan swap. PRD FR-02 + §9.3 diperbarui. | `openapi.yaml` tidak berubah (tanpa endpoint baru). Chip `data-testid`: `fun-pick-{i}`, `{idPrefix}-{pillar}-pick-{i}` (`checkin-habit`/`profile-habit`), `swap-pick-{pillar}-{i}`. | `cd frontend && npx tsc -b --noEmit && npx vitest run` · E2E: lihat *Aturan Tambahan Fase 2* (bila 429, tunggu ±70 detik di antara run penuh) |
 | 8 | | | |
 | 9 | | | |
 | 10 | | | |

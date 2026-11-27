@@ -109,3 +109,12 @@ export const DEMO_PRESETS: DemoPreset[] = [
     fun_cope_input: 'Playing a cozy game or doodling whatever comes to mind',
   },
 ];
+
+// Quick picks under "fun thing": tap one instead of thinking one up, then edit freely.
+export const FUN_PICKS = [
+  'Listening to my favorite playlist',
+  'Taking a long nap',
+  'Watching a comfort show',
+  'A slow walk outside',
+  'Cooking something tasty',
+] as const;

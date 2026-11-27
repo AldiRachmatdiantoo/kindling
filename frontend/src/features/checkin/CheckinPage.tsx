@@ -8,10 +8,10 @@ import { checkinSchema } from '../../api/schemas';
 import type { CheckinAnswers, DailyLog, Pillar } from '../../api/types';
 import { DisclaimerBanner } from '../../components/DisclaimerBanner';
 import { FeatureTip } from '../../components/FeatureTip';
-import { Mascot, type MascotMood } from '../../components/Mascot';
+import { Mascot } from '../../components/Mascot';
 import { MascotBubble } from '../../components/MascotBubble';
-import { MascotDialog } from '../../components/MascotDialog';
 import { PageLoading } from '../../components/PageLoading';
+import { QuickPicks } from '../../components/QuickPicks';
 import { clearCheckinDefer, deferCheckin } from '../../utils/checkinDefer';
 import { getTodayInTimezone } from '../../utils/date';
 import { useAuth } from '../auth/AuthContext';
@@ -21,6 +21,7 @@ import { useTodayStatus } from '../today/TodayStatus';
 import {
   CHECKIN_QUESTIONS,
   DEMO_PRESETS,
+  FUN_PICKS,
   LIKERT_LABELS,
   type CheckinQuestion,
   type DemoPreset,
@@ -44,6 +45,8 @@ const INITIAL_ANSWERS: Partial<CheckinAnswers> = {};
 const TOTAL_QUESTIONS = CHECKIN_QUESTIONS.length;
 const FINAL_STEP = TOTAL_QUESTIONS;
 const GUIDE_PAGES = 3;
+// Long enough to see the chosen answer light up, short enough not to feel like waiting.
+export const AUTO_ADVANCE_MS = 400;
 
 // Same signal colors as the score bars on the results page, so a dimension keeps its color.
 const DIMENSION_META: Record<CheckinQuestion['dimension'], { label: string; dot: string }> = {
@@ -60,32 +63,6 @@ const ANSWER_DOT: Record<number, string> = {
   3: 'bg-peach-strong',
   4: 'bg-lavender-strong',
 };
-
-interface Sympathy {
-  title: string;
-  body: string;
-  mood: MascotMood;
-}
-
-function acknowledgement(question: CheckinQuestion, value: number): Sympathy {
-  // Soul items are positively worded: a high score is good news, not strain.
-  if (question.dimension === 'Soul') {
-    return value >= 3
-      ? {
-          title: 'Love to hear that!',
-          body: "Let's keep that rhythm going, nice and easy.",
-          mood: 'happy',
-        }
-      : { title: "That's okay.", body: 'Dimmer days deserve gentle care too.', mood: 'calm' };
-  }
-  return value >= 3
-    ? {
-        title: 'No wonder it feels heavy.',
-        body: "Thanks for being honest. I'll keep today's goals small so they stay doable.",
-        mood: 'calm',
-      }
-    : { title: 'Got it.', body: 'There are no wrong answers here. Take your time.', mood: 'happy' };
-}
 
 export function CheckinPage() {
   const { user } = useAuth();
@@ -113,9 +90,26 @@ export function CheckinPage() {
     { kind: 'pillar'; pillar: Pillar } | { kind: 'summary' } | { kind: 'habits' } | null
   >(null);
   const [skipProgressTransition, setSkipProgressTransition] = useState(false);
-  const [showSympathy, setShowSympathy] = useState(false);
-  const sympathyNextRef = useRef<HTMLButtonElement>(null);
+  // A chosen answer waits AUTO_ADVANCE_MS before moving on; one timer, so a double tap
+  // still moves exactly one question.
+  const advanceTimerRef = useRef<number | null>(null);
+  const [advancePending, setAdvancePending] = useState(false);
   const pointerSelectRef = useRef(false);
+  // Set when the user moved on from a question, so focus follows them to the next one.
+  const focusQuestionRef = useRef(false);
+
+  const cancelAdvance = () => {
+    if (advanceTimerRef.current !== null) window.clearTimeout(advanceTimerRef.current);
+    advanceTimerRef.current = null;
+    setAdvancePending(false);
+  };
+
+  useEffect(
+    () => () => {
+      if (advanceTimerRef.current !== null) window.clearTimeout(advanceTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -148,6 +142,7 @@ export function CheckinPage() {
   };
 
   const goToStep = (next: number) => {
+    cancelAdvance();
     setSkipProgressTransition(false);
     setDirection(next < step ? 'prev' : 'next');
     setStep(next);
@@ -161,6 +156,7 @@ export function CheckinPage() {
   };
 
   const applyPreset = (preset: DemoPreset) => {
+    cancelAdvance();
     setAnswers({ ...preset.answers });
     setBrainDump(preset.brain_dump);
     setFunCopeInput(preset.fun_cope_input);
@@ -177,20 +173,37 @@ export function CheckinPage() {
     setFormError(null);
   };
 
-  const closeSympathy = (advance: boolean) => {
-    setShowSympathy(false);
-    if (advance) {
-      const finishedPillar = pillarEndingAt(step);
-      if (finishedPillar) setInterlude({ kind: 'pillar', pillar: finishedPillar });
-      else goToStep(step + 1);
-      return;
-    }
-    // Back to the chosen option so keyboard users keep their place.
-    const key = CHECKIN_QUESTIONS[step]?.key;
-    requestAnimationFrame(() => {
-      document.querySelector<HTMLInputElement>(`input[name="${key}"]:checked`)?.focus();
-    });
+  const advanceFrom = (from: number) => {
+    cancelAdvance();
+    focusQuestionRef.current = true;
+    const finishedPillar = pillarEndingAt(from);
+    if (finishedPillar) setInterlude({ kind: 'pillar', pillar: finishedPillar });
+    else goToStep(from + 1);
   };
+
+  // Choosing an answer (click, tap, Enter or Space) moves on by itself after a short beat.
+  // Arrow keys only move the selection, so keyboard users can look through the options.
+  const chooseAndAdvance = (key: keyof CheckinAnswers, value: number) => {
+    handleSelectAnswer(key, value);
+    if (advanceTimerRef.current !== null) window.clearTimeout(advanceTimerRef.current);
+    const from = step;
+    setAdvancePending(true);
+    advanceTimerRef.current = window.setTimeout(() => {
+      advanceTimerRef.current = null;
+      advanceFrom(from);
+    }, AUTO_ADVANCE_MS);
+  };
+
+  // After moving on, put focus on the new question's answers (the group reads its legend).
+  useEffect(() => {
+    if (!focusQuestionRef.current || interlude) return;
+    focusQuestionRef.current = false;
+    const key = CHECKIN_QUESTIONS[step]?.key;
+    if (!key) return;
+    const radios = document.querySelectorAll<HTMLInputElement>(`input[name="${key}"]`);
+    const target = Array.from(radios).find((r) => r.checked) ?? radios[0];
+    target?.focus({ preventScroll: true });
+  }, [step, interlude]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -303,6 +316,7 @@ export function CheckinPage() {
               size="icon"
               onClick={() => {
                 // From a read, step back to the question that finished the pillar.
+                cancelAdvance();
                 if (interlude?.kind === 'habits') setInterlude({ kind: 'summary' });
                 else if (interlude) setInterlude(null);
                 else goToStep(Math.max(0, step - 1));
@@ -546,10 +560,10 @@ export function CheckinPage() {
                       pointerSelectRef.current = true;
                     }}
                     onClick={() => {
+                      // Arrow keys also fire click on radios; only a real tap advances.
                       if (!pointerSelectRef.current) return;
                       pointerSelectRef.current = false;
-                      handleSelectAnswer(question.key, value);
-                      setShowSympathy(true);
+                      chooseAndAdvance(question.key, value);
                     }}
                     className={`relative flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold k-press has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-primary/30 ${
                       isChecked
@@ -571,8 +585,12 @@ export function CheckinPage() {
                       name={question.key}
                       value={value}
                       checked={isChecked}
-                      onKeyDown={() => {
+                      onKeyDown={(e) => {
                         pointerSelectRef.current = false;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          chooseAndAdvance(question.key, value);
+                        }
                       }}
                       onChange={() => handleSelectAnswer(question.key, value)}
                       className="sr-only"
@@ -599,15 +617,17 @@ export function CheckinPage() {
               })}
             </div>
 
-            <Button
-              onClick={() => setShowSympathy(true)}
-              disabled={selected === undefined}
-              data-testid="checkin-next"
-              className="w-full"
-            >
-              Next
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Button>
+            {/* Picking an answer moves on by itself; Next is only for an answer already given. */}
+            {selected !== undefined && !advancePending && (
+              <Button
+                onClick={() => advanceFrom(step)}
+                data-testid="checkin-next"
+                className="w-full"
+              >
+                Next
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            )}
             <p className="text-center text-xs text-ink-faint">Not a clinical diagnosis tool.</p>
           </fieldset>
         )}
@@ -660,6 +680,14 @@ export function CheckinPage() {
                 data-testid="checkin-fun-cope"
                 placeholder="e.g. Lying down with my favorite playlist"
               />
+              <QuickPicks
+                options={FUN_PICKS}
+                targetId="fun-cope-input"
+                value={funCopeInput}
+                onPick={setFunCopeInput}
+                label="Quick picks for your fun thing"
+                testIdPrefix="fun-pick"
+              />
               <div className="flex justify-between gap-3 text-xs text-ink-soft">
                 <span>Having a go-to way to unwind is a good thing.</span>
                 <span className="shrink-0">{funCopeInput.length} / 200</span>
@@ -678,49 +706,6 @@ export function CheckinPage() {
             </Button>
           </div>
         )}
-        {question &&
-          selected !== undefined &&
-          showSympathy &&
-          (() => {
-            const sympathy = acknowledgement(question, selected);
-            return (
-              <MascotDialog
-                onClose={() => closeSympathy(false)}
-                mood={sympathy.mood}
-                title={sympathy.title}
-                titleId="sympathy-title"
-                initialFocusRef={sympathyNextRef}
-                stepKey={`${question.key}-${selected}`}
-                testId="checkin-sympathy"
-                corner={
-                  <span className="text-xs font-semibold text-ink-soft">
-                    {step + 1}/{TOTAL_QUESTIONS}
-                  </span>
-                }
-                actions={
-                  <>
-                    <Button
-                      onClick={() => closeSympathy(false)}
-                      variant="secondary"
-                      data-testid="sympathy-change"
-                    >
-                      Change answer
-                    </Button>
-                    <Button
-                      ref={sympathyNextRef}
-                      onClick={() => closeSympathy(true)}
-                      data-testid="sympathy-next"
-                    >
-                      Next
-                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </>
-                }
-              >
-                <p>{sympathy.body}</p>
-              </MascotDialog>
-            );
-          })()}
       </form>
 
       {/* Outside the check-in form: the habits form is a form of its own. */}
