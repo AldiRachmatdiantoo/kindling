@@ -1,6 +1,6 @@
 import { CalendarCheck, HeartHandshake, LogOut, Sun, Trophy, User } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef } from 'react';
-import { m } from 'motion/react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { m, useReducedMotion } from 'motion/react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
 import { WelcomeTourProvider } from '../features/onboarding/WelcomeTour';
@@ -79,6 +79,37 @@ function AppShellLayout() {
     scrollRef.current?.scrollTo?.(0, 0);
   }, [location.pathname]);
 
+  // Where the nav's active pill sits: the active link's box, relative to the nav. Measured
+  // again on every route change and whenever the nav or a link resizes (breakpoint, font
+  // load, the first tab's label switching between Check-In and Today).
+  const navRef = useRef<HTMLElement>(null);
+  // Reduced motion only drops transforms by default, which would snap x but still stretch
+  // the width; move the whole pill instantly instead.
+  const reduceMotion = useReducedMotion();
+  const [pill, setPill] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const measure = () => {
+      const active = nav.querySelector<HTMLElement>('a[aria-current="page"]');
+      // No active tab for a moment (a redirect in flight): keep the pill where it was, so it
+      // slides on from there instead of unmounting and popping back without motion.
+      if (!active) return;
+      setPill({
+        x: active.offsetLeft,
+        y: active.offsetTop,
+        w: active.offsetWidth,
+        h: active.offsetHeight,
+      });
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(nav);
+    nav.querySelectorAll('a').forEach((a) => ro.observe(a));
+    return () => ro.disconnect();
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login', { replace: true });
@@ -123,9 +154,29 @@ function AppShellLayout() {
             a fixed bottom tab bar below md, inline pills in the header from md upward.
           */}
             <nav
+              ref={navRef}
               aria-label="Main navigation"
-              className="k-nav-surface fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-line bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:static md:flex md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0"
+              className="k-nav-surface fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-line bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:relative md:flex md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0"
             >
+              {/*
+                Watermelon "Fluid Tabs": one pill that springs from tab to tab. Its place comes
+                from the active link's offset inside the nav, so a page scroll (or the scroll
+                reset on a route change) never bends the slide the way a shared layoutId did.
+              */}
+              {pill && (
+                <m.span
+                  aria-hidden="true"
+                  initial={false}
+                  animate={{ x: pill.x, y: pill.y, width: pill.w, height: pill.h }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : { type: 'spring', stiffness: 380, damping: 32, mass: 0.8 }
+                  }
+                  className="pointer-events-none absolute top-0 left-0 rounded-2xl border border-primary bg-primary-soft md:rounded-full"
+                  data-testid="nav-active-pill"
+                />
+              )}
               {navItems.map(({ to, label, short, icon: Icon, testId }) => (
                 <NavLink
                   key={to}
@@ -139,15 +190,6 @@ function AppShellLayout() {
                 >
                   {({ isActive }) => (
                     <>
-                      {/* Watermelon "Fluid Tabs": one pill that springs from tab to tab. */}
-                      {isActive && (
-                        <m.span
-                          layoutId="nav-active-pill"
-                          transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 0.8 }}
-                          className="absolute inset-0 rounded-2xl border border-primary bg-primary-soft md:rounded-full"
-                          aria-hidden="true"
-                        />
-                      )}
                       <m.span
                         animate={{ scale: isActive ? 1.1 : 1 }}
                         transition={{ type: 'spring', stiffness: 300, damping: 15 }}
