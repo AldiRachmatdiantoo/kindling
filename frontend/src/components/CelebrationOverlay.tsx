@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { Pillar, PillarProgressSet } from '../api/types';
-import { CelebrationPath, chestsReached } from './CelebrationPath';
+import { CelebrationPath, chestsReached, PATH_STAGGER_MS } from './CelebrationPath';
 import { Mascot } from './Mascot';
 import './celebration.css';
 
@@ -61,7 +61,15 @@ export const PATH_BEAT_MS = 2600;
 /** The crew fades out over this long before the paths fade in, so the two never cut. */
 export const PATH_HANDOFF_MS = 450;
 
+/** A single win's pop, burst and count roll are over by now. */
+export const WIN_READY_MS = 1500;
+/** From the paths' first frame until the last pillar's step has filled and its count rolled. */
+export const PATH_DONE_MS = 2 * PATH_STAGGER_MS + 1800;
+
 type Beat = 'cheer' | 'handoff' | 'path';
+
+const prefersReducedMotion = () =>
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 const PILLAR_NAME: Record<Pillar, string> = { physical: 'Physical', work: 'Work', soul: 'Soul' };
 
@@ -88,12 +96,19 @@ export interface CelebrationOverlayProps {
 
 /**
  * The pillar mascot pops up when a Daily Win is marked done, and the whole crew shows up for
- * 3 out of 3. It stays until the user taps, or presses Escape, Enter or Space, and never moves focus.
+ * 3 out of 3, followed by the Milestone Paths. A tap, Enter or Space closes it once the
+ * animation has played out; Escape closes it at any time.
  */
 export function CelebrationOverlay({ celebration, pathProgress, onDone }: CelebrationOverlayProps) {
   const [leaving, setLeaving] = useState(false);
   const [pathDue, setPathDue] = useState(false);
   const [beat, setBeat] = useState<Beat>('cheer');
+  // Taps wait for the animation to finish, so the moment is not skipped by accident.
+  const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
+  readyRef.current = ready;
+  const pathProgressRef = useRef(pathProgress);
+  pathProgressRef.current = pathProgress;
   const overlayRef = useRef<HTMLDivElement>(null);
   const dismissRef = useRef<HTMLButtonElement>(null);
   const closingRef = useRef(false);
@@ -102,11 +117,11 @@ export function CelebrationOverlay({ celebration, pathProgress, onDone }: Celebr
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
-  const close = useCallback(() => {
-    if (closingRef.current) return;
+  const close = useCallback((force = false) => {
+    if (closingRef.current || (!force && !readyRef.current)) return;
     closingRef.current = true;
     setLeaving(true);
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const reduce = prefersReducedMotion();
     closeTimerRef.current = window.setTimeout(() => {
       closeTimerRef.current = null;
       onDoneRef.current();
@@ -120,15 +135,28 @@ export function CelebrationOverlay({ celebration, pathProgress, onDone }: Celebr
     setLeaving(false);
     setPathDue(false);
     setBeat('cheer');
+    const reduce = prefersReducedMotion();
+    readyRef.current = reduce;
+    setReady(reduce);
     const beatTimer =
-      celebration.kind === 'all' ? window.setTimeout(() => setPathDue(true), PATH_BEAT_MS) : null;
+      celebration.kind === 'all'
+        ? window.setTimeout(() => {
+            setPathDue(true);
+            // No path totals to show: the crew was the whole show.
+            if (!pathProgressRef.current) setReady(true);
+          }, PATH_BEAT_MS)
+        : null;
+    const readyTimer =
+      celebration.kind === 'win' && !reduce
+        ? window.setTimeout(() => setReady(true), WIN_READY_MS)
+        : null;
     dismissRef.current?.focus();
     const prevOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        close();
+        close(e.key === 'Escape');
         return;
       }
       if (e.key !== 'Tab' || !overlayRef.current) return;
@@ -161,6 +189,13 @@ export function CelebrationOverlay({ celebration, pathProgress, onDone }: Celebr
     return () => {
       window.removeEventListener('keydown', onKey);
       if (beatTimer !== null) window.clearTimeout(beatTimer);
+      if (readyTimer !== null) window.clearTimeout(readyTimer);
+      // Reset here, not on the next open: the next celebration's first render must not
+      // start out ready, or be on the last one's beat.
+      readyRef.current = false;
+      setReady(false);
+      setPathDue(false);
+      setBeat('cheer');
       if (closeTimerRef.current !== null) {
         window.clearTimeout(closeTimerRef.current);
         closeTimerRef.current = null;
@@ -176,9 +211,19 @@ export function CelebrationOverlay({ celebration, pathProgress, onDone }: Celebr
   useEffect(() => {
     if (!readyForPath) return;
     setBeat('handoff');
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    const timer = window.setTimeout(() => setBeat('path'), reduce ? 0 : PATH_HANDOFF_MS);
-    return () => window.clearTimeout(timer);
+    const reduce = prefersReducedMotion();
+    let doneTimer: number | null = null;
+    const pathTimer = window.setTimeout(
+      () => {
+        setBeat('path');
+        doneTimer = window.setTimeout(() => setReady(true), reduce ? 0 : PATH_DONE_MS);
+      },
+      reduce ? 0 : PATH_HANDOFF_MS,
+    );
+    return () => {
+      window.clearTimeout(pathTimer);
+      if (doneTimer !== null) window.clearTimeout(doneTimer);
+    };
   }, [readyForPath]);
 
   if (!celebration) return null;
@@ -196,13 +241,14 @@ export function CelebrationOverlay({ celebration, pathProgress, onDone }: Celebr
       key={celebration.id}
       ref={overlayRef}
       className={`kc-overlay${leaving ? ' kc-out' : ''}`}
-      onClick={close}
+      onClick={() => close()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="kc-title"
       data-testid="win-celebration"
       data-kind={celebration.kind}
       data-beat={isAll ? beat : 'cheer'}
+      data-ready={ready}
     >
       <div className="kc-scene">
         <div className="kc-stage">
@@ -258,7 +304,8 @@ export function CelebrationOverlay({ celebration, pathProgress, onDone }: Celebr
       <button
         ref={dismissRef}
         type="button"
-        className="kc-hint"
+        className={`kc-hint${ready ? ' kc-hint-on' : ''}`}
+        aria-disabled={!ready}
         onClick={(e) => {
           e.stopPropagation();
           close();

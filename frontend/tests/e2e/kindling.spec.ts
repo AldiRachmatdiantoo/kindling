@@ -174,21 +174,27 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('win-previous-physical')).toBeVisible();
 
     // 7. Toggle all 3 wins to completed
-    // Each Done pops a mascot celebration; the third one shows the whole crew. Tap to close.
+    // Each Done pops a mascot celebration; the third one shows the whole crew, then the
+    // Milestone Paths. A tap closes it once the animation has played out.
     const celebration = page.getByTestId('win-celebration');
     await page.getByTestId('win-toggle-physical').click();
     await expect(celebration).toHaveAttribute('data-kind', 'win');
+    await expect(celebration).toHaveAttribute('data-ready', 'true');
     await celebration.click();
     await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('1 / 3');
 
     await page.getByTestId('win-toggle-work').click();
+    await expect(celebration).toHaveAttribute('data-ready', 'true');
     await celebration.click();
     await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('2 / 3');
 
     await page.getByTestId('win-toggle-soul').click();
     await expect(celebration).toHaveAttribute('data-kind', 'all');
+    await expect(celebration).toHaveAttribute('data-beat', 'path');
+    await expect(page.getByTestId('celebration-path-soul')).toContainText('1 win');
+    await expect(celebration).toHaveAttribute('data-ready', 'true');
     await celebration.click();
     await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('3 / 3');
