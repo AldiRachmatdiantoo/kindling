@@ -397,7 +397,7 @@ export function CopePage() {
         {activeOption && (
           <div
             ref={toolRef}
-            className="flex scroll-mt-28 flex-wrap items-center justify-between gap-3 rounded-3xl border border-line bg-surface p-5"
+            className="flex scroll-mt-28 lg:scroll-mt-8 flex-wrap items-center justify-between gap-3 rounded-3xl border border-line bg-surface p-5"
             data-testid="active-cope-tool"
           >
             <div className="flex items-center gap-3">

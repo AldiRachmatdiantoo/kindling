@@ -26,7 +26,7 @@ function AppShellLayout() {
 
   // Once today's check-in exists the wizard is locked, so the first tab becomes the
   // day overview instead of a dead end. `short` is for the mobile bar and tablet widths
-  // (the full label would wrap there); `label` appears from lg upward.
+  // (the full label would wrap there); `label` appears from lg upward, in the sidebar.
   const firstTab =
     status === 'done'
       ? { label: 'Today', short: 'Today', icon: CalendarCheck }
@@ -130,13 +130,18 @@ function AppShellLayout() {
           Skip to content
         </a>
 
-        {/* Blur only from md up: backdrop-filter makes the header the containing block for
-            fixed children, which would pin the mobile bottom nav to the header instead. */}
-        <header className="k-wave sticky top-0 shrink-0 z-30 border-b border-line bg-cream md:bg-cream/90 md:backdrop-blur-md">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
+        {/*
+          Three layouts from one header, so every data-testid stays unique: a top bar with a
+          bottom tab bar below md, a top bar with inline pills from md, and from lg a fixed
+          sidebar on the left (brand, nav, then the account at the bottom), like a desktop app.
+          Blur only between md and lg: backdrop-filter makes the header the containing block
+          for fixed children, which would pin the mobile bottom nav to the header instead.
+        */}
+        <header className="k-wave sticky top-0 shrink-0 z-30 border-b border-line bg-cream md:bg-cream/90 md:backdrop-blur-md lg:fixed lg:inset-y-0 lg:left-0 lg:w-60 lg:border-r lg:border-b-0 lg:bg-surface lg:backdrop-blur-none">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:h-full lg:max-w-none lg:flex-col lg:items-stretch lg:justify-start lg:gap-6 lg:px-3 lg:py-5">
             <Link
               to="/"
-              className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-full text-ink hover:opacity-90"
+              className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-full text-ink hover:opacity-90 lg:px-3"
               data-testid="brand-logo"
             >
               <KindlingMark />
@@ -144,13 +149,13 @@ function AppShellLayout() {
             </Link>
 
             {/*
-            One nav element serves both layouts so every data-testid stays unique:
-            a fixed bottom tab bar below md, inline pills in the header from md upward.
+            One nav element serves every layout so each data-testid stays unique: a fixed
+            bottom tab bar below md, inline pills from md, a vertical list in the lg sidebar.
           */}
             <nav
               ref={navRef}
               aria-label="Main navigation"
-              className="k-nav-surface fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-line bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:relative md:flex md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0"
+              className="k-nav-surface fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-line bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:relative md:flex md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0 lg:flex-col lg:items-stretch"
             >
               {/*
                 Watermelon "Fluid Tabs": one pill that springs from tab to tab. Its place comes
@@ -167,7 +172,7 @@ function AppShellLayout() {
                       ? { duration: 0 }
                       : { type: 'spring', stiffness: 380, damping: 32, mass: 0.8 }
                   }
-                  className="pointer-events-none absolute top-0 left-0 rounded-2xl border border-primary bg-primary-soft md:rounded-full"
+                  className="pointer-events-none absolute top-0 left-0 rounded-2xl border border-primary bg-primary-soft md:rounded-full lg:rounded-2xl"
                   data-testid="nav-active-pill"
                 />
               )}
@@ -177,7 +182,7 @@ function AppShellLayout() {
                   to={to}
                   data-testid={testId}
                   className={({ isActive }) =>
-                    `relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors duration-200 md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:px-3.5 ${
+                    `relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors duration-200 md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:min-h-11 lg:justify-start lg:gap-3 lg:rounded-2xl lg:px-3 lg:py-2.5 lg:text-[15px] ${
                       isActive ? 'text-ink' : 'text-ink-soft hover:bg-surface-2 hover:text-ink'
                     }`
                   }
@@ -189,7 +194,10 @@ function AppShellLayout() {
                         transition={{ type: 'spring', stiffness: 300, damping: 15 }}
                         className="relative flex"
                       >
-                        <Icon className="h-5 w-5 shrink-0 md:h-4 md:w-4" aria-hidden="true" />
+                        <Icon
+                          className="h-5 w-5 shrink-0 md:h-4 md:w-4 lg:h-5 lg:w-5"
+                          aria-hidden="true"
+                        />
                       </m.span>
                       <span className="relative lg:hidden">{short}</span>
                       <span className="relative hidden lg:inline">{label}</span>
@@ -199,10 +207,11 @@ function AppShellLayout() {
               ))}
             </nav>
 
-            <div className="flex shrink-0 items-center gap-2">
+            {/* In the sidebar the account sits at the bottom: the name, then theme and sign out. */}
+            <div className="flex shrink-0 items-center gap-2 lg:mt-auto lg:flex-wrap lg:border-t lg:border-line lg:px-1 lg:pt-4">
               {user && (
                 <span
-                  className="hidden max-w-40 truncate text-sm font-medium text-ink-soft xl:inline"
+                  className="hidden max-w-40 truncate text-sm font-medium text-ink-soft lg:block lg:max-w-none lg:basis-full lg:px-2"
                   data-testid="header-user-name"
                 >
                   {user.full_name}
@@ -214,7 +223,7 @@ function AppShellLayout() {
                 onClick={handleLogout}
                 data-testid="logout-button"
                 aria-label="Sign out"
-                className="min-w-11 gap-1.5 px-3 font-semibold"
+                className="min-w-11 gap-1.5 px-3 font-semibold lg:flex-1"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Sign out</span>
@@ -225,7 +234,7 @@ function AppShellLayout() {
 
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none] md:overflow-visible"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none] md:overflow-visible lg:pl-60"
         >
           <main id="content" className="mx-auto max-w-6xl px-4 pt-10 pb-28 sm:px-6 md:pb-12">
             {/* Keyed by path so each route change replays the settle-in animation. */}
