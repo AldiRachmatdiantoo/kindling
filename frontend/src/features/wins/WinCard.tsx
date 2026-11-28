@@ -3,8 +3,8 @@ import { memo, useEffect, useId, useState, type FormEvent, type ReactNode } from
 import { AnimatePresence, m } from 'motion/react';
 import type { Pillar, WinItem, WorkWinItem } from '../../api/types';
 import { CountdownTimer } from '../../components/CountdownTimer';
-import { FeatureTip } from '../../components/FeatureTip';
 import { Mascot, PILLAR_MASCOT } from '../../components/Mascot';
+import { MascotBubble } from '../../components/MascotBubble';
 import { QuickPicks } from '../../components/QuickPicks';
 import { Button } from '@/components/watermelon-ui/button';
 import { Input } from '@/components/ui/input';
@@ -187,6 +187,8 @@ export const WinCard = memo(function WinCard({
 }: WinCardProps) {
   const meta = PILLAR_META[pillar];
   const isMaxGentle = item.level >= 3;
+  // The level whose "it's smaller now" note was dismissed; a further shrink shows it again.
+  const [shrunkNoteLevel, setShrunkNoteLevel] = useState<number | null>(null);
 
   // The details stay in the DOM (hidden) while folded, so a running timer keeps its place.
   // `shown` lags isOpen on the way out so the fold can animate before `hidden` applies.
@@ -350,21 +352,6 @@ export const WinCard = memo(function WinCard({
         </div>
       </m.div>
 
-      {showShrunkTip && (
-        <FeatureTip
-          autoOpen
-          id="wins-shrunk"
-          title="Done, it's smaller now"
-          pillar={pillar}
-          mood="calm"
-        >
-          <p>
-            Still too much? Tap it again. Each tap makes the goal lighter, and at the lightest
-            level, resting counts as the win.
-          </p>
-        </FeatureTip>
-      )}
-
       <div className="mt-auto space-y-2 pt-1">
         <button
           type="button"
@@ -426,6 +413,31 @@ export const WinCard = memo(function WinCard({
           <SwapToday pillar={pillar} onSwap={onSwap} busy={isSwapping || isRecalibrating} />
         )}
       </div>
+      {/* Inline below the actions, never a floating bubble: nothing may cover Mark as done. */}
+      {showShrunkTip && shrunkNoteLevel !== item.level && (
+        <MascotBubble
+          size="sm"
+          pillar={pillar}
+          mood="calm"
+          title="Done, it's smaller now"
+          testId={`win-shrunk-note-${pillar}`}
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShrunkNoteLevel(item.level)}
+              data-testid={`win-shrunk-note-dismiss-${pillar}`}
+            >
+              Got it
+            </Button>
+          }
+        >
+          <p>
+            Still too much? Tap it again. Each tap makes the goal lighter, and at the lightest
+            level, resting counts as the win.
+          </p>
+        </MascotBubble>
+      )}
     </article>
   );
 });

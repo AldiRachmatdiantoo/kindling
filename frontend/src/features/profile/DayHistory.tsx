@@ -165,7 +165,7 @@ export function DayDetail({ date, onClose }: DayDetailProps) {
   }, [date]);
 
   return (
-    <Card asChild className="k-enter scroll-mt-28 space-y-5 p-6 focus:outline-none">
+    <Card asChild className="k-enter scroll-mt-28 lg:scroll-mt-8 space-y-5 p-6 focus:outline-none">
       <section
         ref={panelRef}
         tabIndex={-1}

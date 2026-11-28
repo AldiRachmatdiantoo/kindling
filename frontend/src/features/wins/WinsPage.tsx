@@ -618,10 +618,11 @@ export function WinsPage() {
 
       {/*
         A list of the three wins and one detail panel, like a desktop task app: side by side
-        from lg, and on phones the panel replaces the list until "Today's wins" brings it back.
+        from xl (below that the sidebar leaves too little room), and on narrower screens the
+        panel replaces the list until "Today's wins" brings it back.
       */}
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(380px,460px)] lg:items-start lg:gap-6">
-        <div className={`space-y-6 ${mobileOpen ? 'hidden lg:block' : ''}`} data-testid="wins-list">
+      <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(380px,460px)] xl:items-start xl:gap-6">
+        <div className={`space-y-6 ${mobileOpen ? 'hidden xl:block' : ''}`} data-testid="wins-list">
           <div>
             <p className="text-xs font-semibold text-ink-faint">
               Your 3 Daily Wins · {dailyLog.log_date}
@@ -704,13 +705,13 @@ export function WinsPage() {
 
         <div
           ref={detailRef}
-          className={`scroll-mt-4 lg:sticky lg:top-8 ${mobileOpen ? '' : 'hidden lg:block'}`}
+          className={`scroll-mt-4 xl:sticky xl:top-8 ${mobileOpen ? '' : 'hidden xl:block'}`}
           data-testid="wins-detail"
         >
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="mb-2 flex min-h-11 items-center gap-1.5 text-sm font-bold text-ink-soft lg:hidden"
+            className="mb-2 flex min-h-11 items-center gap-1.5 text-sm font-bold text-ink-soft xl:hidden"
             data-testid="wins-back"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />

@@ -187,7 +187,7 @@ describe('WinsPage state and UX', () => {
 
   it('loads the Milestone Path totals only when the third win lands', async () => {
     // Generous waits: the full suite runs many jsdom files at once.
-    const WAIT = { timeout: 3000 };
+    const WAIT = { timeout: 6000 };
     const one = {
       completed_total: 1,
       checkpoints: [],
@@ -210,7 +210,12 @@ describe('WinsPage state and UX', () => {
     for (const pillar of ['physical', 'work'] as const) {
       fireEvent.click(await screen.findByTestId('win-row-' + pillar, {}, WAIT));
       fireEvent.click(await screen.findByTestId('win-toggle-' + pillar, {}, WAIT));
-      fireEvent.click(await screen.findByTestId('win-celebration-close', {}, WAIT));
+      // A celebration only closes once its animation has played out.
+      await waitFor(
+        () => expect(screen.getByTestId('win-celebration')).toHaveAttribute('data-ready', 'true'),
+        WAIT,
+      );
+      fireEvent.click(screen.getByTestId('win-celebration-close'));
       await waitFor(() => expect(screen.queryByTestId('win-celebration')).toBeNull(), WAIT);
     }
     expect(heatmap).not.toHaveBeenCalled();
@@ -222,7 +227,7 @@ describe('WinsPage state and UX', () => {
       WAIT,
     );
     await waitFor(() => expect(heatmap).toHaveBeenCalledTimes(1), WAIT);
-  });
+  }, 20000);
 
   describe('roadmap wins', () => {
     const steps = ['Put on your gym clothes', 'Pack your bag', 'Get to the gym', 'Do your workout'];
