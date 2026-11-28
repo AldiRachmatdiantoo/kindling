@@ -1,13 +1,11 @@
-import { ArrowRight, Check, Clock, HeartHandshake, Sun, Trophy } from 'lucide-react';
+import { ArrowRight, Check, HeartHandshake, Sun, Trophy } from 'lucide-react';
 import { m } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { checkinApi } from '../../api/endpoints';
 import { KindlingMark } from '../../components/KindlingMark';
 import { Mascot } from '../../components/Mascot';
-import { deferCheckin } from '../../utils/checkinDefer';
 import { clearJustRegistered, isJustRegistered } from '../../utils/justRegistered';
-import { getTodayInTimezone } from '../../utils/date';
 import { useAuth } from '../auth/AuthContext';
 import { ThemeToggle } from '../theme/ThemeToggle';
 import { Button } from '@/components/watermelon-ui/button';
@@ -76,10 +74,6 @@ export function WelcomePage() {
       : "Let's see how much energy you've got today, then size the day to match.";
 
   const startCheckin = () => navigate('/checkin', { replace: true });
-  const answerLater = () => {
-    if (user) deferCheckin(user.id, getTodayInTimezone(user.timezone || 'Asia/Jakarta'));
-    navigate('/wins', { replace: true });
-  };
 
   return (
     <main className="min-h-screen bg-cream px-4 pt-6 pb-12" data-testid="welcome-page">
@@ -174,21 +168,10 @@ export function WelcomePage() {
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Button>
           ) : (
-            <>
-              <Button
-                variant="link"
-                onClick={answerLater}
-                data-testid="welcome-later"
-                className="gap-1.5"
-              >
-                <Clock className="h-4 w-4" aria-hidden="true" />
-                Answer later
-              </Button>
-              <Button onClick={startCheckin} data-testid="welcome-start">
-                Start today's check-in
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            </>
+            <Button onClick={startCheckin} data-testid="welcome-start">
+              Start today's check-in
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
           )}
         </div>
       </Card>

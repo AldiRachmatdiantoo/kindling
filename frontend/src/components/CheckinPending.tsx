@@ -13,9 +13,9 @@ export interface CheckinPendingProps {
 }
 
 /**
- * Empty state for pages that are built from today's check-in. Says why the page is
- * empty and gives the one action that fills it, without forcing the wizard on someone
- * who chose "Answer later".
+ * Empty state for pages that are built from today's check-in, for someone who opens one by
+ * its address before answering (the nav keeps them locked). Says why the page is empty and
+ * gives the one action that fills it.
  */
 export function CheckinPending({ title, unlocks, testId }: CheckinPendingProps) {
   const { isOpen: tourOpen } = useWelcomeTour();
@@ -29,20 +29,15 @@ export function CheckinPending({ title, unlocks, testId }: CheckinPendingProps) 
 
       <MascotBubble
         mood="calm"
-        title="No rush. Answer whenever you're ready."
+        title="Answer today's check-in first."
         className={`max-w-2xl transition-opacity duration-200 ${tourOpen ? 'pointer-events-none opacity-0' : ''}`}
         actions={
-          <>
-            <Button asChild variant="secondary">
-              <Link to="/profile">See my recovery trail</Link>
-            </Button>
-            <Button asChild>
-              <Link to="/checkin" data-testid={`${testId}-start`}>
-                <ClipboardList className="h-4 w-4" aria-hidden="true" />
-                Check in now
-              </Link>
-            </Button>
-          </>
+          <Button asChild>
+            <Link to="/checkin" data-testid={`${testId}-start`}>
+              <ClipboardList className="h-4 w-4" aria-hidden="true" />
+              Check in now
+            </Link>
+          </Button>
         }
       >
         <p>{unlocks} It's just 9 quick questions, about 2 minutes.</p>

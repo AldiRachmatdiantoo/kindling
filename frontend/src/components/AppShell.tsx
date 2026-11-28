@@ -1,4 +1,4 @@
-import { CalendarCheck, HeartHandshake, LogOut, Sun, Trophy, User } from 'lucide-react';
+import { CalendarCheck, HeartHandshake, Lock, LogOut, Sun, Trophy, User } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { m, useReducedMotion } from 'motion/react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -56,9 +56,12 @@ function AppShellLayout() {
     },
   ];
 
-  // The welcome tour waits until the user reaches the dashboard, never mid check-in.
-  const canAutoStart =
-    status !== 'unknown' && (location.pathname !== '/checkin' || status === 'done');
+  // Until today's questions are answered, the other tabs stay locked: the check-in is the
+  // one thing to do first, and the pages behind them are built from its answers.
+  const navLocked = status === 'open';
+
+  // The welcome tour shows the day the check-in built, so it waits until that day exists.
+  const canAutoStart = status === 'done';
   const firstName = user?.full_name?.trim().split(/\s+/)[0] ?? '';
 
   // Adaptive atmosphere: today's tier tints the accent and paces the motion (the atmosphere
@@ -176,36 +179,72 @@ function AppShellLayout() {
                   data-testid="nav-active-pill"
                 />
               )}
-              {navItems.map(({ to, label, short, icon: Icon, testId }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  data-testid={testId}
-                  className={({ isActive }) =>
-                    `relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors duration-200 md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:min-h-11 lg:justify-start lg:gap-3 lg:rounded-2xl lg:px-3 lg:py-2.5 lg:text-[15px] ${
-                      isActive ? 'text-ink' : 'text-ink-soft hover:bg-surface-2 hover:text-ink'
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <m.span
-                        animate={{ scale: isActive ? 1.1 : 1 }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-                        className="relative flex"
-                      >
-                        <Icon
-                          className="h-5 w-5 shrink-0 md:h-4 md:w-4 lg:h-5 lg:w-5"
-                          aria-hidden="true"
-                        />
-                      </m.span>
-                      <span className="relative lg:hidden">{short}</span>
-                      <span className="relative hidden lg:inline">{label}</span>
-                    </>
-                  )}
-                </NavLink>
-              ))}
+              {navItems.map(({ to, label, short, icon: Icon, testId }) =>
+                navLocked && to !== '/checkin' ? (
+                  <span
+                    key={to}
+                    role="link"
+                    aria-disabled="true"
+                    title="Answer today's check-in first"
+                    data-testid={testId}
+                    data-locked="true"
+                    className="relative flex min-h-12 cursor-not-allowed flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1 text-[11px] font-semibold whitespace-nowrap text-ink-faint md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:min-h-11 lg:justify-start lg:gap-3 lg:rounded-2xl lg:px-3 lg:py-2.5 lg:text-[15px]"
+                  >
+                    <span className="relative flex">
+                      <Icon
+                        className="h-5 w-5 shrink-0 opacity-60 md:h-4 md:w-4 lg:h-5 lg:w-5"
+                        aria-hidden="true"
+                      />
+                      <Lock
+                        className="absolute -right-1.5 -bottom-1 h-3 w-3 rounded-full bg-surface lg:hidden"
+                        aria-hidden="true"
+                      />
+                    </span>
+                    <span className="relative lg:hidden">{short}</span>
+                    <span className="relative hidden lg:inline">{label}</span>
+                    <Lock className="ml-auto hidden h-3.5 w-3.5 lg:block" aria-hidden="true" />
+                    <span className="sr-only">(locked until today's check-in)</span>
+                  </span>
+                ) : (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    data-testid={testId}
+                    className={({ isActive }) =>
+                      `relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition-colors duration-200 md:min-h-10 md:flex-row md:gap-1.5 md:rounded-full md:px-3 md:py-1.5 md:text-sm lg:min-h-11 lg:justify-start lg:gap-3 lg:rounded-2xl lg:px-3 lg:py-2.5 lg:text-[15px] ${
+                        isActive ? 'text-ink' : 'text-ink-soft hover:bg-surface-2 hover:text-ink'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <m.span
+                          animate={{ scale: isActive ? 1.1 : 1 }}
+                          transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                          className="relative flex"
+                        >
+                          <Icon
+                            className="h-5 w-5 shrink-0 md:h-4 md:w-4 lg:h-5 lg:w-5"
+                            aria-hidden="true"
+                          />
+                        </m.span>
+                        <span className="relative lg:hidden">{short}</span>
+                        <span className="relative hidden lg:inline">{label}</span>
+                      </>
+                    )}
+                  </NavLink>
+                ),
+              )}
             </nav>
+
+            {navLocked && (
+              <p
+                className="hidden px-3 text-xs leading-relaxed text-ink-soft lg:block"
+                data-testid="nav-locked-hint"
+              >
+                Answer today's check-in first. The rest opens right after.
+              </p>
+            )}
 
             {/* In the sidebar the account sits at the bottom: the name, then theme and sign out. */}
             <div className="flex shrink-0 items-center gap-2 lg:mt-auto lg:flex-wrap lg:border-t lg:border-line lg:px-1 lg:pt-4">
