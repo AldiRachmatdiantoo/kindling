@@ -154,7 +154,8 @@ func NewHandler(deps Dependencies) http.Handler {
 		sliceTaskIdemMW := middleware.Idempotency(idemStore, "POST:/wins/slice-task", deps.Logger)
 		recalibrateIdemMW := middleware.Idempotency(idemStore, "POST:/wins/recalibrate", deps.Logger)
 		swapIdemMW := middleware.Idempotency(idemStore, "POST:/wins/swap", deps.Logger)
-		wins.RegisterRoutes(apiMux, winsHandler, authMW, aiRateLimitMW, sliceTaskIdemMW, recalibrateIdemMW, swapIdemMW)
+		splitIdemMW := middleware.Idempotency(idemStore, "POST:/wins/steps/split", deps.Logger)
+		wins.RegisterRoutes(apiMux, winsHandler, authMW, aiRateLimitMW, sliceTaskIdemMW, recalibrateIdemMW, swapIdemMW, splitIdemMW)
 
 		profileRepo := profile.NewPostgresRepository(deps.Pool)
 		profileSvc := profile.NewService(profileRepo)

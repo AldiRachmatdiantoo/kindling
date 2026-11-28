@@ -132,3 +132,73 @@ func TestCapWorkDuration_ALighterGoalNeverGetsALongerTimer(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitInto_MovesTheFloorWhenTheSplitStepIsAtOrBeforeIt(t *testing.T) {
+	steps := func() []string { return []string{"a", "b", "c", "d"} }
+
+	before := WinItem{Steps: steps(), FloorStep: 3}
+	splitInto(&before, 0, "a1", "a2")
+	if got := strings.Join(before.Steps, ","); got != "a1,a2,b,c,d" || before.FloorStep != 4 {
+		t.Fatalf("split before the floor: steps %s floor %d, want floor 4 (still c)", got, before.FloorStep)
+	}
+
+	atFloor := WinItem{Steps: steps(), FloorStep: 3}
+	splitInto(&atFloor, 2, "c1", "c2")
+	if got := strings.Join(atFloor.Steps, ","); got != "a,b,c1,c2,d" || atFloor.FloorStep != 4 {
+		t.Fatalf("split of the floor: steps %s floor %d, want floor 4 (c2 finishes c)", got, atFloor.FloorStep)
+	}
+
+	after := WinItem{Steps: steps(), FloorStep: 2}
+	splitInto(&after, 3, "d1", "d2")
+	if after.FloorStep != 2 || len(after.Steps) != 5 {
+		t.Fatalf("split after the floor must leave it: floor %d", after.FloorStep)
+	}
+}
+
+func TestCheckSplit_OnlyTheCurrentStepAndNotPastTheCap(t *testing.T) {
+	item := WinItem{Steps: []string{"a", "b", "c"}, FloorStep: 2, StepsDone: 1}
+	if err := checkSplit(&item, 1); err != nil {
+		t.Fatalf("the current step can be split: %v", err)
+	}
+	if err := checkSplit(&item, 0); err == nil {
+		t.Fatal("a finished step cannot be split")
+	}
+	full := WinItem{Steps: make([]string, ai.MaxRoadmapSteps), FloorStep: 2}
+	if err := checkSplit(&full, 0); err == nil {
+		t.Fatal("a full roadmap cannot grow")
+	}
+}
+
+func TestToggleWinItem_KeepsStepsDoneOnTheRightSideOfTheFloor(t *testing.T) {
+	w := WinItem{Steps: []string{"a", "b", "c", "d"}, FloorStep: 3, StepsDone: 1}
+	toggleWinItem(&w, true)
+	if !w.Completed || w.StepsDone != 3 {
+		t.Fatalf("marking done reaches the floor: done=%v steps=%d", w.Completed, w.StepsDone)
+	}
+	w.setStepsDone(4)
+	toggleWinItem(&w, false)
+	if w.Completed || w.StepsDone != 2 {
+		t.Fatalf("undoing drops just below the floor: done=%v steps=%d", w.Completed, w.StepsDone)
+	}
+	plain := WinItem{}
+	toggleWinItem(&plain, true)
+	if !plain.Completed || plain.StepsDone != 0 {
+		t.Fatal("a plain win only flips completed")
+	}
+}
+
+func TestStepProgressRequestValidate(t *testing.T) {
+	two, neg := 2, -1
+	if _, _, err := (StepProgressRequest{Pillar: "work", StepsDone: &two}).Validate(); err == nil {
+		t.Fatal("work has no roadmap")
+	}
+	if _, _, err := (StepProgressRequest{Pillar: "physical"}).Validate(); err == nil {
+		t.Fatal("steps_done is required")
+	}
+	if _, _, err := (StepProgressRequest{Pillar: "soul", StepsDone: &neg}).Validate(); err == nil {
+		t.Fatal("steps_done cannot be negative")
+	}
+	if p, n, err := (StepProgressRequest{Pillar: " physical ", StepsDone: &two}).Validate(); err != nil || p != "physical" || n != 2 {
+		t.Fatalf("got %q %d %v", p, n, err)
+	}
+}

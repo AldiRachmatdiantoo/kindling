@@ -12,6 +12,7 @@ func RegisterRoutes(
 	sliceTaskIdempotencyMiddleware func(http.Handler) http.Handler,
 	recalibrateIdempotencyMiddleware func(http.Handler) http.Handler,
 	swapIdempotencyMiddleware func(http.Handler) http.Handler,
+	splitIdempotencyMiddleware func(http.Handler) http.Handler,
 ) {
 	sliceTask := http.Handler(http.HandlerFunc(h.SliceTask))
 	if aiRateLimitMiddleware != nil {
@@ -46,13 +47,31 @@ func RegisterRoutes(
 		swap = authMiddleware(swap)
 	}
 
+	split := http.Handler(http.HandlerFunc(h.SplitStep))
+	if aiRateLimitMiddleware != nil {
+		split = aiRateLimitMiddleware(split)
+	}
+	if splitIdempotencyMiddleware != nil {
+		split = splitIdempotencyMiddleware(split)
+	}
+	if authMiddleware != nil {
+		split = authMiddleware(split)
+	}
+
 	toggle := http.Handler(http.HandlerFunc(h.Toggle))
 	if authMiddleware != nil {
 		toggle = authMiddleware(toggle)
 	}
 
+	progress := http.Handler(http.HandlerFunc(h.StepProgress))
+	if authMiddleware != nil {
+		progress = authMiddleware(progress)
+	}
+
 	mux.Handle("POST /api/v1/wins/{date}/slice-task", sliceTask)
 	mux.Handle("POST /api/v1/wins/{date}/recalibrate", recalibrate)
 	mux.Handle("POST /api/v1/wins/{date}/swap", swap)
+	mux.Handle("POST /api/v1/wins/{date}/steps/split", split)
 	mux.Handle("PATCH /api/v1/wins/{date}/toggle", toggle)
+	mux.Handle("PATCH /api/v1/wins/{date}/progress", progress)
 }

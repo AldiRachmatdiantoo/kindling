@@ -322,7 +322,20 @@ func newWinItem(w ai.WinPlan, habit string) WinItem {
 		Steps:           trimSteps(w.Steps),
 		DurationSeconds: intPtr(w.DurationSeconds),
 		Habit:           habit,
+		FloorStep:       floorStep(w),
 	}
+}
+
+// floorStep keeps a roadmap's floor only when it still points at one of its steps.
+func floorStep(w ai.WinPlan) int {
+	n := len(trimSteps(w.Steps))
+	if w.FloorStep < 1 || n < ai.RoadmapMinSteps {
+		return 0
+	}
+	if w.FloorStep > n {
+		return n
+	}
+	return w.FloorStep
 }
 
 func habitActivity(h *habits.Habit) string {

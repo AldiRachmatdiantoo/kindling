@@ -39,6 +39,8 @@ type controllableAiProvider struct {
 	recalibrateDelay atomic.Int64 // milliseconds
 	sliceCalls       atomic.Int32
 	recalibrateCalls atomic.Int32
+	failSplit        atomic.Bool
+	splitCalls       atomic.Int32
 
 	// barrier, when set, holds each Recalibrate call until that many calls are in flight, so
 	// every concurrent request has finished its unlocked read before any of them writes.
@@ -99,6 +101,14 @@ func (p *controllableAiProvider) Recalibrate(ctx context.Context, in ai.Recalibr
 
 func (p *controllableAiProvider) PlanWin(ctx context.Context, in ai.PlanWinInput) (ai.WinPlan, error) {
 	return p.inner.PlanWin(ctx, in)
+}
+
+func (p *controllableAiProvider) SplitStep(ctx context.Context, in ai.SplitStepInput) (ai.SplitStepOutput, error) {
+	p.splitCalls.Add(1)
+	if p.failSplit.Load() {
+		return ai.SplitStepOutput{}, errors.New("simulated split-step llm failure")
+	}
+	return p.inner.SplitStep(ctx, in)
 }
 
 func (p *controllableAiProvider) Reflect(ctx context.Context, in ai.ReflectInput) (ai.ReflectOutput, error) {
@@ -681,6 +691,104 @@ func TestWinsModule_IntegrationAndConcurrency(t *testing.T) {
 		body, _ = json.Marshal(map[string]any{"pillar": "soul", "activity": "a walk"})
 		if rec = doAuthRequest(handler, userH, http.MethodPost, "/api/v1/wins/2026-11-26/swap", body, uuid.NewString()); rec.Code != http.StatusBadRequest {
 			t.Fatalf("swapping a finished win should be rejected: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("roadmap: progress sets completed at the floor, split replaces the current step", func(t *testing.T) {
+		// Registration is rate limited per client, so this reuses bob, who has no check-in yet.
+		userR := userB
+		submitCheckin(t, handler, userR, "2026-11-26")
+		phys := getCheckinLog(t, handler, userR, "2026-11-26").WinsData.Physical
+		if phys.FloorStep < 2 || len(phys.Steps) < phys.FloorStep || phys.StepsDone != 0 {
+			t.Fatalf("a physical win should be a roadmap with a floor past step 1: %+v", phys)
+		}
+		floor, total := phys.FloorStep, len(phys.Steps)
+
+		type progressResp struct {
+			Data struct {
+				StepsDone          int  `json:"steps_done"`
+				Completed          bool `json:"completed"`
+				WinsCompletedCount int  `json:"wins_completed_count"`
+			} `json:"data"`
+		}
+		progress := func(pillar string, n int) (*httptest.ResponseRecorder, progressResp) {
+			body, _ := json.Marshal(map[string]any{"pillar": pillar, "steps_done": n})
+			rec := doAuthRequest(handler, userR, http.MethodPatch, "/api/v1/wins/2026-11-26/progress", body, "")
+			var out progressResp
+			_ = json.Unmarshal(rec.Body.Bytes(), &out)
+			return rec, out
+		}
+
+		// Before the floor the win is only started.
+		rec, out := progress("physical", 1)
+		if rec.Code != http.StatusOK || out.Data.Completed || out.Data.WinsCompletedCount != 0 {
+			t.Fatalf("step 1 of %d: status=%d body=%s", floor, rec.Code, rec.Body.String())
+		}
+
+		// Split the current step (index 1): the floor moves with it.
+		split := func(step int) *httptest.ResponseRecorder {
+			body, _ := json.Marshal(map[string]any{"pillar": "physical", "step": step})
+			return doAuthRequest(handler, userR, http.MethodPost, "/api/v1/wins/2026-11-26/steps/split", body, uuid.NewString())
+		}
+		rec = split(1)
+		var splitOut struct {
+			Data struct {
+				Steps     []string `json:"steps"`
+				FloorStep int      `json:"floor_step"`
+				StepsDone int      `json:"steps_done"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &splitOut); err != nil || rec.Code != http.StatusOK {
+			t.Fatalf("split: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		if len(splitOut.Data.Steps) != total+1 || splitOut.Data.FloorStep != floor+1 || splitOut.Data.StepsDone != 1 {
+			t.Fatalf("split should add a step and move the floor: %+v", splitOut.Data)
+		}
+		if splitOut.Data.Steps[2] != phys.Steps[1] {
+			t.Fatalf("the second half finishes the original step: %q vs %q", splitOut.Data.Steps[2], phys.Steps[1])
+		}
+		floor++
+		// Only the current step can be split.
+		if rec = split(0); rec.Code != http.StatusBadRequest {
+			t.Fatalf("splitting a finished step: status=%d", rec.Code)
+		}
+
+		// When the AI fails, the template still splits.
+		ctrlAI.failSplit.Store(true)
+		rec = split(1)
+		ctrlAI.failSplit.Store(false)
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"ai_note":"unavailable"`) || !strings.Contains(rec.Body.String(), "Just the first minute") {
+			t.Fatalf("split fallback: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		floor++
+
+		// Reaching the floor puts the win in; going back takes it out.
+		if rec, out = progress("physical", floor); !out.Data.Completed || out.Data.WinsCompletedCount != 1 {
+			t.Fatalf("at the floor: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		if rec, out = progress("physical", floor-1); out.Data.Completed || out.Data.WinsCompletedCount != 0 {
+			t.Fatalf("below the floor: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		log := getCheckinLog(t, handler, userR, "2026-11-26")
+		if log.WinsData.Physical.StepsDone != floor-1 || log.WinsData.Physical.Completed || log.WinsCompletedCount != 0 {
+			t.Fatalf("progress should be saved as started: %+v", log.WinsData.Physical)
+		}
+
+		// Bounds and pillars.
+		if rec, _ = progress("physical", total+10); rec.Code != http.StatusBadRequest {
+			t.Fatalf("past the last step: status=%d", rec.Code)
+		}
+		if rec, _ = progress("work", 1); rec.Code != http.StatusBadRequest {
+			t.Fatalf("work has no roadmap: status=%d", rec.Code)
+		}
+
+		// A lighter version is a plain win again, with the done toggle.
+		body, _ := json.Marshal(map[string]any{"pillar": "physical"})
+		if rec = doAuthRequest(handler, userR, http.MethodPost, "/api/v1/wins/2026-11-26/recalibrate", body, uuid.NewString()); rec.Code != http.StatusOK {
+			t.Fatalf("recalibrate: status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		if rec, _ = progress("physical", 1); rec.Code != http.StatusBadRequest {
+			t.Fatalf("a recalibrated win has no roadmap: status=%d", rec.Code)
 		}
 	})
 

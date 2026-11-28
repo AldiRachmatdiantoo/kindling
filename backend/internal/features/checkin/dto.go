@@ -128,6 +128,10 @@ type WinItem struct {
 	Habit string `json:"habit,omitempty"`
 	// Swapped marks a win the user traded for another activity, for today only.
 	Swapped bool `json:"swapped,omitempty"`
+	// FloorStep (1-based) makes the win a roadmap: once that many steps are done, the win is in.
+	FloorStep int `json:"floor_step,omitempty"`
+	// StepsDone counts the roadmap steps finished so far today.
+	StepsDone int `json:"steps_done,omitempty"`
 }
 
 // WorkWinItem represents the work win JSONB object with AI Task Slicer fields (PRD §5.1).

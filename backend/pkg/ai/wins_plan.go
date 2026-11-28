@@ -7,9 +7,14 @@ import (
 
 // Limits for the per-card detail fields (PRD §5.1 wins_data).
 const (
-	MaxWhyThisRunes       = 240
-	MaxWinStepRunes       = 120
-	WinStepsCount         = 2
+	MaxWhyThisRunes = 240
+	MaxWinStepRunes = 120
+	WinStepsCount   = 2
+	// A physical or soul win is a roadmap of RoadmapMinSteps..RoadmapMaxSteps ordered steps
+	// toward the activity itself. "Make it smaller" may split steps up to MaxRoadmapSteps.
+	RoadmapMinSteps       = 3
+	RoadmapMaxSteps       = 5
+	MaxRoadmapSteps       = 8
 	MinWinDurationSeconds = 60
 	MaxWinDurationSeconds = 3600
 )
@@ -20,7 +25,14 @@ type WinPlan struct {
 	WhyThis         string   `json:"why_this"`
 	Steps           []string `json:"steps"`
 	DurationSeconds int      `json:"duration_seconds"`
+	// FloorStep (1-based, physical and soul only) is the step that counts as showing up:
+	// once it is done, today's win is in, and the steps after it are a bonus.
+	FloorStep int `json:"floor_step,omitempty"`
 }
+
+// IsRoadmapPillar reports whether a pillar's win is a step-by-step roadmap (physical, soul)
+// rather than the work pillar's 2 steps plus the task slicer.
+func IsRoadmapPillar(pillar string) bool { return pillar == "physical" || pillar == "soul" }
 
 // WinsPlan holds the three pillar wins generated for a check-in.
 type WinsPlan struct {
@@ -29,49 +41,72 @@ type WinsPlan struct {
 	Soul     WinPlan `json:"soul"`
 }
 
+// planSeed is one built-in win. Work has the 2 steps its slicer starts from; physical and soul
+// have a roadmap: ordered steps where floor is the step that counts as showing up today.
 type planSeed struct {
 	title    string
-	steps    [WinStepsCount]string
+	steps    []string
+	floor    int
 	duration int
 }
 
 type tierPlans struct{ physical, work, soul planSeed }
 
+func workSeed(title, a, b string, duration int) planSeed {
+	return planSeed{title: title, steps: []string{a, b}, duration: duration}
+}
+
+func roadmapSeed(title string, floor, duration int, steps ...string) planSeed {
+	return planSeed{title: title, steps: steps, floor: floor, duration: duration}
+}
+
 var plansByTier = map[CalibrationTier][]tierPlans{
 	TierGentle: {
 		{
-			physical: planSeed{"Drink a glass of water and stretch your shoulders for 3 minutes", [2]string{"Fill a glass of water and sip it slowly", "Roll your shoulders and stretch your neck side to side"}, 180},
-			work:     planSeed{"Pick 1 task and break it into a 5-minute step", [2]string{"Type the one task on your mind into the slicer below", "Work on the tiny step it gives you until the timer rings"}, 300},
-			soul:     planSeed{"Put screens away 20 minutes before bed tonight", [2]string{"Turn on Do Not Disturb before you get ready for bed", "Leave your phone somewhere you can't reach from bed"}, 1200},
+			physical: roadmapSeed("Drink a glass of water and stretch your shoulders for 3 minutes", 3, 180,
+				"Fill a glass of water", "Sip it slowly while you sit up tall", "Roll your shoulders back five times", "Stretch your neck gently side to side"),
+			work: workSeed("Pick 1 task and break it into a 5-minute step", "Type the one task on your mind into the slicer below", "Work on the tiny step it gives you until the timer rings", 300),
+			soul: roadmapSeed("Put screens away 20 minutes before bed tonight", 3, 1200,
+				"Set a reminder for 20 minutes before bed", "Turn on Do Not Disturb when it rings", "Leave your phone somewhere you can't reach from bed", "Do something slow until you sleep, like reading"),
 		},
 		{
-			physical: planSeed{"Take a 5-minute stroll around the house, phone left behind", [2]string{"Slip on your sandals and step outside or into the hallway", "Walk slowly and look around instead of at your phone"}, 300},
-			work:     planSeed{"Open your task doc and write just one opening sentence", [2]string{"Open the document and put your cursor on the empty spot", "Type one rough sentence and leave the typos alone"}, 300},
-			soul:     planSeed{"Listen to one calming song without doing anything else", [2]string{"Pick one slow song you already love", "Close your eyes and just listen until it ends"}, 240},
+			physical: roadmapSeed("Take a 5-minute stroll around the house, phone left behind", 3, 300,
+				"Leave your phone on the table", "Slip on your sandals", "Step outside or into the hallway", "Walk slowly for 5 minutes and look around"),
+			work: workSeed("Open your task doc and write just one opening sentence", "Open the document and put your cursor on the empty spot", "Type one rough sentence and leave the typos alone", 300),
+			soul: roadmapSeed("Listen to one calming song without doing anything else", 3, 240,
+				"Pick one slow song you already love", "Sit or lie down somewhere comfy", "Press play and close your eyes", "Just listen until it ends"),
 		},
 	},
 	TierBalanced: {
 		{
-			physical: planSeed{"Take a 10-minute walk and get some fresh air", [2]string{"Put on your shoes and head outside", "Walk at an easy pace with your phone in your pocket"}, 600},
-			work:     planSeed{"Do one light 10-minute focus block on your main task", [2]string{"Close every tab you don't need for this task", "Work on just this task until the timer rings"}, 600},
-			soul:     planSeed{"Write down 2 small things you are grateful for today", [2]string{"Grab a notebook or open a blank note", "Write two good things, even tiny ones count"}, 300},
+			physical: roadmapSeed("Take a 10-minute walk and get some fresh air", 3, 600,
+				"Put on your shoes", "Put your phone in your pocket", "Step out the door", "Walk at an easy pace for 10 minutes"),
+			work: workSeed("Do one light 10-minute focus block on your main task", "Close every tab you don't need for this task", "Work on just this task until the timer rings", 600),
+			soul: roadmapSeed("Write down 2 small things you are grateful for today", 3, 300,
+				"Grab a notebook or open a blank note", "Think back over today for a moment", "Write one good thing, even a tiny one", "Add a second one"),
 		},
 		{
-			physical: planSeed{"Do 10 minutes of light stretching between tasks", [2]string{"Stand up and give yourself a little space", "Slowly stretch your neck, shoulders, back and legs"}, 600},
-			work:     planSeed{"Tidy up your priorities and spend 10 minutes on the first step", [2]string{"List today's tasks and star the most important one", "Start on the starred task until the timer rings"}, 600},
-			soul:     planSeed{"Send a quick hello to a friend or family member you feel safe with", [2]string{"Think of one person who makes you feel at ease", "Send them a short message, no reply needed"}, 300},
+			physical: roadmapSeed("Do 10 minutes of light stretching between tasks", 3, 600,
+				"Stand up from your chair", "Clear a little space around you", "Stretch your neck and shoulders", "Stretch your back and legs slowly"),
+			work: workSeed("Tidy up your priorities and spend 10 minutes on the first step", "List today's tasks and star the most important one", "Start on the starred task until the timer rings", 600),
+			soul: roadmapSeed("Send a quick hello to a friend or family member you feel safe with", 3, 300,
+				"Think of one person who makes you feel at ease", "Open your chat with them", "Send a short hello, no reply needed"),
 		},
 	},
 	TierStandard: {
 		{
-			physical: planSeed{"Do 20 minutes of light exercise or a brisk walk", [2]string{"Change into comfy clothes and fill a water bottle", "Move at a pace where you can still chat"}, 1200},
-			work:     planSeed{"Finish one deep focus session on today's top priority", [2]string{"Silence notifications and open only what you need", "Work on your top priority until the timer rings"}, 1500},
-			soul:     planSeed{"Take 15 minutes to quietly reflect or read something you love", [2]string{"Find a quiet spot and put your phone face down", "Read or write freely until the timer rings"}, 900},
+			physical: roadmapSeed("Do 20 minutes of light exercise or a brisk walk", 3, 1200,
+				"Change into comfy clothes", "Fill a water bottle", "Start moving: a walk, a dance or a workout", "Keep a pace where you can still chat", "Stop at 20 minutes and drink some water"),
+			work: workSeed("Finish one deep focus session on today's top priority", "Silence notifications and open only what you need", "Work on your top priority until the timer rings", 1500),
+			soul: roadmapSeed("Take 15 minutes to quietly reflect or read something you love", 3, 900,
+				"Find a quiet spot", "Put your phone face down", "Open your book or notebook", "Read or write freely for 15 minutes"),
 		},
 		{
-			physical: planSeed{"Move for 20 minutes and keep yourself hydrated", [2]string{"Fill a water bottle and keep it close", "Pick a walk, a dance or a workout and move for 20 minutes"}, 1200},
-			work:     planSeed{"Wrap up one key milestone with regular breaks", [2]string{"Write down what done looks like for this milestone", "Work in one focused block, then take a short break"}, 1500},
-			soul:     planSeed{"Enjoy 15 screen-free minutes this afternoon or evening", [2]string{"Put your phone in another room", "Do something slow you enjoy, like tea, music or a doodle"}, 900},
+			physical: roadmapSeed("Move for 20 minutes and keep yourself hydrated", 3, 1200,
+				"Fill a water bottle and keep it close", "Pick a walk, a dance or a workout", "Start moving for the first minute", "Keep going for 20 minutes"),
+			work: workSeed("Wrap up one key milestone with regular breaks", "Write down what done looks like for this milestone", "Work in one focused block, then take a short break", 1500),
+			soul: roadmapSeed("Enjoy 15 screen-free minutes this afternoon or evening", 3, 900,
+				"Put your phone in another room", "Make a tea or pick some music", "Sit down with it, no screens", "Enjoy something slow for 15 minutes"),
 		},
 	},
 }
@@ -88,8 +123,9 @@ func PlanWins(tier CalibrationTier, scores Scores, variant uint64) WinsPlan {
 		return WinPlan{
 			Title:           p.title,
 			WhyThis:         WhyThis(pillar, scores),
-			Steps:           []string{p.steps[0], p.steps[1]},
+			Steps:           append([]string(nil), p.steps...),
 			DurationSeconds: p.duration,
+			FloorStep:       p.floor,
 		}
 	}
 	return WinsPlan{
@@ -158,16 +194,28 @@ func HabitWin(tier CalibrationTier, scores Scores, pillar, activity, struggle st
 	act := strings.TrimSpace(activity)
 	title := TruncateRunes(fmt.Sprintf(size.title, TruncateRunes(act, 50)), MaxTitleRunes)
 	first := TruncateRunes(fmt.Sprintf("Get what you need for %s ready, nothing more", TruncateRunes(act, 60)), MaxWinStepRunes)
-	second := "Set a timer and stop when it rings, even if you are mid-way"
-	if s := strings.TrimSpace(struggle); s != "" {
-		second = TruncateRunes(fmt.Sprintf("If \"%s\" shows up, shrink it to the first minute and begin", TruncateRunes(s, 55)), MaxWinStepRunes)
-	}
-	return WinPlan{
+	plan := WinPlan{
 		Title:           title,
 		WhyThis:         TruncateRunes("Built from what you picked. "+WhyThis(pillar, scores), MaxWhyThisRunes),
-		Steps:           []string{first, second},
 		DurationSeconds: size.duration,
 	}
+	struggle = strings.TrimSpace(struggle)
+	if !IsRoadmapPillar(pillar) {
+		second := "Set a timer and stop when it rings, even if you are mid-way"
+		if struggle != "" {
+			second = TruncateRunes(fmt.Sprintf("If \"%s\" shows up, shrink it to the first minute and begin", TruncateRunes(struggle, 55)), MaxWinStepRunes)
+		}
+		plan.Steps = []string{first, second}
+		return plan
+	}
+	// A roadmap toward the activity itself; starting it (step 3) is what counts today.
+	start := "Start, even if it is just for one minute"
+	if struggle != "" {
+		start = TruncateRunes(fmt.Sprintf("If \"%s\" shows up, shrink it to one minute and start anyway", TruncateRunes(struggle, 50)), MaxWinStepRunes)
+	}
+	plan.Steps = []string{first, "Head to the spot where you will do it", start, "Keep going until the timer rings, then stop, even mid-way"}
+	plan.FloorStep = 3
+	return plan
 }
 
 // ApplyHabits swaps in a habit-built win for every pillar that has a habit.
@@ -182,4 +230,14 @@ func ApplyHabits(plan WinsPlan, tier CalibrationTier, scores Scores, habits Habi
 		plan.Soul = HabitWin(tier, scores, "soul", h.Activity, h.Struggle)
 	}
 	return plan
+}
+
+// SplitStepTemplate splits a step without the AI: a one-minute way in, then the step itself.
+// The mock provider uses it, and so does the fallback when the AI is unavailable.
+func SplitStepTemplate(step string) SplitStepOutput {
+	step = strings.TrimSpace(step)
+	return SplitStepOutput{
+		First:  TruncateRunes("Just the first minute: "+step, MaxWinStepRunes),
+		Second: TruncateRunes(step, MaxWinStepRunes),
+	}
 }
