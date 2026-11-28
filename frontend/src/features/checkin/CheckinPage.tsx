@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Clock, Smile, Wand2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Smile, Wand2 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { m } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +12,6 @@ import { Mascot } from '../../components/Mascot';
 import { MascotBubble } from '../../components/MascotBubble';
 import { PageLoading } from '../../components/PageLoading';
 import { QuickPicks } from '../../components/QuickPicks';
-import { clearCheckinDefer, deferCheckin } from '../../utils/checkinDefer';
 import { getTodayInTimezone } from '../../utils/date';
 import { useAuth } from '../auth/AuthContext';
 import { TodayOverview } from '../today/TodayOverview';
@@ -148,13 +147,6 @@ export function CheckinPage() {
     setStep(next);
   };
 
-  const handleAnswerLater = () => {
-    if (user) {
-      deferCheckin(user.id, getTodayInTimezone(user.timezone || 'Asia/Jakarta'));
-    }
-    navigate('/wins');
-  };
-
   const applyPreset = (preset: DemoPreset) => {
     cancelAdvance();
     setAnswers({ ...preset.answers });
@@ -233,7 +225,6 @@ export function CheckinPage() {
     try {
       const idempotencyKey = generateIdempotencyKey();
       const log = await checkinApi.submit(parsed.data, idempotencyKey);
-      if (user) clearCheckinDefer(user.id);
       reportLog(log);
       navigate('/cope', { state: { dailyLog: log }, replace: true });
     } catch (err) {
@@ -372,16 +363,6 @@ export function CheckinPage() {
               ))}
             </>
           )}
-          <Button
-            variant="link"
-            size="sm"
-            onClick={handleAnswerLater}
-            data-testid="checkin-answer-later"
-            className="ml-auto gap-1.5 px-3"
-          >
-            <Clock className="h-4 w-4" aria-hidden="true" />
-            Answer later
-          </Button>
         </div>
       </div>
 
@@ -503,7 +484,7 @@ export function CheckinPage() {
                   </span>
                   <p className="mt-2.5">Your 3 Daily Wins are sized to match.</p>
                   <p className="mt-2 text-ink-faint">
-                    Not a good time? Tap &ldquo;Answer later&rdquo; up top.
+                    It takes about 2 minutes, and the rest of the app opens right after.
                   </p>
                 </>
               )}

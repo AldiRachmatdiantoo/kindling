@@ -133,7 +133,7 @@ export function WinsPage() {
       .catch((err) => {
         if (!active) return;
         if (err instanceof ApiError && err.status === 404) {
-          // No check-in yet (often a deliberate "Answer later"): show the pending dashboard.
+          // No check-in yet (opened by its address): show the pending dashboard.
           setPending(true);
           setStatus('open');
           return;

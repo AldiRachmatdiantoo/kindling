@@ -285,40 +285,41 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page).toHaveURL(/\/wins$/);
   });
 
-  test('"Answer later" skips the check-in, lands on the dashboard, and the choice survives "/"', async ({
+  test("the nav stays locked until today's check-in, and the tour waits for it", async ({
     page,
   }) => {
-    const email = uniqueEmail('e2e-defer');
+    const email = uniqueEmail('e2e-locked');
 
     await page.goto('/register');
-    await page.getByTestId('register-fullname').fill('Defer Flow User');
+    await page.getByTestId('register-fullname').fill('Locked Nav User');
     await page.getByTestId('register-email').fill(email);
     await page.getByTestId('register-password').fill('DeferPassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
     await submitAuthForm(page, 'register');
 
-    // "Answer later" right on the welcome screen
+    // The welcome screen has one way on: the check-in
     await expect(page).toHaveURL(/\/welcome$/);
-    await page.getByTestId('welcome-later').click();
+    await expect(page.getByTestId('welcome-later')).toHaveCount(0);
+    await page.getByTestId('welcome-start').click();
+    await expect(page).toHaveURL(/\/checkin$/);
 
-    await expect(page).toHaveURL(/\/wins$/);
-
-    // The welcome tour can be stepped through to the end
-    await expect(page.getByTestId('welcome-tour')).toBeVisible();
-    for (let i = 0; i < 6; i++) await page.getByTestId('welcome-next').click();
+    // Every tab but the check-in is locked, and clicking one goes nowhere
+    for (const tab of ['nav-cope', 'nav-wins', 'nav-profile']) {
+      await expect(page.getByTestId(tab)).toHaveAttribute('data-locked', 'true');
+    }
+    await page.getByTestId('nav-cope').click({ force: true });
+    await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('welcome-tour')).toHaveCount(0);
 
-    await expect(page.getByTestId('wins-pending')).toBeVisible();
-
-    await page.getByTestId('nav-cope').click();
-    await expect(page.getByTestId('cope-pending')).toBeVisible();
-
-    // The home route respects the deferral instead of forcing the wizard again
+    // "/" goes back to the wizard
     await page.getByTestId('brand-logo').click();
-    await expect(page).toHaveURL(/\/wins$/);
+    await expect(page).toHaveURL(/\/checkin$/);
 
-    // Answering later is still one click away
+    // Opened by its address, a page says why it's empty, and the tour still waits
+    await page.goto('/wins');
+    await expect(page.getByTestId('wins-pending')).toBeVisible();
+    await expect(page.getByTestId('welcome-tour')).toHaveCount(0);
     await page.getByTestId('wins-pending-start').click();
     await expect(page).toHaveURL(/\/checkin$/);
     await expect(page.getByTestId('checkin-form')).toBeVisible();
@@ -375,8 +376,9 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
       (res) => res.url().includes('/api/v1/auth/refresh') && res.request().method() === 'POST',
     );
 
-    // Trigger authenticated API call by navigating to /profile
-    await page.getByTestId('nav-profile').click();
+    // Trigger authenticated API calls by opening /profile (its tab is locked before the
+    // check-in, so go by address)
+    await page.goto('/profile');
 
     const refreshRes = await refreshResponsePromise;
     expect(refreshRes.status()).toBe(200);
