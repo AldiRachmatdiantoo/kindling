@@ -111,6 +111,9 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('score-work_exhaustion')).toContainText('100');
 
     // 3. Choose a positive cope option. The 3 Wins stay locked until one is picked.
+    // The day plan and the "What now?" line say what comes next.
+    await expect(page.getByTestId('day-step-cope')).toContainText('You are here');
+    await expect(page.getByTestId('cope-next-pick')).toBeVisible();
     await expect(page.getByTestId('skip-to-wins')).toHaveCount(0);
     await expect(page.getByTestId('skip-recovery')).toBeVisible();
     // The gentle mock's third card is the brain dump. Picking it opens the full-screen focus
@@ -123,6 +126,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('focus-room-close').click();
     await expect(page.getByTestId('focus-room')).toHaveCount(0);
     await expect(page.getByTestId('active-cope-tool')).toBeVisible();
+    await expect(page.getByTestId('active-cope-next')).toBeVisible();
     await expect(page.getByTestId('skip-to-wins')).toBeVisible();
 
     // 3b. Back in the room: fold the brain dump away and ask for a read-back (mock AI)
@@ -141,6 +145,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('focus-go-wins').click();
     await expect(page).toHaveURL(/\/wins$/);
     await expect(page.getByTestId('wins-progress-badge')).toContainText('0 / 3');
+    await expect(page.getByTestId('day-step-cope')).toHaveAttribute('data-done', 'true');
+    await expect(page.getByTestId('win-next-physical')).toBeVisible();
 
     // 5. Slice task on Work Win: the panel asks for the task straight away
     await page.getByTestId('win-row-work').click();
