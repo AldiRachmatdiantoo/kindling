@@ -1,7 +1,13 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PillarProgress, PillarProgressSet } from '../api/types';
-import { CelebrationOverlay, PATH_BEAT_MS, PATH_HANDOFF_MS } from './CelebrationOverlay';
+import {
+  CelebrationOverlay,
+  PATH_BEAT_MS,
+  PATH_DONE_MS,
+  PATH_HANDOFF_MS,
+  WIN_READY_MS,
+} from './CelebrationOverlay';
 
 function pillar(total: number): PillarProgress {
   const reached = Math.floor(total / 3);
@@ -58,6 +64,7 @@ describe('CelebrationOverlay', () => {
         onDone={onDone}
       />,
     );
+    act(() => vi.advanceTimersByTime(WIN_READY_MS));
     fireEvent.click(screen.getByTestId('win-celebration'));
     act(() => vi.advanceTimersByTime(400));
     expect(onDone).toHaveBeenCalledTimes(1);
@@ -135,5 +142,95 @@ describe('CelebrationOverlay', () => {
     );
     act(() => vi.advanceTimersByTime(PATH_BEAT_MS * 2));
     expect(screen.queryByTestId('celebration-path')).toBeNull();
+  });
+
+  it('ignores taps, Enter and Space until the animation has played out', () => {
+    const onDone = vi.fn();
+    render(
+      <CelebrationOverlay
+        celebration={{ id: 8, kind: 'win', pillar: 'physical', count: 1 }}
+        onDone={onDone}
+      />,
+    );
+    const overlay = screen.getByTestId('win-celebration');
+    const hint = screen.getByTestId('win-celebration-close');
+    expect(overlay).toHaveAttribute('data-ready', 'false');
+    expect(hint).toHaveAttribute('aria-disabled', 'true');
+    expect(hint).not.toHaveClass('kc-hint-on');
+
+    fireEvent.click(overlay);
+    fireEvent.click(hint);
+    fireEvent.keyDown(window, { key: 'Enter' });
+    fireEvent.keyDown(window, { key: ' ' });
+    act(() => vi.advanceTimersByTime(400));
+    expect(onDone).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(WIN_READY_MS));
+    expect(overlay).toHaveAttribute('data-ready', 'true');
+    expect(hint).toHaveAttribute('aria-disabled', 'false');
+    expect(hint).toHaveClass('kc-hint-on');
+    fireEvent.keyDown(window, { key: 'Enter' });
+    act(() => vi.advanceTimersByTime(400));
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets 3 out of 3 be tapped away only after the last path has filled', () => {
+    const onDone = vi.fn();
+    render(
+      <CelebrationOverlay
+        celebration={{ id: 9, kind: 'all' }}
+        pathProgress={progress}
+        onDone={onDone}
+      />,
+    );
+    const overlay = screen.getByTestId('win-celebration');
+    act(() => vi.advanceTimersByTime(PATH_BEAT_MS));
+    act(() => vi.advanceTimersByTime(PATH_HANDOFF_MS));
+    expect(overlay).toHaveAttribute('data-beat', 'path');
+    expect(overlay).toHaveAttribute('data-ready', 'false');
+
+    act(() => vi.advanceTimersByTime(PATH_DONE_MS - 1));
+    fireEvent.click(overlay);
+    act(() => vi.advanceTimersByTime(1));
+    expect(onDone).not.toHaveBeenCalled();
+    expect(overlay).toHaveAttribute('data-ready', 'true');
+
+    fireEvent.click(overlay);
+    act(() => vi.advanceTimersByTime(400));
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it('is ready once the crew is done when there are no path totals', () => {
+    render(<CelebrationOverlay celebration={{ id: 10, kind: 'all' }} onDone={vi.fn()} />);
+    const overlay = screen.getByTestId('win-celebration');
+    act(() => vi.advanceTimersByTime(PATH_BEAT_MS - 1));
+    expect(overlay).toHaveAttribute('data-ready', 'false');
+    act(() => vi.advanceTimersByTime(1));
+    expect(overlay).toHaveAttribute('data-ready', 'true');
+  });
+
+  it('starts every new celebration not ready, even right after a ready one closed', () => {
+    const onDone = vi.fn();
+    const { rerender } = render(
+      <CelebrationOverlay
+        celebration={{ id: 11, kind: 'win', pillar: 'physical', count: 1 }}
+        onDone={onDone}
+      />,
+    );
+    act(() => vi.advanceTimersByTime(WIN_READY_MS));
+    expect(screen.getByTestId('win-celebration')).toHaveAttribute('data-ready', 'true');
+
+    rerender(<CelebrationOverlay celebration={null} onDone={onDone} />);
+    rerender(
+      <CelebrationOverlay
+        celebration={{ id: 12, kind: 'win', pillar: 'work', count: 2 }}
+        onDone={onDone}
+      />,
+    );
+    const next = screen.getByTestId('win-celebration');
+    expect(next).toHaveAttribute('data-ready', 'false');
+    fireEvent.click(next);
+    act(() => vi.advanceTimersByTime(400));
+    expect(onDone).not.toHaveBeenCalled();
   });
 });

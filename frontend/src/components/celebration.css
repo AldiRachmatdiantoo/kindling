@@ -125,7 +125,16 @@
   font-size: 13px;
   color: #8e8e99;
   cursor: pointer;
-  animation: kc-rise 500ms 1100ms ease-out both;
+  opacity: 0;
+}
+/* The hint shows up only once a tap will actually close the overlay. */
+.kc-hint.kc-hint-on {
+  opacity: 1;
+  animation: kc-rise 500ms ease-out both;
+}
+.kc-overlay[data-ready='false'],
+.kc-overlay[data-ready='false'] .kc-hint {
+  cursor: default;
 }
 .kc-hint:focus-visible {
   outline: 2px solid #7c8cff;
