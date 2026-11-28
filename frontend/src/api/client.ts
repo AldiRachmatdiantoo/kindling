@@ -150,7 +150,29 @@ async function parseErrorResponse(response: Response): Promise<ApiError> {
   );
 }
 
-export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+// Reads of the same path that overlap share one request. Several components (and React
+// StrictMode's double effects in dev) often ask for the same data in the same tick; each
+// extra copy would only spend a call from the per-IP rate limit. Reads with an AbortSignal
+// stay separate so one caller cancelling never cancels another.
+const readsInFlight = new Map<string, Promise<unknown>>();
+
+export function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const method = options.method ?? 'GET';
+  if (method !== 'GET' || options.signal || options._retried) {
+    return sendRequest<T>(path, options);
+  }
+  const shared = readsInFlight.get(path);
+  if (shared) {
+    return shared as Promise<T>;
+  }
+  const request = sendRequest<T>(path, options).finally(() => {
+    readsInFlight.delete(path);
+  });
+  readsInFlight.set(path, request);
+  return request;
+}
+
+async function sendRequest<T>(path: string, options: ApiRequestOptions): Promise<T> {
   const method = options.method ?? 'GET';
   const idempotencyKey =
     options.idempotencyKey ?? (options.idempotent ? generateIdempotencyKey() : undefined);
@@ -232,4 +254,5 @@ function sleepWithSignal(ms: number, signal?: AbortSignal): Promise<void> {
 
 export function _resetRefreshPromiseForTests(): void {
   activeRefreshPromise = null;
+  readsInFlight.clear();
 }

@@ -41,20 +41,10 @@ export const authApi = {
     }),
 };
 
-// The shell, the landing redirect, and the page itself can all ask for today's log in
-// the same tick. Share one in-flight request so a page load costs one call, not three,
-// against the per-IP rate limit.
-let todayInFlight: Promise<DailyLog> | null = null;
-
 export const checkinApi = {
-  getToday: (): Promise<DailyLog> => {
-    if (!todayInFlight) {
-      todayInFlight = apiRequest<DailyLog>('/checkin/today', { method: 'GET' }).finally(() => {
-        todayInFlight = null;
-      });
-    }
-    return todayInFlight;
-  },
+  // The shell, the landing redirect, and the page itself can all ask for today's log in the
+  // same tick; apiRequest shares overlapping reads, so a page load costs one call, not three.
+  getToday: () => apiRequest<DailyLog>('/checkin/today', { method: 'GET' }),
 
   getByDate: (date: string) => apiRequest<DailyLog>(`/checkin/${date}`, { method: 'GET' }),
 

@@ -258,4 +258,56 @@ describe('apiRequest wrapper', () => {
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('shares overlapping reads of one path, then fetches fresh once the first has settled', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ success: true, data: { days: [] }, meta: { request_id: 'r' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [a, b] = await Promise.all([
+      apiRequest('/profile/heatmap'),
+      apiRequest('/profile/heatmap'),
+    ]);
+    expect(a).toEqual({ days: [] });
+    expect(b).toEqual({ days: [] });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await apiRequest('/profile/heatmap');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('never shares writes, reads of other paths, or reads that carry an AbortSignal', async () => {
+    document.cookie = 'csrf_token=csrf-1; path=/';
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ success: true, data: { ok: true }, meta: { request_id: 'r' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await Promise.all([
+      apiRequest('/wins/2026-11-28/toggle', { method: 'PATCH', body: { pillar: 'soul' } }),
+      apiRequest('/wins/2026-11-28/toggle', { method: 'PATCH', body: { pillar: 'soul' } }),
+      apiRequest('/habits'),
+      apiRequest('/profile/insights'),
+      apiRequest('/profile/insights', { signal: new AbortController().signal }),
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it('lets every sharer see the same failure', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        { success: false, error: { code: 'NOT_FOUND', message: 'No log' }, meta: {} },
+        404,
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const results = await Promise.allSettled([
+      apiRequest('/checkin/today'),
+      apiRequest('/checkin/today'),
+    ]);
+    expect(results.map((r) => r.status)).toEqual(['rejected', 'rejected']);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
