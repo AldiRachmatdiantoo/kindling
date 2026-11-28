@@ -297,6 +297,15 @@ function DayLog({ log }: { log: DailyLog }) {
                         <Check className="h-3 w-3" aria-hidden="true" />
                         Done
                       </span>
+                    ) : (win.floor_step ?? 0) > 0 && (win.steps_done ?? 0) > 0 ? (
+                      // A roadmap stopped before its floor: showing up still counts, so it
+                      // reads as started, never as a failure.
+                      <span
+                        className="rounded-full bg-sky px-2 py-0.5 text-[11px] font-semibold text-sky-strong"
+                        data-testid={`day-detail-started-${pillar}`}
+                      >
+                        Started · {win.steps_done} of {win.steps?.length ?? 0} steps
+                      </span>
                     ) : (
                       <span className="rounded-full bg-ink/10 px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
                         Not done

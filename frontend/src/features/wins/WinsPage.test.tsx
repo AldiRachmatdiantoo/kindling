@@ -102,24 +102,26 @@ describe('WinsPage state and UX', () => {
     });
 
     renderWins();
-    const physicalBtn = await screen.findByTestId('win-toggle-physical');
-    const workBtn = screen.getByTestId('win-toggle-work');
-    const soulBtn = screen.getByTestId('win-toggle-soul');
+    // One win shows in the panel at a time; the pending state follows each pillar.
+    fireEvent.click(await screen.findByTestId('win-toggle-physical'));
+    expect(screen.getByTestId('win-toggle-physical')).toBeDisabled();
 
-    fireEvent.click(physicalBtn);
-    fireEvent.click(workBtn);
+    fireEvent.click(screen.getByTestId('win-row-work'));
+    fireEvent.click(screen.getByTestId('win-toggle-work'));
+    expect(screen.getByTestId('win-toggle-work')).toBeDisabled();
 
-    expect(physicalBtn).toBeDisabled();
-    expect(workBtn).toBeDisabled();
-    expect(soulBtn).not.toBeDisabled();
+    fireEvent.click(screen.getByTestId('win-row-soul'));
+    expect(screen.getByTestId('win-toggle-soul')).not.toBeDisabled();
 
     // Resolving physical should keep work disabled until work resolves
     resolvePhysical({ pillar: 'physical', completed: true, wins_completed_count: 1 });
-    await waitFor(() => expect(physicalBtn).not.toBeDisabled());
-    expect(workBtn).toBeDisabled();
+    fireEvent.click(screen.getByTestId('win-row-physical'));
+    await waitFor(() => expect(screen.getByTestId('win-toggle-physical')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('win-row-work'));
+    expect(screen.getByTestId('win-toggle-work')).toBeDisabled();
 
     resolveWork({ pillar: 'work', completed: true, wins_completed_count: 2 });
-    await waitFor(() => expect(workBtn).not.toBeDisabled());
+    await waitFor(() => expect(screen.getByTestId('win-toggle-work')).not.toBeDisabled());
   });
 
   it('hides Still too heavy on completed win cards', async () => {
@@ -140,9 +142,13 @@ describe('WinsPage state and UX', () => {
     });
     renderWins(log);
 
+    // The panel opens on the first win still to do.
+    await screen.findByTestId('win-card-work');
+    expect(screen.getByTestId('recalibrate-work')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('win-row-physical'));
     await screen.findByTestId('win-card-physical');
     expect(screen.queryByTestId('recalibrate-physical')).not.toBeInTheDocument();
-    expect(screen.getByTestId('recalibrate-work')).toBeInTheDocument();
+    expect(screen.getByTestId('win-row-state-physical')).toHaveTextContent('Done');
   });
 
   it('resets finishedStep when slicing a new task or recalibrating work', async () => {
@@ -160,6 +166,7 @@ describe('WinsPage state and UX', () => {
     });
 
     renderWins();
+    fireEvent.click(await screen.findByTestId('win-row-work'));
     fireEvent.click(await screen.findByTestId('win-details-toggle-work'));
     fireEvent.click(screen.getByTestId('work-step-finished-early'));
     expect(screen.getByTestId('work-step-choice')).toBeInTheDocument();
@@ -201,17 +208,121 @@ describe('WinsPage state and UX', () => {
 
     renderWins();
     for (const pillar of ['physical', 'work'] as const) {
+      fireEvent.click(await screen.findByTestId('win-row-' + pillar, {}, WAIT));
       fireEvent.click(await screen.findByTestId('win-toggle-' + pillar, {}, WAIT));
       fireEvent.click(await screen.findByTestId('win-celebration-close', {}, WAIT));
       await waitFor(() => expect(screen.queryByTestId('win-celebration')).toBeNull(), WAIT);
     }
     expect(heatmap).not.toHaveBeenCalled();
 
+    fireEvent.click(screen.getByTestId('win-row-soul'));
     fireEvent.click(screen.getByTestId('win-toggle-soul'));
     await waitFor(
       () => expect(screen.getByTestId('win-celebration')).toHaveAttribute('data-kind', 'all'),
       WAIT,
     );
     await waitFor(() => expect(heatmap).toHaveBeenCalledTimes(1), WAIT);
+  });
+
+  describe('roadmap wins', () => {
+    const steps = ['Put on your gym clothes', 'Pack your bag', 'Get to the gym', 'Do your workout'];
+    const roadmapLog = (stepsDone: number) =>
+      makeLog({
+        wins_data: {
+          ...makeLog().wins_data,
+          physical: {
+            title: 'Go to the gym',
+            level: 0,
+            completed: stepsDone >= 3,
+            habit: 'gym',
+            steps,
+            floor_step: 3,
+            steps_done: stepsDone,
+          },
+        },
+      });
+
+    it('shows one step at a time and counts the win from the floor step', async () => {
+      const progress = vi
+        .spyOn(winsApi, 'progress')
+        .mockImplementation(async (_date, pillar, stepsDone) => ({
+          pillar,
+          steps_done: stepsDone,
+          completed: stepsDone >= 3,
+          wins_completed_count: stepsDone >= 3 ? 1 : 0,
+        }));
+
+      renderWins(roadmapLog(1));
+      expect(await screen.findByTestId('roadmap-current-physical')).toHaveTextContent(
+        'Pack your bag',
+      );
+      expect(screen.getByTestId('roadmap-floor-physical')).toHaveTextContent(
+        "Today's win counts from here",
+      );
+      expect(screen.getByTestId('win-row-state-physical')).toHaveTextContent('Step 2 of 4');
+
+      fireEvent.click(screen.getByTestId('roadmap-done-physical'));
+      await waitFor(() =>
+        expect(screen.getByTestId('roadmap-current-physical')).toHaveTextContent('Get to the gym'),
+      );
+      expect(progress).toHaveBeenLastCalledWith('2026-11-26', 'physical', 2);
+      expect(screen.queryByTestId('win-celebration')).toBeNull();
+
+      fireEvent.click(screen.getByTestId('roadmap-done-physical'));
+      await waitFor(() =>
+        expect(screen.getByTestId('roadmap-floor-physical')).toHaveAttribute(
+          'data-reached',
+          'true',
+        ),
+      );
+      expect(screen.getByTestId('roadmap-note-physical')).toHaveTextContent("Today's win is in.");
+      expect(screen.getByTestId('win-row-state-physical')).toHaveTextContent(
+        'Win in · Step 4 of 4',
+      );
+      expect(await screen.findByTestId('win-celebration')).toHaveAttribute('data-kind', 'win');
+    });
+
+    it('splits the current step when it is too big', async () => {
+      const split = vi.spyOn(winsApi, 'splitStep').mockResolvedValue({
+        pillar: 'physical',
+        steps: [steps[0], 'Put your shoes on', 'Grab your bag and go', ...steps.slice(2)],
+        floor_step: 4,
+        steps_done: 1,
+      });
+
+      renderWins(roadmapLog(1));
+      fireEvent.click(await screen.findByTestId('roadmap-smaller-physical'));
+      await waitFor(() =>
+        expect(screen.getByTestId('roadmap-current-physical')).toHaveTextContent(
+          'Put your shoes on',
+        ),
+      );
+      expect(split).toHaveBeenCalledWith('2026-11-26', 'physical', 1, expect.any(String));
+      expect(screen.getByTestId('roadmap-count-physical')).toHaveTextContent('Step 2 of 5');
+    });
+
+    it('stopping before the floor is saved as started, kindly', async () => {
+      renderWins(roadmapLog(2));
+      fireEvent.click(await screen.findByTestId('roadmap-stop-physical'));
+      expect(screen.getByTestId('roadmap-note-physical')).toHaveTextContent(
+        'You got to step 2 today.',
+      );
+      expect(screen.getByTestId('roadmap-note-physical')).toHaveTextContent('saved as started');
+      expect(screen.queryByTestId('roadmap-done-physical')).toBeNull();
+
+      fireEvent.click(screen.getByTestId('roadmap-resume-physical'));
+      expect(screen.getByTestId('roadmap-done-physical')).toBeInTheDocument();
+    });
+
+    it('on phones the panel replaces the list until going back', async () => {
+      renderWins(roadmapLog(0));
+      fireEvent.click(await screen.findByTestId('win-row-physical'));
+      expect(screen.getByTestId('wins-list')).toHaveClass('hidden');
+      expect(screen.getByTestId('wins-detail')).not.toHaveClass('hidden');
+
+      fireEvent.click(screen.getByTestId('wins-back'));
+      expect(screen.getByTestId('wins-list')).not.toHaveClass('hidden');
+      expect(screen.getByTestId('wins-detail')).toHaveClass('hidden');
+    });
   });
 });

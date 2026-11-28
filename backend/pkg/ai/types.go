@@ -101,12 +101,28 @@ type RecalibrateOutput struct {
 	DurationSeconds *int   `json:"duration_seconds,omitempty"`
 }
 
+// SplitStepInput asks to break one roadmap step that felt too big into 2 smaller ones.
+type SplitStepInput struct {
+	CalibrationTier CalibrationTier
+	Pillar          string
+	WinTitle        string
+	Step            string
+}
+
+// SplitStepOutput replaces the step: first is a tiny way in, second finishes the original step.
+type SplitStepOutput struct {
+	First  string `json:"first"`
+	Second string `json:"second"`
+}
+
 // AiProvider defines the LLM abstraction (PRD §8.1).
 type AiProvider interface {
 	GenerateCheckin(ctx context.Context, in CheckinInput) (CheckinOutput, error)
 	SliceTask(ctx context.Context, in SliceTaskInput) (SliceTaskOutput, error)
 	Recalibrate(ctx context.Context, in RecalibrateInput) (RecalibrateOutput, error)
 	PlanWin(ctx context.Context, in PlanWinInput) (WinPlan, error)
+	// SplitStep breaks a roadmap step the user found too big into 2 smaller steps.
+	SplitStep(ctx context.Context, in SplitStepInput) (SplitStepOutput, error)
 	// Reflect reads a brain dump back in a few sentences and up to 3 themes (FR-05).
 	Reflect(ctx context.Context, in ReflectInput) (ReflectOutput, error)
 }

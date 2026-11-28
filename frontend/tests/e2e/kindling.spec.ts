@@ -140,7 +140,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page).toHaveURL(/\/wins$/);
     await expect(page.getByTestId('wins-progress-badge')).toContainText('0 / 3');
 
-    // 5. Slice task on Work Win: details start folded so all three goals fit on one screen
+    // 5. Slice task on Work Win: pick it in the list, then open its details in the panel
+    await page.getByTestId('win-row-work').click();
     await expect(page.getByTestId('win-details-work')).toBeHidden();
     await page.getByTestId('win-details-toggle-work').click();
     await expect(page.getByTestId('win-details-toggle-work')).toHaveAttribute(
@@ -160,7 +161,20 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('work-micro-step')).not.toBeEmpty();
     await expect(page.getByTestId('focus-timer')).toBeVisible();
 
-    // 6. Recalibrate one pillar (physical: Level 0 -> Level 1)
+    // 6. Physical is a roadmap: one step at a time, and a step can be made smaller
+    await page.getByTestId('win-row-physical').click();
+    await expect(page.getByTestId('roadmap-count-physical')).toContainText('Step 1 of');
+    await page.getByTestId('roadmap-done-physical').click();
+    await expect(page.getByTestId('roadmap-step-physical-0')).toHaveAttribute('data-state', 'done');
+    await expect(page.getByTestId('win-row-state-physical')).toContainText('Step 2 of');
+    const stepsBefore = await page.locator('[data-testid^="roadmap-step-physical-"]').count();
+    await page.getByTestId('roadmap-smaller-physical').click();
+    await expect(page.locator('[data-testid^="roadmap-step-physical-"]')).toHaveCount(
+      stepsBefore + 1,
+    );
+    await expect(page.getByTestId('roadmap-count-physical')).toContainText('Step 2 of');
+
+    // Recalibrate one pillar (physical: Level 0 -> Level 1); it becomes a plain win
     await expect(page.getByTestId('win-level-physical')).toContainText('Level 0');
     await page.getByTestId('recalibrate-physical').click();
     await expect(morph).toHaveAttribute('data-kind', 'shrink');
@@ -184,13 +198,22 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('1 / 3');
 
+    await page.getByTestId('win-row-work').click();
     await page.getByTestId('win-toggle-work').click();
     await expect(celebration).toHaveAttribute('data-ready', 'true');
     await celebration.click();
     await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('2 / 3');
 
-    await page.getByTestId('win-toggle-soul').click();
+    // Soul is a roadmap: its win lands at the floor step.
+    await page.getByTestId('win-row-soul').click();
+    for (let i = 0; i < 8 && !(await celebration.isVisible()); i++) {
+      await page.getByTestId('roadmap-done-soul').click();
+      await expect(page.getByTestId(`roadmap-step-soul-${i}`)).toHaveAttribute(
+        'data-state',
+        'done',
+      );
+    }
     await expect(celebration).toHaveAttribute('data-kind', 'all');
     await expect(celebration).toHaveAttribute('data-beat', 'path');
     await expect(page.getByTestId('celebration-path-soul')).toContainText('1 win');
@@ -424,10 +447,14 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     // Physical and soul come from the habits; work, without one, is picked for the user
     await expect(page.getByTestId('win-habit-physical')).toContainText('morning run');
     await expect(page.getByTestId('win-title-physical')).toContainText('morning run');
+    await page.getByTestId('win-row-soul').click();
     await expect(page.getByTestId('win-habit-soul')).toContainText(/reading/i);
+    await page.getByTestId('win-row-work').click();
+    await expect(page.getByTestId('win-card-work')).toBeVisible();
     await expect(page.getByTestId('win-habit-work')).toHaveCount(0);
 
     // Swap the physical win for today only
+    await page.getByTestId('win-row-physical').click();
     await page.getByTestId('swap-open-physical').click();
     await page.getByTestId('swap-pick-physical-0').click();
     await expect(page.getByTestId('swap-input-physical')).toHaveValue('Yoga in my room');

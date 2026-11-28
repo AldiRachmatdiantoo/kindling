@@ -27,8 +27,15 @@ func TestHabitWin_SizesToTheDayAndUsesTheStruggle(t *testing.T) {
 	if !strings.Contains(gentle.Title, "running") {
 		t.Fatalf("title should name the habit: %q", gentle.Title)
 	}
-	if !strings.Contains(gentle.Steps[1], "too sleepy") {
-		t.Fatalf("a step should get around the struggle: %q", gentle.Steps[1])
+	if !strings.Contains(strings.Join(gentle.Steps, " | "), "too sleepy") {
+		t.Fatalf("a step should get around the struggle: %q", gentle.Steps)
+	}
+	if gentle.FloorStep < 1 || gentle.FloorStep > len(gentle.Steps) {
+		t.Fatalf("a physical habit win is a roadmap with a floor step: %d of %d", gentle.FloorStep, len(gentle.Steps))
+	}
+	work := HabitWin(TierGentle, Scores{}, "work", "thesis", "")
+	if len(work.Steps) != WinStepsCount || work.FloorStep != 0 {
+		t.Fatalf("work keeps 2 steps and no floor: %v floor %d", work.Steps, work.FloorStep)
 	}
 }
 

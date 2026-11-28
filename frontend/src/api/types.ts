@@ -96,6 +96,13 @@ export interface WinItem {
   habit?: string;
   /** True when the user traded this win for another activity, for today only. */
   swapped?: boolean;
+  /**
+   * Physical and soul: set when the win is a roadmap of steps toward the activity. The win
+   * counts once this many steps (1-based) are done; the steps after it are a bonus.
+   */
+  floor_step?: number;
+  /** Roadmap steps done so far today (work: micro-steps finished before the current one). */
+  steps_done?: number;
 }
 
 export interface WorkWinItem extends WinItem {
@@ -167,6 +174,21 @@ export interface RecalibrateData {
   new_title: string;
   level: number;
   duration_seconds?: number;
+  ai_note?: AINote;
+}
+
+export interface StepProgressData {
+  pillar: Pillar;
+  steps_done: number;
+  completed: boolean;
+  wins_completed_count: number;
+}
+
+export interface SplitStepData {
+  pillar: Pillar;
+  steps: string[];
+  floor_step: number;
+  steps_done: number;
   ai_note?: AINote;
 }
 

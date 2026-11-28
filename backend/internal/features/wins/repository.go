@@ -38,6 +38,8 @@ type Repository interface {
 	InsertAiAuditLog(ctx context.Context, arg sqlc.InsertAiAuditLogParams) error
 	GetDayForSwap(ctx context.Context, userID uuid.UUID, logDate time.Time) (DaySnapshot, error)
 	ApplySwap(ctx context.Context, userID uuid.UUID, logDate time.Time, pillar string, item WinItem) error
+	SetStepProgress(ctx context.Context, userID uuid.UUID, logDate time.Time, pillar string, stepsDone int) (StepProgressResponse, error)
+	ApplyStepSplit(ctx context.Context, userID uuid.UUID, logDate time.Time, pillar string, step int, expected, first, second string) (SplitStepResponse, error)
 }
 
 // PostgresRepository implements Repository using pgxpool + sqlc with mandatory RLS via WithUserTx.
@@ -205,6 +207,8 @@ func (r *PostgresRepository) ApplyRecalibration(
 			winsData.Physical.WhyThis = RecalibratedWhyThis
 			winsData.Physical.Steps = nil
 			winsData.Physical.DurationSeconds = nil
+			winsData.Physical.FloorStep = 0
+			winsData.Physical.StepsDone = 0
 		case PillarWork:
 			winsData.Work.Level = newLevel
 			winsData.Work.Completed = false
@@ -231,6 +235,8 @@ func (r *PostgresRepository) ApplyRecalibration(
 			winsData.Soul.WhyThis = RecalibratedWhyThis
 			winsData.Soul.Steps = nil
 			winsData.Soul.DurationSeconds = nil
+			winsData.Soul.FloorStep = 0
+			winsData.Soul.StepsDone = 0
 		}
 
 		updatedJSON, err := json.Marshal(winsData)
@@ -288,11 +294,11 @@ func (r *PostgresRepository) ToggleWin(ctx context.Context, userID uuid.UUID, lo
 
 		switch pillar {
 		case PillarPhysical:
-			winsData.Physical.Completed = completed
+			toggleWinItem(&winsData.Physical, completed)
 		case PillarWork:
 			winsData.Work.Completed = completed
 		case PillarSoul:
-			winsData.Soul.Completed = completed
+			toggleWinItem(&winsData.Soul, completed)
 		default:
 			return shared.ErrValidation("Invalid pillar", map[string]any{
 				"pillar": "must be one of: physical, work, soul",
@@ -326,6 +332,22 @@ func (r *PostgresRepository) ToggleWin(ctx context.Context, userID uuid.UUID, lo
 		return ToggleWinResponse{}, err
 	}
 	return resp, nil
+}
+
+// toggleWinItem sets completed; on a roadmap it keeps steps_done on the same side of the floor.
+func toggleWinItem(w *WinItem, completed bool) {
+	if !w.IsRoadmap() {
+		w.Completed = completed
+		return
+	}
+	switch {
+	case completed && w.StepsDone < w.FloorStep:
+		w.setStepsDone(w.FloorStep)
+	case !completed && w.StepsDone >= w.FloorStep:
+		w.setStepsDone(w.FloorStep - 1)
+	default:
+		w.Completed = completed
+	}
 }
 
 // InsertAiAuditLog records metadata-only AI call telemetry (PRD NFR-06 & §5.2).

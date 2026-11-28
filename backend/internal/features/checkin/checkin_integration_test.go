@@ -59,6 +59,10 @@ func (s *spyAiProvider) PlanWin(ctx context.Context, in ai.PlanWinInput) (ai.Win
 	return s.inner.PlanWin(ctx, in)
 }
 
+func (s *spyAiProvider) SplitStep(ctx context.Context, in ai.SplitStepInput) (ai.SplitStepOutput, error) {
+	return s.inner.SplitStep(ctx, in)
+}
+
 func (s *spyAiProvider) Reflect(ctx context.Context, in ai.ReflectInput) (ai.ReflectOutput, error) {
 	s.reflectCalls.Add(1)
 	if s.failReflect.Load() {

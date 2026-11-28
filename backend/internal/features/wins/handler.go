@@ -108,6 +108,44 @@ func (h *Handler) Toggle(w http.ResponseWriter, r *http.Request) {
 	shared.WriteSuccess(w, r, http.StatusOK, resp)
 }
 
+func (h *Handler) StepProgress(w http.ResponseWriter, r *http.Request) {
+	userID, ok := shared.UserIDFromContext(r.Context())
+	if !ok {
+		shared.WriteError(w, r, shared.ErrUnauthenticated("Authentication required"))
+		return
+	}
+	var req StepProgressRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		shared.WriteError(w, r, err)
+		return
+	}
+	resp, err := h.service.SetStepProgress(r.Context(), userID, r.PathValue("date"), req)
+	if err != nil {
+		shared.WriteError(w, r, err)
+		return
+	}
+	shared.WriteSuccess(w, r, http.StatusOK, resp)
+}
+
+func (h *Handler) SplitStep(w http.ResponseWriter, r *http.Request) {
+	userID, ok := shared.UserIDFromContext(r.Context())
+	if !ok {
+		shared.WriteError(w, r, shared.ErrUnauthenticated("Authentication required"))
+		return
+	}
+	var req SplitStepRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		shared.WriteError(w, r, err)
+		return
+	}
+	resp, err := h.service.SplitStep(r.Context(), userID, r.PathValue("date"), req)
+	if err != nil {
+		shared.WriteError(w, r, err)
+		return
+	}
+	shared.WriteSuccess(w, r, http.StatusOK, resp)
+}
+
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) *shared.AppError {
 	r.Body = http.MaxBytesReader(w, r.Body, maxWinsBodyBytes)
 	dec := json.NewDecoder(r.Body)
