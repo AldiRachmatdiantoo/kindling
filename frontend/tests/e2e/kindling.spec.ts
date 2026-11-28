@@ -207,14 +207,21 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('stat-total_daily_wins')).toContainText('3');
     await expect(page.getByTestId('stat-total_checkpoints')).toContainText('0');
 
-    // Milestone Path: one step on each pillar, no checkpoint yet (the first opens at 3 wins)
+    // Milestone Path: one step on each pillar, no checkpoint yet (the first opens at 3 wins).
+    // Each pillar has its own tab; the mascot stands at today's step.
+    await expect(page.getByRole('tab', { name: /Physical/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(page.getByTestId('milestone-physical-marker')).toHaveText('Today you got here');
     for (const name of ['Physical', 'Work', 'Soul']) {
+      await page.getByRole('tab', { name: new RegExp(name) }).click();
       await expect(
         page.getByRole('group', { name: `${name}: 1 win, 0 checkpoints` }),
       ).toBeVisible();
+      await expect(page.getByTestId(`milestone-${name.toLowerCase()}-mascot`)).toBeVisible();
+      await expect(page.getByRole('button', { name: /^Checkpoint/ })).toHaveCount(0);
     }
-    await expect(page.getByTestId('milestone-physical-marker')).toHaveText('Today you got here');
-    await expect(page.getByRole('button', { name: /^Checkpoint/ })).toHaveCount(0);
 
     // "Match colors to my day" switches the atmosphere off and back on, without a request
     const atmosphere = page.getByRole('switch', { name: 'Match colors to my day' });
