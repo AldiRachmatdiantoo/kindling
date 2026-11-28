@@ -215,6 +215,34 @@ describe('WinsPage state and UX', () => {
     expect(screen.queryByTestId('win-next-soul')).toBeNull();
   });
 
+  it('keeps the win in when work was marked done before any task', async () => {
+    renderWins(
+      makeLog({
+        wins_data: {
+          ...makeLog().wins_data,
+          work: {
+            title: 'Pick one work task',
+            level: 0,
+            completed: true,
+            main_task: null,
+            micro_step: null,
+            duration_seconds: null,
+          },
+        },
+        wins_completed_count: 1,
+      }),
+    );
+    fireEvent.click(await screen.findByTestId('win-row-work'));
+    expect(screen.getByTestId('work-step-task')).toHaveTextContent('Done outside the app');
+    expect(screen.queryByTestId('slice-task-input')).toBeNull();
+    expect(screen.getByTestId('roadmap-floor-work')).toHaveAttribute('data-reached', 'true');
+    // Slicing a task is still on offer, as a bonus.
+    fireEvent.click(screen.getByTestId('work-add-task'));
+    expect(screen.getByTestId('slice-task-input')).toBeInTheDocument();
+    expect(screen.getByTestId('work-step-bonus-task')).toHaveTextContent('Right now · Bonus');
+    expect(screen.getByTestId('roadmap-floor-work')).toHaveAttribute('data-reached', 'true');
+  });
+
   it('asks for the task first when work has none yet', async () => {
     renderWins(
       makeLog({
