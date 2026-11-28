@@ -1,6 +1,5 @@
 import { Check, ChevronRight } from 'lucide-react';
 import type { Pillar, WinItem, WorkWinItem } from '../../api/types';
-import { Mascot } from '../../components/Mascot';
 import { PILLAR_META } from './constants';
 import { isRoadmap, roadmapState } from './RoadmapPanel';
 
@@ -25,14 +24,16 @@ export interface WinRowProps {
   pillar: Pillar;
   item: WinItem | WorkWinItem;
   selected: boolean;
+  /** The first win still to do: tagged "Next up" so the list has an obvious start. */
+  next?: boolean;
   onSelect: (pillar: Pillar) => void;
 }
 
 /**
- * A win in the list: mascot, pillar, title and one line of state. Everything else lives in
- * the detail panel, so the list stays readable at a glance.
+ * A win in the to-do list: a check circle, pillar, title and one line of state. Everything
+ * else lives in the detail panel, so the list stays readable at a glance.
  */
-export function WinRow({ pillar, item, selected, onSelect }: WinRowProps) {
+export function WinRow({ pillar, item, selected, next = false, onSelect }: WinRowProps) {
   const meta = PILLAR_META[pillar];
   const state = winState(pillar, item);
   const notStarted = state === 'Not started';
@@ -50,16 +51,32 @@ export function WinRow({ pillar, item, selected, onSelect }: WinRowProps) {
       }`}
       data-testid={`win-row-${pillar}`}
     >
-      <Mascot
-        pillar={pillar}
-        mood={item.completed ? 'cheer' : 'happy'}
-        className="h-[54px] w-11 shrink-0"
-      />
+      {/* The check circle carries the to-do reading: empty until the win is in. */}
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+          item.completed ? 'bg-mint-strong text-surface' : 'border-2 border-line-strong bg-surface'
+        }`}
+        data-testid={`win-check-${pillar}`}
+        data-checked={item.completed}
+        aria-hidden="true"
+      >
+        {item.completed && <Check className="h-5 w-5" strokeWidth={3} />}
+      </span>
       <span className="min-w-0 flex-1">
-        <span className={`block text-xs font-bold ${meta.text}`}>{meta.label}</span>
+        <span className="flex flex-wrap items-center gap-2">
+          <span className={`text-xs font-bold ${meta.text}`}>{meta.label}</span>
+          {next && (
+            <span
+              className="rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-surface"
+              data-testid={`win-next-${pillar}`}
+            >
+              Next up
+            </span>
+          )}
+        </span>
         <span
           className={`mt-0.5 block font-serif text-lg leading-snug font-bold ${
-            item.completed ? 'text-ink-soft' : 'text-ink'
+            item.completed ? 'text-ink-soft line-through decoration-2' : 'text-ink'
           }`}
         >
           {item.title}
@@ -72,12 +89,7 @@ export function WinRow({ pillar, item, selected, onSelect }: WinRowProps) {
         </span>
       </span>
       {item.completed ? (
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-mint-strong text-surface"
-          aria-label="Done"
-        >
-          <Check className="h-5 w-5" strokeWidth={3} aria-hidden="true" />
-        </span>
+        <ChevronRight className="h-5 w-5 shrink-0 text-ink-faint" aria-hidden="true" />
       ) : notStarted ? (
         <span className="shrink-0 rounded-full border-[1.5px] border-line-strong px-4 py-2 text-[13px] font-bold text-ink">
           Start

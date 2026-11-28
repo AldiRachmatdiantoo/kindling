@@ -194,6 +194,27 @@ describe('WinsPage state and UX', () => {
     await waitFor(() => expect(screen.queryByTestId('work-step-choice')).not.toBeInTheDocument());
   });
 
+  it('reads as a to-do list with the day plan and a Next up tag', async () => {
+    renderWins(
+      makeLog({
+        wins_data: {
+          ...makeLog().wins_data,
+          physical: { title: 'Stretch for 5 minutes', level: 0, completed: true },
+        },
+        wins_completed_count: 1,
+      }),
+    );
+    expect(await screen.findByTestId('day-plan')).toBeInTheDocument();
+    expect(screen.getByTestId('day-step-wins')).toHaveTextContent('You are here');
+    expect(screen.getByTestId('day-step-cope')).toHaveAttribute('data-done', 'true');
+    expect(screen.getByTestId('win-check-physical')).toHaveAttribute('data-checked', 'true');
+    expect(screen.getByTestId('win-check-work')).toHaveAttribute('data-checked', 'false');
+    // Physical is done, so the first win still to do is the one tagged.
+    expect(screen.queryByTestId('win-next-physical')).toBeNull();
+    expect(screen.getByTestId('win-next-work')).toHaveTextContent('Next up');
+    expect(screen.queryByTestId('win-next-soul')).toBeNull();
+  });
+
   it('asks for the task first when work has none yet', async () => {
     renderWins(
       makeLog({

@@ -1,4 +1,4 @@
-import { ArrowLeft, HeartHandshake, Trophy } from 'lucide-react';
+import { ArrowLeft, Trophy } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { m } from 'motion/react';
 import { Link } from 'react-router-dom';
@@ -22,6 +22,7 @@ import { RecoveryLockedView } from './RecoveryLockedView';
 import { isRoadmap, RoadmapPanel } from './RoadmapPanel';
 import { WinCard } from './WinCard';
 import { WinRow } from './WinRow';
+import { DayPlan } from '../today/DayPlan';
 import { WorkPanel } from './WorkPanel';
 import { Badge } from '@/components/ui/badge';
 
@@ -543,6 +544,8 @@ export function WinsPage() {
   }
 
   const selectedItem = dailyLog.wins_data[selected];
+  // The first win still to do gets a "Next up" tag, so the list reads as a to-do with a start.
+  const nextUp = PILLARS.find((pillar) => !dailyLog.wins_data[pillar].completed);
   const detail =
     selected === 'work' ? (
       <WorkPanel
@@ -619,15 +622,22 @@ export function WinsPage() {
       */}
       <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(380px,460px)] xl:items-start xl:gap-6">
         <div className={`space-y-6 ${mobileOpen ? 'hidden xl:block' : ''}`} data-testid="wins-list">
+          <DayPlan
+            current="wins"
+            copeDone={Boolean(dailyLog.positive_cope_chosen)}
+            copeSkipped={recoverySkipped}
+            winsDone={dailyLog.wins_completed_count}
+          />
+
           <div>
             <p className="text-xs font-semibold text-ink-faint">
-              Your 3 Daily Wins · {dailyLog.log_date}
+              Your to-do for today · {dailyLog.log_date}
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-ink">Today's Small Wins</h1>
             <p className="mt-1 text-sm text-ink-soft">
-              One small thing per pillar. Pick one to start.
+              3 small things to tick off, in any order. Tap one to see its steps.
             </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <Badge
                 className="border-mint-strong bg-transparent px-3.5 py-1.5 text-sm text-mint-strong"
                 data-testid="wins-progress-badge"
@@ -647,12 +657,15 @@ export function WinsPage() {
                 </span>
                 done
               </Badge>
-              <Button asChild variant="secondary" size="sm">
-                <Link to="/cope">
-                  <HeartHandshake className="h-4 w-4" aria-hidden="true" />
-                  Positive Cope
-                </Link>
-              </Button>
+              <div
+                className="h-2 min-w-24 flex-1 overflow-hidden rounded-full bg-ink/10"
+                aria-hidden="true"
+              >
+                <div
+                  className="h-full rounded-full bg-mint-strong transition-[width] duration-500"
+                  style={{ width: `${(dailyLog.wins_completed_count / 3) * 100}%` }}
+                />
+              </div>
             </div>
           </div>
 
@@ -686,17 +699,19 @@ export function WinsPage() {
             </MascotBubble>
           )}
 
-          <div className="space-y-3">
+          <ol className="space-y-3" aria-label="Today's to-do" data-testid="wins-todo">
             {PILLARS.map((pillar) => (
-              <WinRow
-                key={pillar}
-                pillar={pillar}
-                item={dailyLog.wins_data[pillar]}
-                selected={selected === pillar}
-                onSelect={handleSelect}
-              />
+              <li key={pillar}>
+                <WinRow
+                  pillar={pillar}
+                  item={dailyLog.wins_data[pillar]}
+                  selected={selected === pillar}
+                  next={pillar === nextUp}
+                  onSelect={handleSelect}
+                />
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
 
         <div

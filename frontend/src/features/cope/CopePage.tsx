@@ -1,4 +1,5 @@
 import {
+  ArrowDown,
   ArrowRight,
   CheckCircle2,
   Info,
@@ -22,7 +23,8 @@ import { Mascot } from '../../components/Mascot';
 import { SafetyBanner } from '../../components/SafetyBanner';
 import { moodGreeting, TIER_META, TIER_MOOD } from '../today/tier';
 import { useTodayStatus } from '../today/TodayStatus';
-import { skipRecovery } from '../today/recovery';
+import { isRecoverySkipped, skipRecovery } from '../today/recovery';
+import { DayPlan } from '../today/DayPlan';
 import { aiNoteText } from '../today/aiNote';
 import { useAuth } from '../auth/AuthContext';
 import { PageLoading } from '../../components/PageLoading';
@@ -190,8 +192,22 @@ export function CopePage() {
     },
   ];
 
+  const scrollToRecovery = () => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    document
+      .getElementById('recovery')
+      ?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  };
+
   return (
     <div className="space-y-8">
+      <DayPlan
+        current="cope"
+        copeDone={Boolean(dailyLog.positive_cope_chosen)}
+        copeSkipped={user ? isRecoverySkipped(user.id, dailyLog.log_date) : false}
+        winsDone={dailyLog.wins_completed_count}
+      />
+
       {dailyLog.safety_flag && <SafetyBanner />}
 
       {/* Only the fresh check-in response carries a note; a reload drops it, which is fine. */}
@@ -278,10 +294,36 @@ export function CopePage() {
               </Card>
             ))}
           </div>
+
+          {/* The map is the answer to the check-in; this line says what to do with it. */}
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4"
+            data-testid="cope-next"
+          >
+            <p className="text-sm text-ink">
+              <span className="font-bold">What now? </span>
+              {dailyLog.positive_cope_chosen
+                ? 'Your recovery moment is picked. Next up: your 3 small wins.'
+                : 'Pick 1 short recovery moment below. Your 3 small wins open right after.'}
+            </p>
+            {dailyLog.positive_cope_chosen ? (
+              <Button asChild>
+                <Link to="/wins" data-testid="skip-to-wins">
+                  Go to my 3 Wins
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : (
+              <Button onClick={scrollToRecovery} data-testid="cope-next-pick">
+                Pick a recovery moment
+                <ArrowDown className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            )}
+          </div>
         </section>
       </Card>
 
-      <section className="space-y-4">
+      <section id="recovery" className="scroll-mt-28 space-y-4 lg:scroll-mt-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-semibold text-ink-faint">Choose your own positive cope</p>
@@ -292,14 +334,7 @@ export function CopePage() {
                 : 'Settle your nervous system first. Your 3 Daily Wins open after one recovery moment.'}
             </p>
           </div>
-          {dailyLog.positive_cope_chosen ? (
-            <Button asChild variant="secondary">
-              <Link to="/wins" data-testid="skip-to-wins">
-                Go to my 3 Wins
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            </Button>
-          ) : (
+          {!dailyLog.positive_cope_chosen && (
             <Button
               variant="ghost"
               size="sm"
@@ -410,14 +445,23 @@ export function CopePage() {
                 </p>
               </div>
             </div>
-            <Button
-              ref={openRoomRef}
-              onClick={() => setRoomOpen(true)}
-              data-testid="open-focus-room"
-            >
-              <Play className="h-4 w-4" aria-hidden="true" />
-              Open focus room
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                ref={openRoomRef}
+                variant="secondary"
+                onClick={() => setRoomOpen(true)}
+                data-testid="open-focus-room"
+              >
+                <Play className="h-4 w-4" aria-hidden="true" />
+                Open focus room
+              </Button>
+              <Button asChild>
+                <Link to="/wins" data-testid="active-cope-next">
+                  Next: my 3 Wins
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            </div>
           </div>
         )}
         {activeOption && roomOpen && (
