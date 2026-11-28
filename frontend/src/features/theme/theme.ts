@@ -1,3 +1,5 @@
+import { shiftColors } from './atmosphere';
+
 export type Theme = 'light' | 'dark';
 
 const STORAGE_KEY = 'kindling:theme';
@@ -8,6 +10,7 @@ export function getTheme(): Theme {
 }
 
 export function setTheme(theme: Theme) {
+  shiftColors();
   document.documentElement.dataset.theme = theme;
   try {
     localStorage.setItem(STORAGE_KEY, theme);

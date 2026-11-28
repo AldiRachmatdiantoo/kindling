@@ -23,3 +23,16 @@ WHERE user_id = $1
   AND log_date >= $2
   AND log_date <= $3
 ORDER BY log_date ASC;
+
+-- name: GetPillarCompletions :many
+-- Lifetime per-pillar completion flags for Milestone Path, oldest first. Kept apart from
+-- GetHeatmapDays so the heatmap query still only reads idx_daily_logs_heatmap columns.
+SELECT
+    log_date,
+    COALESCE(wins_data->'physical'->>'completed' = 'true', false)::BOOLEAN AS physical_done,
+    COALESCE(wins_data->'work'->>'completed' = 'true', false)::BOOLEAN AS work_done,
+    COALESCE(wins_data->'soul'->>'completed' = 'true', false)::BOOLEAN AS soul_done
+FROM daily_logs
+WHERE user_id = $1
+  AND wins_completed_count > 0
+ORDER BY log_date ASC;

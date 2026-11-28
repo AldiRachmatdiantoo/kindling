@@ -166,6 +166,7 @@ describe('apiRequest wrapper', () => {
   });
 
   it('calls unauthorizedHandler and throws ApiError when refresh fails (no infinite retry)', async () => {
+    document.cookie = 'csrf_token=stale-csrf; path=/';
     const onUnauthorized = vi.fn();
     setUnauthorizedHandler(onUnauthorized);
 
@@ -187,6 +188,23 @@ describe('apiRequest wrapper', () => {
     await expect(apiRequest('/checkin/today')).rejects.toBeInstanceOf(ApiError);
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2); // original + 1 refresh attempt
+  });
+
+  it('skips /auth/refresh for a guest with no csrf_token cookie, since the server would answer 403', async () => {
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        { success: false, error: { code: 'UNAUTHENTICATED', message: 'Sign in first' } },
+        401,
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiRequest('/auth/me')).rejects.toMatchObject({ status: 401 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe('/api/v1/auth/me');
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
   it('waits out a short 429 on a read and retries it once, without signing anyone out', async () => {
     const onUnauthorized = vi.fn();

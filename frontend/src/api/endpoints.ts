@@ -8,6 +8,7 @@ import type {
   InsightsData,
   Pillar,
   RecalibrateData,
+  ReflectData,
   SliceTaskData,
   SwapWinData,
   ToggleWinData,
@@ -77,6 +78,18 @@ export const checkinApi = {
     apiRequest<{ positive_cope_chosen: string }>(`/checkin/${date}/cope`, {
       method: 'PATCH',
       body: { cope_option_id: copeOptionId },
+    }),
+
+  /**
+   * Sends a brain dump to the AI for a one-time read-back. Only call this after the user
+   * chose it: `consent: true` is the record of that choice. The text is not stored.
+   */
+  reflect: (date: string, text: string, idempotencyKey?: string) =>
+    apiRequest<ReflectData>(`/checkin/${date}/reflect`, {
+      method: 'POST',
+      body: { text, consent: true },
+      idempotent: true,
+      idempotencyKey,
     }),
 };
 

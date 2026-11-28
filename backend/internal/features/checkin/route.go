@@ -3,13 +3,15 @@ package checkin
 import "net/http"
 
 // RegisterRoutes mounts the check-in and positive cope endpoints on the provided ServeMux.
-// Middleware order on POST /checkin: Auth -> Idempotency -> AI RateLimit (10 req/min/user) -> Handler.
+// Middleware order on POST /checkin and POST /checkin/{date}/reflect:
+// Auth -> Idempotency -> AI RateLimit (10 req/min/user) -> Handler.
 func RegisterRoutes(
 	mux *http.ServeMux,
 	h *Handler,
 	authMiddleware func(http.Handler) http.Handler,
 	aiRateLimitMiddleware func(http.Handler) http.Handler,
 	checkinIdempotencyMiddleware func(http.Handler) http.Handler,
+	reflectIdempotencyMiddleware func(http.Handler) http.Handler,
 ) {
 	postCheckin := http.Handler(http.HandlerFunc(h.SubmitCheckin))
 	if aiRateLimitMiddleware != nil {
@@ -20,6 +22,17 @@ func RegisterRoutes(
 	}
 	if authMiddleware != nil {
 		postCheckin = authMiddleware(postCheckin)
+	}
+
+	postReflect := http.Handler(http.HandlerFunc(h.Reflect))
+	if aiRateLimitMiddleware != nil {
+		postReflect = aiRateLimitMiddleware(postReflect)
+	}
+	if reflectIdempotencyMiddleware != nil {
+		postReflect = reflectIdempotencyMiddleware(postReflect)
+	}
+	if authMiddleware != nil {
+		postReflect = authMiddleware(postReflect)
 	}
 
 	getToday := http.Handler(http.HandlerFunc(h.GetToday))
@@ -35,4 +48,5 @@ func RegisterRoutes(
 	mux.Handle("GET /api/v1/checkin/today", getToday)
 	mux.Handle("GET /api/v1/checkin/{date}", getByDate)
 	mux.Handle("PATCH /api/v1/checkin/{date}/cope", patchCope)
+	mux.Handle("POST /api/v1/checkin/{date}/reflect", postReflect)
 }

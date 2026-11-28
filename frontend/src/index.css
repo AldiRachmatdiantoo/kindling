@@ -159,7 +159,7 @@
     }
   }
 
-  /* The header and auth bands are flat now; the class stays as a hook for the mood fade. */
+  /* The header and auth bands are flat now; the class stays as a layout hook. */
   .k-wave {
     position: relative;
   }
@@ -207,67 +207,105 @@ html[data-theme="dark"] {
   --color-sun-strong: #f5c451;
 }
 
-/* The action color keeps dark ink on it in both themes. */
+/* The action color keeps dark ink on it in both themes (--k-on-lime: per atmosphere). */
 :is(.bg-lime, .hover\:bg-lime:hover) {
-  --color-ink: #10132e;
-  --color-ink-soft: #2a2f5c;
+  --color-ink: var(--k-on-lime, #10132e);
+  --color-ink-soft: var(--k-on-lime-soft, #242951);
   color: var(--color-ink);
 }
 @media (width >= 48rem) {
   .md\:bg-lime {
-    --color-ink: #10132e;
-    --color-ink-soft: #2a2f5c;
+    --color-ink: var(--k-on-lime, #10132e);
+    --color-ink-soft: var(--k-on-lime-soft, #242951);
   }
 }
 
 /* Periwinkle fills stay deep for white text; as text and rings it needs the lighter tint. */
 html[data-theme="dark"] .text-primary {
-  color: #8b98ff;
+  color: var(--k-primary-text, #8b98ff);
 }
 html[data-theme="dark"] .hover\:text-primary-dark:hover {
-  color: #a9b3ff;
+  color: var(--k-primary-text-hover, #a9b3ff);
 }
 html[data-theme="dark"] :focus-visible {
-  outline-color: #8b98ff;
+  outline-color: var(--k-primary-text, #8b98ff);
 }
 
 /*
-  Adaptive atmosphere: today's check-in sets html[data-mood] (AppShell). On the calm night
-  palette the room only shifts a little: gentle (high exhaustion) warms the page and slows
-  every animation; balanced cools it toward indigo; standard (energy to spare) leans teal
-  and quickens. Text colors are untouched, so every checked pairing above still holds.
+  Adaptive atmosphere: today's check-in sets html[data-atmosphere] (AppShell, and
+  theme-init.js before first paint). Only the accent family (primary, the lime action fill,
+  their tints and the ink on them), the page tint and the motion pace move; signal colors,
+  ink and surfaces stay put, so the change is a shift in mood, not a new look.
+  - gentle (high exhaustion): warm amber on paper, quiet slate at night; motion slows.
+  - balanced: the default palette, nothing overridden.
+  - standard (energy to spare): fresh teal on paper, emerald at night; motion quickens a bit.
+  Every pairing below was checked with antislop-human/contrast-check.py: white on the fill,
+  accent text on surface / surface-2 / page / soft tint >= 4.5:1; ink on the lime fill and
+  its hover >= 4.5:1; accent borders and focus rings >= 3:1 on surface, page and soft tint.
 */
-html[data-mood="gentle"] {
-  --k-pace: 1.7;
+html[data-atmosphere="gentle"] {
+  --k-pace: 1.6;
   --color-cream: #f7f3ec;
+  --color-primary: #8f5a17; /* white 5.76; on surface 5.76, page 5.21, soft 4.88 */
+  --color-primary-dark: #774913;
+  --color-primary-soft: #f5ebdb;
+  --color-lime: #e0b072; /* #2a1c0b on it 8.37, --k-on-lime-soft 5.86 */
+  --color-lime-dark: #e8c28e;
+  --k-on-lime: #2a1c0b;
+  --k-on-lime-soft: #4a3518;
 }
-html[data-theme="dark"][data-mood="gentle"] {
-  --color-cream: #121010;
+html[data-theme="dark"][data-atmosphere="gentle"] {
+  --color-cream: #101214;
+  --color-primary: #5d6c87; /* white 5.30; border on surface 3.34, soft 3.01 */
+  --color-primary-dark: #52607a;
+  --color-primary-soft: #1c222c;
+  --color-lime: #9aabc3; /* #111722 on it 7.68, --k-on-lime-soft 5.22 */
+  --color-lime-dark: #afbed2;
+  --k-on-lime: #111722;
+  --k-on-lime-soft: #2c3646;
+  --k-primary-text: #a7b4c8; /* 8.43 on surface, 7.61 on soft */
+  --k-primary-text-hover: #c0cadb;
 }
-html[data-mood="balanced"] {
-  --k-pace: 1.25;
-  --color-cream: #f3f3fa;
-}
-html[data-theme="dark"][data-mood="balanced"] {
-  --color-cream: #0e0e15;
-}
-html[data-mood="standard"] {
-  --k-pace: 0.9;
+html[data-atmosphere="standard"] {
+  --k-pace: 0.85;
   --color-cream: #f2f7f5;
+  --color-primary: #0f766e; /* white 5.47; on surface 5.47, page 5.06, soft 4.65 */
+  --color-primary-dark: #0b5f58;
+  --color-primary-soft: #dcf1ed;
+  --color-lime: #5cc2b3; /* #05282a on it 7.31, --k-on-lime-soft 5.19 */
+  --color-lime-dark: #7dd0c3;
+  --k-on-lime: #05282a;
+  --k-on-lime-soft: #19423f;
 }
-html[data-theme="dark"][data-mood="standard"] {
+html[data-theme="dark"][data-atmosphere="standard"] {
   --color-cream: #0c1110;
+  --color-primary: #0f7a5a; /* white 5.31; border on surface 3.33, soft 3.00 */
+  --color-primary-dark: #0c674c;
+  --color-primary-soft: #0f2620;
+  --color-lime: #4fc79f; /* #04261b on it 7.70, --k-on-lime-soft 5.52 */
+  --color-lime-dark: #6fd5b3;
+  --k-on-lime: #04261b;
+  --k-on-lime-soft: #17402f;
+  --k-primary-text: #4fd1aa;
+  --k-primary-text-hover: #7adfc0;
 }
 
-/* The shift itself is slow and soft, so it reads as the room changing, not a flicker. */
-@layer base {
-  @media (prefers-reduced-motion: no-preference) {
-    body,
-    .k-wave,
-    .k-wave::after,
-    .k-card {
-      transition: background-color 900ms ease;
-    }
+/*
+  A tier or theme change cross-fades colors once, briefly (atmosphere.ts adds the class for
+  SHIFT_MS). The first paint never animates, and reduced motion switches instantly.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  html.k-atmosphere-shift,
+  html.k-atmosphere-shift *,
+  html.k-atmosphere-shift *::before,
+  html.k-atmosphere-shift *::after {
+    transition:
+      background-color 320ms ease,
+      border-color 320ms ease,
+      color 320ms ease,
+      outline-color 320ms ease,
+      fill 320ms ease,
+      stroke 320ms ease !important;
   }
 }
 
@@ -432,10 +470,10 @@ html[data-theme="dark"][data-mood="standard"] {
     }
   }
   .k-dim-backdrop {
-    animation: k-fade-in 380ms ease-out both;
+    animation: k-fade-in calc(380ms * var(--k-pace, 1)) ease-out both;
   }
   .k-dialog-in {
-    animation: k-dialog-in 600ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+    animation: k-dialog-in calc(600ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
   }
   .k-step-next {
     animation: k-step-next calc(280ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -472,7 +510,7 @@ html[data-theme="dark"][data-mood="standard"] {
     }
   }
   .k-popover[data-state="open"] {
-    animation: k-popover-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: k-popover-in calc(340ms * var(--k-pace, 1)) cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .k-popover[data-state="closed"] {
     animation: k-popover-out 220ms ease-in both;

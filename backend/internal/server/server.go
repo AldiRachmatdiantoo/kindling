@@ -142,7 +142,8 @@ func NewHandler(deps Dependencies) http.Handler {
 		checkinHandler := checkin.NewHandler(checkinSvc)
 		aiRateLimitMW := middleware.RateLimitByUser(deps.Limiter, deps.Logger, "ai", 10, time.Minute)
 		checkinIdemMW := middleware.Idempotency(idemStore, "POST:/checkin", deps.Logger)
-		checkin.RegisterRoutes(apiMux, checkinHandler, authMW, aiRateLimitMW, checkinIdemMW)
+		reflectIdemMW := middleware.Idempotency(idemStore, "POST:/checkin/reflect", deps.Logger)
+		checkin.RegisterRoutes(apiMux, checkinHandler, authMW, aiRateLimitMW, checkinIdemMW, reflectIdemMW)
 
 		winsRepo := wins.NewPostgresRepository(deps.Pool)
 		winsSvc := wins.NewService(winsRepo, aiProvider, deps.Logger).WithAIBudget(aiBudget)

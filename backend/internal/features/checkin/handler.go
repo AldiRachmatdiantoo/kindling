@@ -96,6 +96,30 @@ func (h *Handler) ChooseCope(w http.ResponseWriter, r *http.Request) {
 	shared.WriteSuccess(w, r, http.StatusOK, resp)
 }
 
+// Reflect handles POST /api/v1/checkin/{date}/reflect. The body holds private text: it is
+// decoded, passed to the service and dropped, never logged.
+func (h *Handler) Reflect(w http.ResponseWriter, r *http.Request) {
+	userID, ok := shared.UserIDFromContext(r.Context())
+	if !ok {
+		shared.WriteError(w, r, shared.ErrUnauthenticated("Authentication required"))
+		return
+	}
+
+	var req ReflectRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		shared.WriteError(w, r, err)
+		return
+	}
+
+	resp, err := h.service.Reflect(r.Context(), userID, r.PathValue("date"), req)
+	if err != nil {
+		shared.WriteError(w, r, err)
+		return
+	}
+
+	shared.WriteSuccess(w, r, http.StatusOK, resp)
+}
+
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) *shared.AppError {
 	r.Body = http.MaxBytesReader(w, r.Body, maxCheckinBodyBytes)
 	dec := json.NewDecoder(r.Body)

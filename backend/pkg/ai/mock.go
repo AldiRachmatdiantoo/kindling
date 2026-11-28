@@ -217,3 +217,9 @@ func hashSeed(parts ...string) uint64 {
 func (m *MockAiProvider) PlanWin(_ context.Context, in PlanWinInput) (WinPlan, error) {
 	return HabitWin(in.CalibrationTier, in.Scores, in.Pillar, in.Activity, in.Struggle), nil
 }
+
+// Reflect returns a deterministic template read-back; it never echoes the user's words.
+func (m *MockAiProvider) Reflect(_ context.Context, in ReflectInput) (ReflectOutput, error) {
+	seed := hashSeed(string(in.CalibrationTier), strings.TrimSpace(in.Text))
+	return ReflectTemplate(in.CalibrationTier, in.Text, seed), nil
+}

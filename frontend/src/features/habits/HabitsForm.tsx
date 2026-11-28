@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import type { HabitsData, Pillar } from '../../api/types';
 import { Mascot } from '../../components/Mascot';
+import { QuickPicks } from '../../components/QuickPicks';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -11,25 +12,41 @@ export const MAX_STRUGGLE = 200;
 
 export const HABIT_COPY: Record<
   Pillar,
-  { label: string; prompt: string; placeholder: string; strugglePlaceholder: string }
+  {
+    label: string;
+    prompt: string;
+    placeholder: string;
+    strugglePlaceholder: string;
+    /** Tap-to-fill examples under the activity input. */
+    picks: readonly string[];
+  }
 > = {
   physical: {
     label: 'Physical',
     prompt: 'Something for your body you enjoy, or want to do more of',
     placeholder: 'e.g. morning run, stretching, cycling',
     strugglePlaceholder: 'e.g. too sleepy in the morning',
+    picks: ['Morning walk', 'Stretching', 'Cycling', 'Yoga', 'Bodyweight workout'],
   },
   work: {
     label: 'Work',
     prompt: 'Something for your work or study you want to get better at',
     placeholder: 'e.g. learning Go, reading papers, deep work',
     strugglePlaceholder: 'e.g. I keep opening my phone',
+    picks: [
+      'Deep work block',
+      'Learning a new skill',
+      'Reading papers',
+      'Clearing my inbox',
+      'Planning my week',
+    ],
   },
   soul: {
     label: 'Soul',
     prompt: 'Something for your heart that makes you feel good',
     placeholder: 'e.g. reading, journaling, playing guitar',
     strugglePlaceholder: 'e.g. I never find the time',
+    picks: ['Reading', 'Journaling', 'Playing guitar', 'Calling a friend', 'Drawing'],
   },
 };
 
@@ -115,6 +132,14 @@ export function HabitsForm({
               onChange={(e) => set(pillar, 'activity', e.target.value)}
               placeholder={copy.placeholder}
               data-testid={`habit-${pillar}-activity`}
+            />
+            <QuickPicks
+              options={copy.picks}
+              targetId={activityId}
+              value={draft[pillar].activity}
+              onPick={(option) => set(pillar, 'activity', option)}
+              label={`Quick picks for your ${copy.label.toLowerCase()} habit`}
+              testIdPrefix={`${idPrefix}-${pillar}-pick`}
             />
             <div>
               <Label

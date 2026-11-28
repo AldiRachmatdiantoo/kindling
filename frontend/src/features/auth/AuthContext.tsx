@@ -12,6 +12,7 @@ import { ApiError, setUnauthorizedHandler } from '../../api/client';
 import { authApi } from '../../api/endpoints';
 import type { User } from '../../api/types';
 import { clearUserTimers } from '../../components/useClockTimer';
+import { forgetTodayAtmosphere } from '../theme/atmosphere';
 
 interface AuthContextValue {
   user: User | null;
@@ -84,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (activeUserId) {
         clearUserTimers(activeUserId);
       }
+      forgetTodayAtmosphere();
       setSignedOut(true);
       setUser(null);
     }

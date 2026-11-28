@@ -1,9 +1,29 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import crypto from 'node:crypto';
 
 function uniqueEmail(prefix: string): string {
   const suffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   return `${prefix}-${suffix}@kindling.test`;
+}
+
+/**
+ * Presses Register or Sign in. The whole suite runs from one IP and makes about as many API
+ * calls as the per-IP limit (60/min) allows, so a test can meet a 429 here. Like the on-screen
+ * message asks a person to, wait out Retry-After and press the button again; the limiter is
+ * not touched.
+ */
+async function submitAuthForm(page: Page, form: 'register' | 'login'): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes(`/api/v1/auth/${form}`) && res.request().method() === 'POST',
+      ),
+      page.getByTestId(`${form}-submit`).click(),
+    ]);
+    if (response.status() !== 429) return;
+    const retryAfter = Number(response.headers()['retry-after'] ?? '5');
+    await page.waitForTimeout((Number.isFinite(retryAfter) ? retryAfter : 5) * 1000 + 1000);
+  }
 }
 
 function getTodayInJakarta(): string {
@@ -38,7 +58,7 @@ function buildExpiredJwt(): string {
 }
 
 test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
-  test('full daily calibration flow: register -> Preset A -> cope -> slice task -> recalibrate -> 3 wins -> profile heatmap complete', async ({
+  test('full daily calibration flow: register -> Preset A -> cope -> brain-dump reflection -> slice task -> recalibrate -> 3 wins -> profile heatmap complete', async ({
     page,
   }) => {
     const email = uniqueEmail('e2e-flow');
@@ -53,7 +73,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-password').fill('SafePassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
-    await page.getByTestId('register-submit').click();
+    await submitAuthForm(page, 'register');
 
     // A new account lands on the welcome screen first, then goes on to the check-in
     await expect(page).toHaveURL(/\/welcome$/);
@@ -82,8 +102,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('welcome-tour')).toHaveCount(0);
 
     await expect(page.getByTestId('calibration-tier-badge')).toContainText('Gentle Mode');
-    // Adaptive atmosphere: the whole app takes on the gentle mood and Ember quotes the reading
-    await expect(page.locator('html')).toHaveAttribute('data-mood', 'gentle');
+    // Adaptive atmosphere: Preset A is a gentle day, so <html> takes the gentle palette and Ember quotes the reading
+    await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'gentle');
     await expect(page.getByTestId('mood-greeting')).toContainText('physical energy is at 0%');
     await expect(page.getByTestId('score-physical_exhaustion')).toContainText('100');
     await expect(page.getByTestId('score-work_exhaustion')).toContainText('100');
@@ -91,18 +111,32 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     // 3. Choose a positive cope option. The 3 Wins stay locked until one is picked.
     await expect(page.getByTestId('skip-to-wins')).toHaveCount(0);
     await expect(page.getByTestId('skip-recovery')).toBeVisible();
-    const firstCopeCard = page.getByTestId('cope-card-cope_1');
-    await expect(firstCopeCard).toBeVisible();
-    await firstCopeCard.click();
-    await expect(firstCopeCard).toContainText('Picked for today');
-    // The pick opens the full-screen focus room; closing it leaves a way back in
-    await expect(page.getByTestId('focus-room')).toBeVisible();
+    // The gentle mock's third card is the brain dump. Picking it opens the full-screen focus
+    // room; closing it leaves a way back in without another request.
+    const dumpCard = page.getByTestId('cope-card-cope_3');
+    await expect(dumpCard).toBeVisible();
+    await dumpCard.click();
+    await expect(dumpCard).toContainText('Picked for today');
+    await expect(page.getByTestId('focus-room')).toHaveAttribute('data-tool', 'brain_dump');
     await page.getByTestId('focus-room-close').click();
     await expect(page.getByTestId('focus-room')).toHaveCount(0);
     await expect(page.getByTestId('active-cope-tool')).toBeVisible();
+    await expect(page.getByTestId('skip-to-wins')).toBeVisible();
 
-    // 4. Navigate to /wins
-    await page.getByTestId('skip-to-wins').click();
+    // 3b. Back in the room: fold the brain dump away and ask for a read-back (mock AI)
+    await page.getByTestId('open-focus-room').click();
+    await page
+      .getByTestId('focus-dump-input')
+      .fill('Too many deadlines this week and I keep sleeping late.');
+    await page.getByTestId('focus-fold').click();
+    await expect(page.getByTestId('focus-reflect-consent')).toContainText('Google Gemini');
+    await page.getByTestId('focus-reflect-send').click();
+    await expect(page.getByTestId('focus-reflection-text')).not.toBeEmpty();
+    await expect(page.getByTestId('focus-reflection-theme').first()).toBeVisible();
+    await expect(page.getByTestId('safety-banner')).toHaveCount(0);
+
+    // 4. On to /wins from the reflection
+    await page.getByTestId('focus-go-wins').click();
     await expect(page).toHaveURL(/\/wins$/);
     await expect(page.getByTestId('wins-progress-badge')).toContainText('0 / 3');
 
@@ -170,8 +204,25 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
 
     // Verify lifetime milestone counters reflect today's completion
     await expect(page.getByTestId('stat-total_active_days')).toContainText('1');
-    await expect(page.getByTestId('stat-total_complete_days')).toContainText('1');
     await expect(page.getByTestId('stat-total_daily_wins')).toContainText('3');
+    await expect(page.getByTestId('stat-total_checkpoints')).toContainText('0');
+
+    // Milestone Path: one step on each pillar, no checkpoint yet (the first opens at 3 wins)
+    for (const name of ['Physical', 'Work', 'Soul']) {
+      await expect(
+        page.getByRole('group', { name: `${name}: 1 win, 0 checkpoints` }),
+      ).toBeVisible();
+    }
+    await expect(page.getByTestId('milestone-physical-marker')).toHaveText('Today you got here');
+    await expect(page.getByRole('button', { name: /^Checkpoint/ })).toHaveCount(0);
+
+    // "Match colors to my day" switches the atmosphere off and back on, without a request
+    const atmosphere = page.getByRole('switch', { name: 'Match colors to my day' });
+    await expect(atmosphere).toHaveAttribute('aria-checked', 'true');
+    await atmosphere.click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-atmosphere');
+    await atmosphere.click();
+    await expect(page.locator('html')).toHaveAttribute('data-atmosphere', 'gentle');
 
     // 9. After checking in, the first tab becomes "Today" and opens the day overview
     await expect(page.getByTestId('nav-checkin')).toContainText('Today');
@@ -185,7 +236,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page).toHaveURL(/\/login$/);
     await page.getByTestId('login-email').fill(email);
     await page.getByTestId('login-password').fill('SafePassw0rd123!');
-    await page.getByTestId('login-submit').click();
+    await submitAuthForm(page, 'login');
     await expect(page).toHaveURL(/\/welcome$/);
     await expect(page.getByTestId('welcome-title')).toContainText('Welcome back');
     await page.getByTestId('welcome-to-wins').click();
@@ -203,7 +254,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-password').fill('DeferPassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
-    await page.getByTestId('register-submit').click();
+    await submitAuthForm(page, 'register');
 
     // "Answer later" right on the welcome screen
     await expect(page).toHaveURL(/\/welcome$/);
@@ -244,7 +295,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-password').fill('RefreshPassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
-    await page.getByTestId('register-submit').click();
+    await submitAuthForm(page, 'register');
 
     await expect(page).toHaveURL(/\/welcome$/);
     await page.getByTestId('welcome-start').click();
@@ -318,16 +369,19 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-password').fill('HabitPassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
-    await page.getByTestId('register-submit').click();
+    await submitAuthForm(page, 'register');
     await expect(page).toHaveURL(/\/welcome$/);
     await page.getByTestId('welcome-start').click();
     await page.getByTestId('checkin-guide-skip').click();
 
-    // Answer all 9 questions, stepping through each pillar's read and the conclusion
+    // Answer all 9 questions, stepping through each pillar's read and the conclusion.
+    // Picking an answer moves on by itself, so there is no Next to press.
+    await expect(page.getByTestId('checkin-next')).toHaveCount(0);
     for (let i = 0; i < 9; i++) {
+      const label = page.getByTestId('checkin-step-label');
+      await expect(label).toHaveText(`${i + 1} of 9`);
       const key = await page.locator('fieldset input[type=radio]').first().getAttribute('name');
       await page.getByTestId(`answer-${key}-2`).click();
-      await page.getByTestId('sympathy-next').click();
       if (i === 2 || i === 6 || i === 8) await page.getByTestId('reading-continue').click();
     }
     await expect(page.getByTestId('conclusion-tier')).toBeVisible();
@@ -337,10 +391,15 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page.getByTestId('habits-form')).toBeVisible();
     await page.getByTestId('habit-physical-activity').fill('morning run');
     await page.getByTestId('habit-physical-struggle').fill('too sleepy');
-    await page.getByTestId('habit-soul-activity').fill('reading');
+    // A quick pick fills the soul habit in one tap
+    await page.getByTestId('checkin-habit-soul-pick-0').click();
+    await expect(page.getByTestId('habit-soul-activity')).toHaveValue('Reading');
     await page.getByTestId('habits-save').click();
 
-    await page.getByTestId('checkin-fun-cope').fill('Playing guitar');
+    await page.getByTestId('fun-pick-0').click();
+    await expect(page.getByTestId('checkin-fun-cope')).toHaveValue(
+      'Listening to my favorite playlist',
+    );
     await page.getByTestId('checkin-submit').click();
     await expect(page).toHaveURL(/\/cope$/);
     await page.getByTestId('welcome-skip').click();
@@ -352,17 +411,18 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     // Physical and soul come from the habits; work, without one, is picked for the user
     await expect(page.getByTestId('win-habit-physical')).toContainText('morning run');
     await expect(page.getByTestId('win-title-physical')).toContainText('morning run');
-    await expect(page.getByTestId('win-habit-soul')).toContainText('reading');
+    await expect(page.getByTestId('win-habit-soul')).toContainText(/reading/i);
     await expect(page.getByTestId('win-habit-work')).toHaveCount(0);
 
     // Swap the physical win for today only
     await page.getByTestId('swap-open-physical').click();
-    await page.getByTestId('swap-input-physical').fill('yoga in my room');
+    await page.getByTestId('swap-pick-physical-0').click();
+    await expect(page.getByTestId('swap-input-physical')).toHaveValue('Yoga in my room');
     await page.getByTestId('swap-submit-physical').click();
-    await expect(page.getByTestId('task-morph-result')).toContainText('yoga in my room');
+    await expect(page.getByTestId('task-morph-result')).toContainText(/yoga in my room/i);
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('win-habit-physical')).toContainText('Just for today');
-    await expect(page.getByTestId('win-title-physical')).toContainText('yoga');
+    await expect(page.getByTestId('win-title-physical')).toContainText(/yoga/i);
 
     // The standing habit is unchanged on the profile
     await page.getByTestId('nav-profile').click();

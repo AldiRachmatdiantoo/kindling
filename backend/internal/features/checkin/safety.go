@@ -58,3 +58,7 @@ func normalizeSafetyText(raw string) string {
 	}
 	return strings.TrimSpace(b.String())
 }
+
+// CrisisReflection replaces the AI read-back when the brain dump shows signs of crisis. The AI
+// is not called at all in that case; the UI shows the support banner next to it.
+const CrisisReflection = "Thank you for trusting this page with something this heavy. You don't have to carry it alone. Please reach out to someone you trust or a support line right now; the numbers are just below."

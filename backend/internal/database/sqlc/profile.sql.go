@@ -133,3 +133,49 @@ func (q *Queries) GetInsightDays(ctx context.Context, arg GetInsightDaysParams) 
 	}
 	return items, nil
 }
+
+const getPillarCompletions = `-- name: GetPillarCompletions :many
+SELECT
+    log_date,
+    COALESCE(wins_data->'physical'->>'completed' = 'true', false)::BOOLEAN AS physical_done,
+    COALESCE(wins_data->'work'->>'completed' = 'true', false)::BOOLEAN AS work_done,
+    COALESCE(wins_data->'soul'->>'completed' = 'true', false)::BOOLEAN AS soul_done
+FROM daily_logs
+WHERE user_id = $1
+  AND wins_completed_count > 0
+ORDER BY log_date ASC
+`
+
+type GetPillarCompletionsRow struct {
+	LogDate      pgtype.Date `json:"log_date"`
+	PhysicalDone bool        `json:"physical_done"`
+	WorkDone     bool        `json:"work_done"`
+	SoulDone     bool        `json:"soul_done"`
+}
+
+// Lifetime per-pillar completion flags for Milestone Path, oldest first. Kept apart from
+// GetHeatmapDays so the heatmap query still only reads idx_daily_logs_heatmap columns.
+func (q *Queries) GetPillarCompletions(ctx context.Context, userID uuid.UUID) ([]GetPillarCompletionsRow, error) {
+	rows, err := q.db.Query(ctx, getPillarCompletions, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPillarCompletionsRow{}
+	for rows.Next() {
+		var i GetPillarCompletionsRow
+		if err := rows.Scan(
+			&i.LogDate,
+			&i.PhysicalDone,
+			&i.WorkDone,
+			&i.SoulDone,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
