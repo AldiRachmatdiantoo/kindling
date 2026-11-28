@@ -10,6 +10,8 @@ import type {
   RecalibrateData,
   ReflectData,
   SliceTaskData,
+  SplitStepData,
+  StepProgressData,
   SwapWinData,
   ToggleWinData,
 } from './types';
@@ -114,6 +116,22 @@ export const winsApi = {
     apiRequest<ToggleWinData>(`/wins/${date}/toggle`, {
       method: 'PATCH',
       body: { pillar, completed },
+    }),
+
+  /** Records how many roadmap steps are done; the win counts from its floor step. */
+  progress: (date: string, pillar: Pillar, stepsDone: number) =>
+    apiRequest<StepProgressData>(`/wins/${date}/progress`, {
+      method: 'PATCH',
+      body: { pillar, steps_done: stepsDone },
+    }),
+
+  /** Splits the current roadmap step (0-based index) into 2 smaller steps. */
+  splitStep: (date: string, pillar: Pillar, step: number, idempotencyKey?: string) =>
+    apiRequest<SplitStepData>(`/wins/${date}/steps/split`, {
+      method: 'POST',
+      body: { pillar, step },
+      idempotent: true,
+      idempotencyKey,
     }),
 };
 

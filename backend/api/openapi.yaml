@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Kindling API
-  version: 0.7.0
+  version: 0.8.0
   description: >
     Holistic Self-Calibration & Anti-Burnout API ("Small sparks, steady fire.").
     Covers Health, Auth, Check-In & AI (incl. brain-dump reflection), 3 Daily Wins (slice-task,
@@ -838,6 +838,153 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /wins/{date}/progress:
+    patch:
+      summary: Record how many roadmap steps of a physical or soul win are done; completed follows the floor step
+      operationId: setStepProgress
+      tags: [Wins]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepProgressRequest"
+      responses:
+        "200":
+          description: Progress saved; completed is steps_done >= floor_step and wins_completed_count is recomputed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/StepProgressData"
+        "400":
+          description: Validation error (pillar, steps_done out of range, or the win has no roadmap)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Check-in log not found for date (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Date out of range (DATE_OUT_OF_RANGE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /wins/{date}/steps/split:
+    post:
+      summary: Split the current roadmap step into 2 smaller ones ("Too big? Make it smaller"; AI rate limited 10/min/user)
+      operationId: splitStep
+      tags: [Wins]
+      security:
+        - AccessTokenCookie: []
+          CSRFHeader: []
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+            example: "2026-11-26"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: UUID identifying this mutation for idempotent replay (PRD §7.0)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SplitStepRequest"
+      responses:
+        "200":
+          description: The roadmap after the split; the floor moves with a split at or before it
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SplitStepData"
+        "400":
+          description: Validation error (pillar, step is not the current one, the roadmap already has 8 steps, or the win has no roadmap)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Missing or invalid X-CSRF-Token header (CSRF_INVALID)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Check-in log not found for date (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The roadmap changed while the AI was answering (CONCURRENT_MODIFICATION)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Date out of range (DATE_OUT_OF_RANGE)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: AI rate limit exceeded (RATE_LIMITED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /wins/{date}/toggle:
     patch:
       summary: Transactionally toggle a daily win pillar completion status and recompute wins_completed_count
@@ -1195,14 +1342,16 @@ components:
         why_this: { type: string, maxLength: 240, description: "Why this win fits today's scores; replaced by a fixed line after recalibrate. Absent on older logs." }
         steps:
           type: array
-          maxItems: 2
-          description: Two concrete micro-steps; emptied after recalibrate. Absent on older logs.
+          maxItems: 8
+          description: "A roadmap of 3-5 ordered steps toward the activity (up to 8 after splits), or 2 micro-steps on older logs; emptied after recalibrate."
           items: { type: string, maxLength: 120 }
         duration_seconds: { type: integer, minimum: 60, maximum: 3600, nullable: true, description: "Activity timer; null after recalibrate (timer hidden)" }
         level: { type: integer, minimum: 0, maximum: 3 }
         completed: { type: boolean }
         habit: { type: string, maxLength: 120, description: "The activity this win was built from (habit or today's swap)" }
         swapped: { type: boolean, description: "True when traded for another activity, today only" }
+        floor_step: { type: integer, minimum: 1, description: "Set on a roadmap: the 1-based step that counts as showing up; completed is steps_done >= floor_step. Absent on older logs and after recalibrate." }
+        steps_done: { type: integer, minimum: 0, description: "Roadmap steps done today; omitted when 0. Done steps short of the floor read as started in the history." }
     WorkWinItem:
       type: object
       required: [title, level, completed, main_task, micro_step, duration_seconds]
@@ -1434,6 +1583,43 @@ components:
           type: integer
           minimum: 0
           maximum: 3
+    StepProgressRequest:
+      type: object
+      additionalProperties: false
+      required: [pillar, steps_done]
+      properties:
+        pillar: { type: string, enum: [physical, soul] }
+        steps_done: { type: integer, minimum: 0, description: "At most the number of steps in the roadmap" }
+    StepProgressData:
+      type: object
+      required: [pillar, steps_done, completed, wins_completed_count]
+      properties:
+        pillar: { type: string, enum: [physical, soul] }
+        steps_done: { type: integer, minimum: 0 }
+        completed: { type: boolean }
+        wins_completed_count: { type: integer, minimum: 0, maximum: 3 }
+    SplitStepRequest:
+      type: object
+      additionalProperties: false
+      required: [pillar, step]
+      properties:
+        pillar: { type: string, enum: [physical, soul] }
+        step: { type: integer, minimum: 0, description: "0-based index of the step to split; must equal steps_done" }
+    SplitStepData:
+      type: object
+      required: [pillar, steps, floor_step, steps_done]
+      properties:
+        pillar: { type: string, enum: [physical, soul] }
+        steps:
+          type: array
+          maxItems: 8
+          items: { type: string, maxLength: 120 }
+        floor_step: { type: integer, minimum: 1 }
+        steps_done: { type: integer, minimum: 0 }
+        ai_note:
+          type: string
+          enum: [daily_limit, unavailable]
+          description: Set when the deterministic template replaced the AI answer.
     HeatmapRange:
       type: object
       required: [from, to]

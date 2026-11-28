@@ -234,7 +234,7 @@ func (g *GeminiProvider) Recalibrate(ctx context.Context, in RecalibrateInput) (
 func (g *GeminiProvider) PlanWin(ctx context.Context, in PlanWinInput) (WinPlan, error) {
 	var out WinPlan
 	_, err := g.breaker.Execute(func() ([]byte, error) {
-		raw, err := g.generateJSON(ctx, planWinSystemInstruction, BuildPlanWinPrompt(in), winPlanSchema())
+		raw, err := g.generateJSON(ctx, planWinSystemInstruction, BuildPlanWinPrompt(in), winPlanSchema(in.Pillar))
 		if err != nil {
 			return nil, err
 		}
@@ -250,6 +250,29 @@ func (g *GeminiProvider) PlanWin(ctx context.Context, in PlanWinInput) (WinPlan,
 	})
 	if err != nil {
 		return WinPlan{}, err
+	}
+	return out, nil
+}
+
+func (g *GeminiProvider) SplitStep(ctx context.Context, in SplitStepInput) (SplitStepOutput, error) {
+	var out SplitStepOutput
+	_, err := g.breaker.Execute(func() ([]byte, error) {
+		raw, err := g.generateJSON(ctx, splitStepSystemInstruction, BuildSplitStepPrompt(in), splitStepResponseSchema())
+		if err != nil {
+			return nil, err
+		}
+		var parsed SplitStepOutput
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return nil, fmt.Errorf("unmarshal gemini split step output: %w", err)
+		}
+		if err := ValidateSplitStepOutput(parsed); err != nil {
+			return nil, fmt.Errorf("validate gemini split step output: %w", err)
+		}
+		out = parsed
+		return raw, nil
+	})
+	if err != nil {
+		return SplitStepOutput{}, err
 	}
 	return out, nil
 }
@@ -470,29 +493,46 @@ func checkinResponseSchema() map[string]any {
 				"type":     "OBJECT",
 				"required": []string{"physical", "work", "soul"},
 				"properties": map[string]any{
-					"physical": winPlanSchema(),
-					"work":     winPlanSchema(),
-					"soul":     winPlanSchema(),
+					"physical": winPlanSchema("physical"),
+					"work":     winPlanSchema("work"),
+					"soul":     winPlanSchema("soul"),
 				},
 			},
 		},
 	}
 }
 
-func winPlanSchema() map[string]any {
+// winPlanSchema is one pillar's win: work has exactly 2 steps, physical and soul a roadmap
+// of 3..5 steps plus the floor step that counts as showing up.
+func winPlanSchema(pillar string) map[string]any {
+	minSteps, maxSteps := WinStepsCount, WinStepsCount
+	required := []string{"title", "why_this", "steps", "duration_seconds"}
+	props := map[string]any{
+		"title":            map[string]any{"type": "STRING"},
+		"why_this":         map[string]any{"type": "STRING"},
+		"duration_seconds": map[string]any{"type": "INTEGER"},
+	}
+	if IsRoadmapPillar(pillar) {
+		minSteps, maxSteps = RoadmapMinSteps, RoadmapMaxSteps
+		required = append(required, "floor_step")
+		props["floor_step"] = map[string]any{"type": "INTEGER"}
+	}
+	props["steps"] = map[string]any{
+		"type":     "ARRAY",
+		"minItems": minSteps,
+		"maxItems": maxSteps,
+		"items":    map[string]any{"type": "STRING"},
+	}
+	return map[string]any{"type": "OBJECT", "required": required, "properties": props}
+}
+
+func splitStepResponseSchema() map[string]any {
 	return map[string]any{
 		"type":     "OBJECT",
-		"required": []string{"title", "why_this", "steps", "duration_seconds"},
+		"required": []string{"first", "second"},
 		"properties": map[string]any{
-			"title":    map[string]any{"type": "STRING"},
-			"why_this": map[string]any{"type": "STRING"},
-			"steps": map[string]any{
-				"type":     "ARRAY",
-				"minItems": WinStepsCount,
-				"maxItems": WinStepsCount,
-				"items":    map[string]any{"type": "STRING"},
-			},
-			"duration_seconds": map[string]any{"type": "INTEGER"},
+			"first":  map[string]any{"type": "STRING"},
+			"second": map[string]any{"type": "STRING"},
 		},
 	}
 }

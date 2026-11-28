@@ -127,7 +127,8 @@ func ValidateCheckinOutput(out CheckinOutput) error {
 // ValidateWinPlan checks a single pillar's win, e.g. one planned for a swapped activity.
 func ValidateWinPlan(pillar string, w WinPlan) error { return validateWinPlan(pillar, w) }
 
-// validateWinPlan checks one card is ready to run: a title, a reason, exactly 2 steps, a duration.
+// validateWinPlan checks one card is ready to run: a title, a reason, its steps, a duration.
+// Work has exactly 2 steps; physical and soul have a roadmap of 3..5 steps with a floor step.
 func validateWinPlan(pillar string, w WinPlan) error {
 	t := strings.TrimSpace(w.Title)
 	if t == "" {
@@ -143,7 +144,14 @@ func validateWinPlan(pillar string, w WinPlan) error {
 	if utf8.RuneCountInString(why) > MaxWhyThisRunes {
 		return fmt.Errorf("wins.%s.why_this exceeds %d runes", pillar, MaxWhyThisRunes)
 	}
-	if len(w.Steps) != WinStepsCount {
+	if IsRoadmapPillar(pillar) {
+		if len(w.Steps) < RoadmapMinSteps || len(w.Steps) > RoadmapMaxSteps {
+			return fmt.Errorf("wins.%s.steps must have %d to %d items", pillar, RoadmapMinSteps, RoadmapMaxSteps)
+		}
+		if w.FloorStep < 1 || w.FloorStep > len(w.Steps) {
+			return fmt.Errorf("wins.%s.floor_step %d out of range [1,%d]", pillar, w.FloorStep, len(w.Steps))
+		}
+	} else if len(w.Steps) != WinStepsCount {
 		return fmt.Errorf("wins.%s.steps must have exactly %d items", pillar, WinStepsCount)
 	}
 	for i, step := range w.Steps {
@@ -157,6 +165,20 @@ func validateWinPlan(pillar string, w WinPlan) error {
 	}
 	if w.DurationSeconds < MinWinDurationSeconds || w.DurationSeconds > MaxWinDurationSeconds {
 		return fmt.Errorf("wins.%s.duration_seconds %d out of range [%d,%d]", pillar, w.DurationSeconds, MinWinDurationSeconds, MaxWinDurationSeconds)
+	}
+	return nil
+}
+
+// ValidateSplitStepOutput checks both halves of a split roadmap step are present and short.
+func ValidateSplitStepOutput(out SplitStepOutput) error {
+	for name, v := range map[string]string{"first": out.First, "second": out.Second} {
+		t := strings.TrimSpace(v)
+		if t == "" {
+			return fmt.Errorf("%s is empty", name)
+		}
+		if utf8.RuneCountInString(t) > MaxWinStepRunes {
+			return fmt.Errorf("%s exceeds %d runes", name, MaxWinStepRunes)
+		}
 	}
 	return nil
 }

@@ -53,7 +53,7 @@ export const SWAP_PICKS: Partial<Record<Pillar, readonly string[]>> = {
  * "Do something else today": the user names another activity and the win is rebuilt from it,
  * for today only. The standing habit is untouched and returns tomorrow.
  */
-function SwapToday({
+export function SwapToday({
   pillar,
   onSwap,
   busy,

@@ -144,6 +144,9 @@ func (s *Service) SwapWin(ctx context.Context, userID uuid.UUID, dateStr string,
 		Habit:           activity,
 		Swapped:         true,
 	}
+	if n := len(item.Steps); plan.FloorStep >= 1 && n >= ai.RoadmapMinSteps {
+		item.FloorStep = min(plan.FloorStep, n)
+	}
 	if err := s.repo.ApplySwap(ctx, userID, parsedDate, pillar, item); err != nil {
 		return SwapWinResponse{}, err
 	}

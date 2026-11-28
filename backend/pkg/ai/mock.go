@@ -218,6 +218,11 @@ func (m *MockAiProvider) PlanWin(_ context.Context, in PlanWinInput) (WinPlan, e
 	return HabitWin(in.CalibrationTier, in.Scores, in.Pillar, in.Activity, in.Struggle), nil
 }
 
+// SplitStep splits a roadmap step with the deterministic template.
+func (m *MockAiProvider) SplitStep(_ context.Context, in SplitStepInput) (SplitStepOutput, error) {
+	return SplitStepTemplate(in.Step), nil
+}
+
 // Reflect returns a deterministic template read-back; it never echoes the user's words.
 func (m *MockAiProvider) Reflect(_ context.Context, in ReflectInput) (ReflectOutput, error) {
 	seed := hashSeed(string(in.CalibrationTier), strings.TrimSpace(in.Text))

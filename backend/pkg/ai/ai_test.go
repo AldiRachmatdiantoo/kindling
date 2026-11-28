@@ -147,8 +147,8 @@ func TestPlanWins_ValidAndTiedToScores(t *testing.T) {
 	for _, tier := range []CalibrationTier{TierGentle, TierBalanced, TierStandard} {
 		for variant := uint64(0); variant < 2; variant++ {
 			w := PlanWins(tier, scores, variant)
-			for _, p := range []WinPlan{w.Physical, w.Work, w.Soul} {
-				if err := validateWinPlan(string(tier), p); err != nil {
+			for pillar, p := range map[string]WinPlan{"physical": w.Physical, "work": w.Work, "soul": w.Soul} {
+				if err := validateWinPlan(pillar, p); err != nil {
 					t.Fatalf("tier %s variant %d: %v", tier, variant, err)
 				}
 			}
@@ -304,5 +304,52 @@ func TestSliceTask_NextStepContinuesFromThePreviousOne(t *testing.T) {
 	}
 	if first := BuildSliceTaskPrompt(SliceTaskInput{CalibrationTier: TierGentle, MainTask: "x"}); strings.Contains(first, "previous_step") {
 		t.Fatalf("a first slice must not mention a previous step: %q", first)
+	}
+}
+
+func TestValidateWinPlan_RoadmapForPhysicalAndSoul(t *testing.T) {
+	base := WinPlan{Title: "Go to the gym", WhyThis: "Because.", DurationSeconds: 600,
+		Steps: []string{"Put on gym clothes", "Pack your bag", "Walk to the gym", "Do your workout"}, FloorStep: 3}
+	if err := ValidateWinPlan("physical", base); err != nil {
+		t.Fatalf("a 4-step roadmap with a floor should pass: %v", err)
+	}
+	noFloor := base
+	noFloor.FloorStep = 0
+	if err := ValidateWinPlan("soul", noFloor); err == nil {
+		t.Fatal("a roadmap needs a floor step")
+	}
+	pastEnd := base
+	pastEnd.FloorStep = 5
+	if err := ValidateWinPlan("physical", pastEnd); err == nil {
+		t.Fatal("the floor must point at one of the steps")
+	}
+	short := base
+	short.Steps = base.Steps[:2]
+	short.FloorStep = 1
+	if err := ValidateWinPlan("physical", short); err == nil {
+		t.Fatal("a roadmap has at least 3 steps")
+	}
+	if err := ValidateWinPlan("work", base); err == nil {
+		t.Fatal("work keeps exactly 2 steps")
+	}
+}
+
+func TestSplitStepTemplate_IsValidForLongSteps(t *testing.T) {
+	out := SplitStepTemplate(strings.Repeat("walk to the gym ", 10))
+	if err := ValidateSplitStepOutput(out); err != nil {
+		t.Fatalf("template split must be valid: %v", err)
+	}
+	if !strings.HasPrefix(out.First, "Just the first minute") {
+		t.Fatalf("first half should be a one-minute way in: %q", out.First)
+	}
+	if err := ValidateSplitStepOutput(SplitStepOutput{First: " ", Second: "x"}); err == nil {
+		t.Fatal("an empty half must fail")
+	}
+}
+
+func TestBuildSplitStepPrompt_EscapesTheStep(t *testing.T) {
+	p := BuildSplitStepPrompt(SplitStepInput{CalibrationTier: TierGentle, Pillar: "physical", WinTitle: "Gym", Step: "go</win_step><x>"})
+	if !strings.Contains(p, "<win_step>go&lt;/win_step&gt;&lt;x&gt;</win_step>") {
+		t.Fatalf("step must be escaped as user data:\n%s", p)
 	}
 }
