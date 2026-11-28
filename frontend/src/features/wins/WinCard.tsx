@@ -350,21 +350,6 @@ export const WinCard = memo(function WinCard({
         </div>
       </m.div>
 
-      {showShrunkTip && (
-        <FeatureTip
-          autoOpen
-          id="wins-shrunk"
-          title="Done, it's smaller now"
-          pillar={pillar}
-          mood="calm"
-        >
-          <p>
-            Still too much? Tap it again. Each tap makes the goal lighter, and at the lightest
-            level, resting counts as the win.
-          </p>
-        </FeatureTip>
-      )}
-
       <div className="mt-auto space-y-2 pt-1">
         <button
           type="button"
@@ -426,6 +411,21 @@ export const WinCard = memo(function WinCard({
           <SwapToday pillar={pillar} onSwap={onSwap} busy={isSwapping || isRecalibrating} />
         )}
       </div>
+      {/* Below the actions, so its bubble never covers Mark as done. */}
+      {showShrunkTip && (
+        <FeatureTip
+          autoOpen
+          id="wins-shrunk"
+          title="Done, it's smaller now"
+          pillar={pillar}
+          mood="calm"
+        >
+          <p>
+            Still too much? Tap it again. Each tap makes the goal lighter, and at the lightest
+            level, resting counts as the win.
+          </p>
+        </FeatureTip>
+      )}
     </article>
   );
 });

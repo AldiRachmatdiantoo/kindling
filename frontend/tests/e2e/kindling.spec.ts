@@ -61,6 +61,8 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
   test('full daily calibration flow: register -> Preset A -> cope -> brain-dump reflection -> slice task -> recalibrate -> 3 wins -> profile heatmap complete', async ({
     page,
   }) => {
+    // The longest journey in the suite: it walks a roadmap, three celebrations and the 3/3 finale.
+    test.setTimeout(90_000);
     const email = uniqueEmail('e2e-flow');
     const today = getTodayInJakarta();
 
