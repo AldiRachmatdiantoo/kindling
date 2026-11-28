@@ -35,6 +35,12 @@ function renderCheckin() {
 
 const stepLabel = () => screen.getByTestId('checkin-step-label');
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * These tests run on real timers (the 400 ms auto-advance plus render). The 1 s default of
+ * waitFor/findBy leaves little room on a loaded machine, so waits for a step to appear get 3 s.
+ * Checks that a step did NOT change still use fixed short waits.
+ */
+const STEP_WAIT = { timeout: 3000 };
 
 /** A real tap: pointerdown then click, like a mouse or finger. */
 function tapAnswer(value: number) {
@@ -46,7 +52,7 @@ function tapAnswer(value: number) {
 
 async function start() {
   renderCheckin();
-  fireEvent.click(await screen.findByTestId('checkin-guide-skip'));
+  fireEvent.click(await screen.findByTestId('checkin-guide-skip', {}, STEP_WAIT));
   expect(stepLabel()).toHaveTextContent('1 of 9');
 }
 
@@ -63,7 +69,7 @@ describe('CheckinPage auto-advance', () => {
     expect(screen.getAllByRole('radio')[1]).toBeChecked();
     expect(screen.queryByTestId('checkin-next')).not.toBeInTheDocument();
 
-    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'));
+    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'), STEP_WAIT);
     // The new, unanswered question has no Next button, and focus followed the user.
     expect(screen.queryByTestId('checkin-next')).not.toBeInTheDocument();
     expect(document.activeElement).toBe(screen.getAllByRole('radio')[0]);
@@ -85,20 +91,20 @@ describe('CheckinPage auto-advance', () => {
 
     // Enter confirms the highlighted option and moves on.
     fireEvent.keyDown(radios[3], { key: 'Enter' });
-    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'));
+    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'), STEP_WAIT);
   });
 
   it('moves on with Space too', async () => {
     await start();
     fireEvent.keyDown(screen.getAllByRole('radio')[0], { key: ' ' });
-    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'));
+    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'), STEP_WAIT);
   });
 
   it('skips only one question on a quick double tap', async () => {
     await start();
     tapAnswer(3);
     tapAnswer(3);
-    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'));
+    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'), STEP_WAIT);
     await wait(AUTO_ADVANCE_MS + 150);
     expect(stepLabel()).toHaveTextContent('2 of 9');
   });
@@ -106,7 +112,7 @@ describe('CheckinPage auto-advance', () => {
   it('keeps Back, and shows Next again on an answered question', async () => {
     await start();
     tapAnswer(1);
-    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'));
+    await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'), STEP_WAIT);
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous question' }));
     expect(stepLabel()).toHaveTextContent('1 of 9');
@@ -132,7 +138,7 @@ describe('CheckinPage auto-advance', () => {
     try {
       await start();
       tapAnswer(4);
-      await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'));
+      await waitFor(() => expect(stepLabel()).toHaveTextContent('2 of 9'), STEP_WAIT);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -143,7 +149,7 @@ describe('CheckinPage auto-advance', () => {
 
     const answer = async (value: number, expected: string) => {
       tapAnswer(value);
-      await waitFor(() => expect(stepLabel()).toHaveTextContent(expected));
+      await waitFor(() => expect(stepLabel()).toHaveTextContent(expected), STEP_WAIT);
     };
     const continueRead = async (pillar: string) => {
       fireEvent.click(await screen.findByTestId('reading-continue', {}, { timeout: 3000 }));
@@ -174,7 +180,7 @@ describe('CheckinPage auto-advance', () => {
     fireEvent.click(screen.getByTestId('conclusion-continue'));
     // Then the habits the wins are built from; with none set yet, the form can be skipped
     expect(stepLabel()).toHaveTextContent('Your habits');
-    fireEvent.click(await screen.findByTestId('habits-skip'));
+    fireEvent.click(await screen.findByTestId('habits-skip', {}, STEP_WAIT));
     expect(stepLabel()).toHaveTextContent('Last step');
   }, 20000);
 });
@@ -184,7 +190,7 @@ describe('CheckinPage fun thing quick picks', () => {
 
   it('fills the fun thing from a chip and keeps it editable', async () => {
     renderCheckin();
-    fireEvent.click(await screen.findByTestId('preset-a-button'));
+    fireEvent.click(await screen.findByTestId('preset-a-button', {}, STEP_WAIT));
     const input = screen.getByTestId('checkin-fun-cope');
 
     const chips = screen.getAllByRole('button', { name: /^Use "/ });
@@ -193,7 +199,7 @@ describe('CheckinPage fun thing quick picks', () => {
 
     fireEvent.click(screen.getByRole('button', { name: `Use "${FUN_PICKS[1]}"` }));
     expect(input).toHaveValue(FUN_PICKS[1]);
-    await waitFor(() => expect(document.activeElement).toBe(input));
+    await waitFor(() => expect(document.activeElement).toBe(input), STEP_WAIT);
 
     fireEvent.change(input, { target: { value: `${FUN_PICKS[1]} on the couch` } });
     expect(input).toHaveValue(`${FUN_PICKS[1]} on the couch`);
