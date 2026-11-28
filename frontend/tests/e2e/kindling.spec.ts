@@ -1,9 +1,29 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import crypto from 'node:crypto';
 
 function uniqueEmail(prefix: string): string {
   const suffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   return `${prefix}-${suffix}@kindling.test`;
+}
+
+/**
+ * Presses Register or Sign in. The whole suite runs from one IP and makes about as many API
+ * calls as the per-IP limit (60/min) allows, so a test can meet a 429 here. Like the on-screen
+ * message asks a person to, wait out Retry-After and press the button again; the limiter is
+ * not touched.
+ */
+async function submitAuthForm(page: Page, form: 'register' | 'login'): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes(`/api/v1/auth/${form}`) && res.request().method() === 'POST',
+      ),
+      page.getByTestId(`${form}-submit`).click(),
+    ]);
+    if (response.status() !== 429) return;
+    const retryAfter = Number(response.headers()['retry-after'] ?? '5');
+    await page.waitForTimeout((Number.isFinite(retryAfter) ? retryAfter : 5) * 1000 + 1000);
+  }
 }
 
 function getTodayInJakarta(): string {
@@ -53,7 +73,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-password').fill('SafePassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
-    await page.getByTestId('register-submit').click();
+    await submitAuthForm(page, 'register');
 
     // A new account lands on the welcome screen first, then goes on to the check-in
     await expect(page).toHaveURL(/\/welcome$/);
@@ -216,7 +236,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page).toHaveURL(/\/login$/);
     await page.getByTestId('login-email').fill(email);
     await page.getByTestId('login-password').fill('SafePassw0rd123!');
-    await page.getByTestId('login-submit').click();
+    await submitAuthForm(page, 'login');
     await expect(page).toHaveURL(/\/welcome$/);
     await expect(page.getByTestId('welcome-title')).toContainText('Welcome back');
     await page.getByTestId('welcome-to-wins').click();
@@ -234,7 +254,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-password').fill('DeferPassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
-    await page.getByTestId('register-submit').click();
+    await submitAuthForm(page, 'register');
 
     // "Answer later" right on the welcome screen
     await expect(page).toHaveURL(/\/welcome$/);
@@ -275,7 +295,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-password').fill('RefreshPassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
-    await page.getByTestId('register-submit').click();
+    await submitAuthForm(page, 'register');
 
     await expect(page).toHaveURL(/\/welcome$/);
     await page.getByTestId('welcome-start').click();
@@ -349,7 +369,7 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await page.getByTestId('register-password').fill('HabitPassw0rd123!');
     await page.getByTestId('register-timezone').fill('Asia/Jakarta');
     await page.getByTestId('register-ai-consent').check();
-    await page.getByTestId('register-submit').click();
+    await submitAuthForm(page, 'register');
     await expect(page).toHaveURL(/\/welcome$/);
     await page.getByTestId('welcome-start').click();
     await page.getByTestId('checkin-guide-skip').click();

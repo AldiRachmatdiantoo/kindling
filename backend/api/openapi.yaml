@@ -1,10 +1,13 @@
 openapi: 3.0.3
 info:
   title: Kindling API
-  version: 0.6.0
+  version: 0.7.0
   description: >
     Holistic Self-Calibration & Anti-Burnout API ("Small sparks, steady fire.").
-    Updated incrementally per module (currently Modul 1–4: Health, Core, Auth, Check-In & AI, 3 Daily Wins, Profile Heatmap).
+    Covers Health, Auth, Check-In & AI (incl. brain-dump reflection), 3 Daily Wins (slice-task,
+    recalibrate, swap, toggle), Habits, and Profile (heatmap, Milestone Path, Pattern Discovery).
+    AI endpoints return `ai_note` (`daily_limit` or `unavailable`) when a deterministic template
+    replaced the AI answer.
 servers:
   - url: http://localhost/api/v1
     description: Local Docker Compose via NGINX load balancer
@@ -280,7 +283,7 @@ paths:
               $ref: "#/components/schemas/CheckinRequest"
       responses:
         "200":
-          description: Check-in scored, calibrated, and saved (or replayed from idempotency store)
+          description: Check-in scored, calibrated, and saved (or replayed from idempotency store); ai_note is set when the template replaced the AI
           content:
             application/json:
               schema:
@@ -289,7 +292,7 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: "#/components/schemas/DailyLog"
+                        $ref: "#/components/schemas/CheckinData"
         "400":
           description: Validation error (answers, text length, or Idempotency-Key format)
           content:
@@ -600,7 +603,10 @@ paths:
               $ref: "#/components/schemas/SliceTaskRequest"
       responses:
         "200":
-          description: Task sliced into a micro-step and saved to wins_data.work
+          description: >
+            Task sliced into a micro-step and saved to wins_data.work. With next_step true the server
+            reads the stored main_task and current micro_step (never the client's) and returns the
+            following step with steps_done incremented.
           content:
             application/json:
               schema:
@@ -611,7 +617,7 @@ paths:
                       data:
                         $ref: "#/components/schemas/SliceTaskData"
         "400":
-          description: Validation error (main_task, date format, or Idempotency-Key)
+          description: Validation error (main_task, next_step without a current micro-step, date format, or Idempotency-Key)
           content:
             application/json:
               schema:
@@ -991,6 +997,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /profile/insights:
+    get:
+      summary: Pattern Discovery from the user's own check-ins of the last 90 days (at most 3 insights, each with its sample size)
+      description: >
+        Reads the last 90 days of the user's check-ins (in the user's timezone). Needs at least
+        7 days of data; below that, insights is empty. Each insight is worded as a tendency and
+        carries the number of days it is based on. Not an AI endpoint.
+      operationId: getProfileInsights
+      tags: [Profile]
+      security:
+        - AccessTokenCookie: []
+      responses:
+        "200":
+          description: Insights (possibly empty) with the analysis window and the number of days analyzed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/InsightsData"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   securitySchemes:
     AccessTokenCookie:
@@ -1153,9 +1189,16 @@ components:
           maxLength: 240
     WinItem:
       type: object
-      required: [title, level, completed]
+      required: [title, duration_seconds, level, completed]
       properties:
         title: { type: string, maxLength: 80 }
+        why_this: { type: string, maxLength: 240, description: "Why this win fits today's scores; replaced by a fixed line after recalibrate. Absent on older logs." }
+        steps:
+          type: array
+          maxItems: 2
+          description: Two concrete micro-steps; emptied after recalibrate. Absent on older logs.
+          items: { type: string, maxLength: 120 }
+        duration_seconds: { type: integer, minimum: 60, maximum: 3600, nullable: true, description: "Activity timer; null after recalibrate (timer hidden)" }
         level: { type: integer, minimum: 0, maximum: 3 }
         completed: { type: boolean }
         habit: { type: string, maxLength: 120, description: "The activity this win was built from (habit or today's swap)" }
@@ -1167,9 +1210,16 @@ components:
         title: { type: string, maxLength: 80 }
         level: { type: integer, minimum: 0, maximum: 3 }
         completed: { type: boolean }
+        why_this: { type: string, maxLength: 240 }
+        steps:
+          type: array
+          maxItems: 2
+          items: { type: string, maxLength: 120 }
         main_task: { type: string, nullable: true }
         micro_step: { type: string, nullable: true }
-        duration_seconds: { type: integer, nullable: true }
+        duration_seconds: { type: integer, nullable: true, description: "The plan's length at first, the micro-step's once sliced" }
+        steps_done: { type: integer, minimum: 0, description: "Micro-steps finished before the current one (progressive slicing); omitted when 0" }
+        habit: { type: string, maxLength: 120, description: "The habit this win was built from" }
     WinsData:
       type: object
       required: [physical, work, soul]
@@ -1205,6 +1255,16 @@ components:
         positive_cope_chosen: { type: string, nullable: true }
         wins_data: { $ref: "#/components/schemas/WinsData" }
         wins_completed_count: { type: integer, minimum: 0, maximum: 3 }
+    CheckinData:
+      description: The saved daily log as returned by POST /checkin.
+      allOf:
+        - $ref: "#/components/schemas/DailyLog"
+        - type: object
+          properties:
+            ai_note:
+              type: string
+              enum: [daily_limit, unavailable]
+              description: Set when the deterministic template replaced the AI answer.
     CopeUpdateRequest:
       type: object
       required: [cope_option_id]
@@ -1263,9 +1323,15 @@ components:
           minLength: 1
           maxLength: 300
           example: "Menyelesaikan laporan praktikum jaringan komputer bab 3"
+        next_step:
+          type: boolean
+          default: false
+          description: >
+            True after the user finished the current micro-step: the server uses the stored
+            main_task and micro_step to plan the next one. Needs an existing micro-step (400 otherwise).
     SliceTaskData:
       type: object
-      required: [main_task, micro_step, duration_seconds]
+      required: [main_task, micro_step, duration_seconds, steps_done]
       properties:
         main_task:
           type: string
@@ -1276,6 +1342,14 @@ components:
           type: integer
           minimum: 300
           maximum: 600
+        steps_done:
+          type: integer
+          minimum: 0
+          description: Micro-steps finished before this one (0 for a fresh slice).
+        ai_note:
+          type: string
+          enum: [daily_limit, unavailable]
+          description: Set when the deterministic template replaced the AI answer.
     Habit:
       type: object
       required: [activity, struggle]
@@ -1307,6 +1381,7 @@ components:
         ai_note:
           type: string
           enum: [daily_limit, unavailable]
+          description: Set when the deterministic template replaced the AI answer.
     RecalibrateRequest:
       type: object
       required: [pillar]
@@ -1332,6 +1407,11 @@ components:
           type: integer
           minimum: 60
           maximum: 600
+          description: Only for the work pillar once sliced; capped at 300/180/60 seconds for levels 1/2/3.
+        ai_note:
+          type: string
+          enum: [daily_limit, unavailable]
+          description: Set when the deterministic template replaced the AI answer.
     ToggleWinRequest:
       type: object
       required: [pillar, completed]
@@ -1468,6 +1548,44 @@ components:
             $ref: "#/components/schemas/HeatmapDay"
         pillar_progress:
           $ref: "#/components/schemas/PillarProgressSet"
+    Insight:
+      type: object
+      required: [id, kind, headline, detail, sample_size]
+      properties:
+        id:
+          type: string
+          example: "weekday-peak"
+        kind:
+          type: string
+          enum: [weekday_peak, cope_next_day, exhaustion_trend, recovery_days]
+        headline:
+          type: string
+          example: "Your physical exhaustion tends to peak on Mondays"
+        detail:
+          type: string
+        sample_size:
+          type: integer
+          minimum: 1
+          description: Number of days this insight is based on.
+    InsightsData:
+      type: object
+      required: [window_days, days_analyzed, min_days, insights]
+      properties:
+        window_days:
+          type: integer
+          example: 90
+        days_analyzed:
+          type: integer
+          minimum: 0
+        min_days:
+          type: integer
+          example: 7
+          description: Days of check-ins needed before any insight is shown.
+        insights:
+          type: array
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/Insight"
     Meta:
       type: object
       required: [request_id]

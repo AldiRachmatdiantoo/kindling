@@ -82,13 +82,18 @@ async function refreshSessionSingleFlight(): Promise<boolean> {
     return activeRefreshPromise;
   }
 
+  // The CSRF cookie is set with the session and lives as long as the refresh token. Without it
+  // the server rejects /auth/refresh with 403, so a guest skips the call instead of spending a
+  // request from the per-IP limit on a guaranteed failure.
+  const csrfToken = getCookie('csrf_token');
+  if (!csrfToken) {
+    return false;
+  }
+
   activeRefreshPromise = (async () => {
     try {
       const headers = new Headers();
-      const csrfToken = getCookie('csrf_token');
-      if (csrfToken) {
-        headers.set('X-CSRF-Token', csrfToken);
-      }
+      headers.set('X-CSRF-Token', csrfToken);
 
       const response = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
