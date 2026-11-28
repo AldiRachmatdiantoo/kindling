@@ -22,7 +22,7 @@ import { RecoveryLockedView } from './RecoveryLockedView';
 import { isRoadmap, RoadmapPanel } from './RoadmapPanel';
 import { WinCard } from './WinCard';
 import { WinRow } from './WinRow';
-import { WorkTaskSlicer } from './WorkTaskSlicer';
+import { WorkPanel } from './WorkPanel';
 import { Badge } from '@/components/ui/badge';
 
 // Mirrors the backend's RecalibratedWhyThis: once a goal shrinks, its old reason and steps no longer fit.
@@ -298,10 +298,6 @@ export function WinsPage() {
     }
   }, []);
 
-  const handleWinWorkHere = useCallback(() => {
-    void handleToggle('work');
-  }, [handleToggle]);
-
   const handleRecalibrate = useCallback(
     async (pillar: Pillar) => {
       const current = dailyLogRef.current;
@@ -548,7 +544,23 @@ export function WinsPage() {
 
   const selectedItem = dailyLog.wins_data[selected];
   const detail =
-    selected !== 'work' && isRoadmap(selectedItem) ? (
+    selected === 'work' ? (
+      <WorkPanel
+        work={dailyLog.wins_data.work}
+        logDate={dailyLog.log_date}
+        userId={user?.id}
+        slicing={slicing}
+        isToggling={togglingPillars.has('work')}
+        isRecalibrating={recalibratingPillar === 'work'}
+        finishedStep={finishedStep}
+        previousTitle={previousTitle.work}
+        onFinishStep={setFinishedStep}
+        onSliceTask={handleSliceTask}
+        onSliceNextStep={handleSliceNextStep}
+        onToggle={handleToggle}
+        onRecalibrate={handleRecalibrate}
+      />
+    ) : isRoadmap(selectedItem) ? (
       <RoadmapPanel
         key={selected}
         pillar={selected}
@@ -580,24 +592,8 @@ export function WinsPage() {
         onToggleDetails={handleToggleDetails}
         onToggle={handleToggle}
         onRecalibrate={handleRecalibrate}
-        onSwap={selected === 'work' ? undefined : handleSwap}
+        onSwap={handleSwap}
         isSwapping={swappingPillar === selected}
-        workSlicer={
-          selected === 'work' ? (
-            <WorkTaskSlicer
-              work={dailyLog.wins_data.work}
-              logDate={dailyLog.log_date}
-              userId={user?.id}
-              slicing={slicing}
-              isToggling={togglingPillars.has('work')}
-              finishedStep={finishedStep}
-              onFinishStep={setFinishedStep}
-              onSliceTask={handleSliceTask}
-              onSliceNextStep={handleSliceNextStep}
-              onWinHere={handleWinWorkHere}
-            />
-          ) : undefined
-        }
       />
     );
 

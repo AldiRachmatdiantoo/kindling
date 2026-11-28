@@ -165,24 +165,57 @@ describe('WinsPage state and UX', () => {
       duration_seconds: 180,
     });
 
+    // Kept open (not completed) so "Still too heavy" stays available for the second half.
+    const toggle = vi
+      .spyOn(winsApi, 'toggle')
+      .mockResolvedValue({ pillar: 'work', completed: false, wins_completed_count: 0 });
+
     renderWins();
     fireEvent.click(await screen.findByTestId('win-row-work'));
-    fireEvent.click(await screen.findByTestId('win-details-toggle-work'));
-    fireEvent.click(screen.getByTestId('work-step-finished-early'));
+    // The current tiny step shows big with its own Done; finishing the first one is the win.
+    expect(await screen.findByTestId('work-micro-step')).toHaveTextContent('Open the document');
+    fireEvent.click(screen.getByTestId('work-step-done'));
     expect(screen.getByTestId('work-step-choice')).toBeInTheDocument();
+    expect(toggle).toHaveBeenCalledWith('2026-11-26', 'work', true);
 
     // Slicing a new task resets finishedStep
+    fireEvent.click(screen.getByTestId('work-change-task'));
     fireEvent.change(screen.getByTestId('slice-task-input'), { target: { value: 'New task' } });
     fireEvent.submit(screen.getByTestId('slice-task-form'));
 
     await waitFor(() => expect(screen.queryByTestId('work-step-choice')).not.toBeInTheDocument());
     fireEvent.click(await screen.findByTestId('task-morph-close'));
 
-    // Mark finished early again, then recalibrate work -> finishedStep resets again
-    fireEvent.click(screen.getByTestId('work-step-finished-early'));
+    // Done again, then recalibrate work -> finishedStep resets again
+    await waitFor(() => expect(screen.getByTestId('work-step-done')).not.toBeDisabled());
+    fireEvent.click(screen.getByTestId('work-step-done'));
     expect(screen.getByTestId('work-step-choice')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('recalibrate-work'));
     await waitFor(() => expect(screen.queryByTestId('work-step-choice')).not.toBeInTheDocument());
+  });
+
+  it('asks for the task first when work has none yet', async () => {
+    renderWins(
+      makeLog({
+        wins_data: {
+          ...makeLog().wins_data,
+          work: {
+            title: 'Pick one work task',
+            level: 0,
+            completed: false,
+            main_task: null,
+            micro_step: null,
+            duration_seconds: null,
+          },
+        },
+      }),
+    );
+    fireEvent.click(await screen.findByTestId('win-row-work'));
+    expect(screen.getByTestId('slice-task-input')).toBeInTheDocument();
+    expect(screen.getByTestId('roadmap-floor-work')).toHaveTextContent(
+      "Today's win counts from here",
+    );
+    expect(screen.queryByTestId('work-step-done')).toBeNull();
   });
 
   it('loads the Milestone Path totals only when the third win lands', async () => {

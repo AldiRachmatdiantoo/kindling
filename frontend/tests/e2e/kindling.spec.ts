@@ -142,14 +142,9 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(page).toHaveURL(/\/wins$/);
     await expect(page.getByTestId('wins-progress-badge')).toContainText('0 / 3');
 
-    // 5. Slice task on Work Win: pick it in the list, then open its details in the panel
+    // 5. Slice task on Work Win: the panel asks for the task straight away
     await page.getByTestId('win-row-work').click();
-    await expect(page.getByTestId('win-details-work')).toBeHidden();
-    await page.getByTestId('win-details-toggle-work').click();
-    await expect(page.getByTestId('win-details-toggle-work')).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
+    await expect(page.getByTestId('roadmap-floor-work')).toHaveAttribute('data-reached', 'false');
     await page.getByTestId('slice-task-input').fill('Menyusun ringkasan modul laporan akhir');
     await page.getByTestId('slice-task-submit').click();
     // The slicing moment plays in the middle of the screen, shows the step, then waits for a tap
@@ -200,11 +195,14 @@ test.describe('Kindling E2E (AI_PROVIDER=mock)', () => {
     await expect(celebration).toBeHidden();
     await expect(page.getByTestId('wins-progress-badge')).toContainText('1 / 3');
 
+    // Work lands with the first tiny step done; a next one is offered as a bonus.
     await page.getByTestId('win-row-work').click();
-    await page.getByTestId('win-toggle-work').click();
+    await page.getByTestId('work-step-done').click();
     await expect(celebration).toHaveAttribute('data-ready', 'true');
     await celebration.click();
     await expect(celebration).toBeHidden();
+    await expect(page.getByTestId('work-step-choice')).toBeVisible();
+    await expect(page.getByTestId('roadmap-floor-work')).toHaveAttribute('data-reached', 'true');
     await expect(page.getByTestId('wins-progress-badge')).toContainText('2 / 3');
 
     // Soul is a roadmap: its win lands at the floor step.
