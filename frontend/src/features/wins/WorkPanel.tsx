@@ -144,8 +144,62 @@ export function WorkPanel({
   // The road, in order: the task, each tiny step, then the next one on offer. The floor line
   // sits after the first tiny step, because finishing it is today's win.
   const stops: ReactNode[] = [];
+  // Marked done for work outside the app, before any task: the win is in, and slicing a task
+  // stays on offer as a bonus instead of asking for Step 1 as if nothing happened.
+  const doneOutside = winIn && !work.main_task;
+  const taskForm = (label: string, testId: string, heading: string) => (
+    <Stop state="now" label={label} testId={testId}>
+      <div className="min-w-0 flex-1 rounded-[22px] border-[1.5px] border-sun-strong bg-sun p-4">
+        <p className="text-xs font-bold text-sun-strong">{heading}</p>
+        <p className="mt-1.5 mb-3 font-serif text-xl leading-snug font-bold text-ink">
+          What's the one task on your mind?
+        </p>
+        <form onSubmit={submitTask} className="space-y-2.5" data-testid="slice-task-form">
+          <Input
+            type="text"
+            maxLength={300}
+            value={taskInput}
+            onChange={(e) => setTaskInput(e.target.value)}
+            data-testid="slice-task-input"
+            aria-label="Task to break down"
+            placeholder="e.g. write the report intro"
+            className="min-h-12 rounded-full bg-surface px-4 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={slicing}
+            className="k-press min-h-13 w-full rounded-full bg-sun-strong text-base font-extrabold text-surface disabled:opacity-60"
+            data-testid="slice-task-submit"
+          >
+            {slicing ? 'Slicing...' : 'Slice it into a tiny step'}
+          </button>
+        </form>
+      </div>
+    </Stop>
+  );
+
   stops.push(
-    work.main_task && !editingTask ? (
+    doneOutside ? (
+      <Stop state="done" label="1" testId="work-step-task">
+        <span className="min-w-0 flex-1 pt-1.5 text-[15px] text-ink-soft">
+          <span className="block text-xs font-bold text-ink-faint">Your task</span>
+          Done outside the app
+          {!editingTask && (
+            <button
+              type="button"
+              onClick={() => {
+                setTaskInput('');
+                setEditingTask(true);
+              }}
+              className="ml-2 text-xs font-bold text-primary underline underline-offset-4"
+              data-testid="work-add-task"
+            >
+              Slice a task anyway
+            </button>
+          )}
+        </span>
+      </Stop>
+    ) : work.main_task && !editingTask ? (
       <Stop state="done" label="1" testId="work-step-task">
         <span className="min-w-0 flex-1 pt-1.5 text-[15px] text-ink-soft">
           <span className="block text-xs font-bold text-ink-faint">Your task</span>
@@ -164,36 +218,12 @@ export function WorkPanel({
         </span>
       </Stop>
     ) : (
-      <Stop state="now" label="1" testId="work-step-task">
-        <div className="min-w-0 flex-1 rounded-[22px] border-[1.5px] border-sun-strong bg-sun p-4">
-          <p className="text-xs font-bold text-sun-strong">Right now · Step 1</p>
-          <p className="mt-1.5 mb-3 font-serif text-xl leading-snug font-bold text-ink">
-            What's the one task on your mind?
-          </p>
-          <form onSubmit={submitTask} className="space-y-2.5" data-testid="slice-task-form">
-            <Input
-              type="text"
-              maxLength={300}
-              value={taskInput}
-              onChange={(e) => setTaskInput(e.target.value)}
-              data-testid="slice-task-input"
-              aria-label="Task to break down"
-              placeholder="e.g. write the report intro"
-              className="min-h-12 rounded-full bg-surface px-4 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={slicing}
-              className="k-press min-h-13 w-full rounded-full bg-sun-strong text-base font-extrabold text-surface disabled:opacity-60"
-              data-testid="slice-task-submit"
-            >
-              {slicing ? 'Slicing...' : 'Slice it into a tiny step'}
-            </button>
-          </form>
-        </div>
-      </Stop>
+      taskForm('1', 'work-step-task', 'Right now · Step 1')
     ),
   );
+  if (doneOutside && editingTask) {
+    stops.push(taskForm('+', 'work-step-bonus-task', 'Right now · Bonus'));
+  }
   // Tiny steps already finished; only the current one's text is kept by the server.
   for (let i = 0; i < doneCount; i++) {
     stops.push(
@@ -253,8 +283,9 @@ export function WorkPanel({
       </span>
     </Stop>,
   );
-  // After the first tiny step (stop 1), or after the placeholder when there is none yet.
-  const floorAfter = Math.min(1, stops.length - 1);
+  // After the first tiny step (stop 1), or after the placeholder when there is none yet. Done
+  // outside the app, the win already sits on the task stop itself.
+  const floorAfter = doneOutside ? 0 : Math.min(1, stops.length - 1);
 
   return (
     <section
