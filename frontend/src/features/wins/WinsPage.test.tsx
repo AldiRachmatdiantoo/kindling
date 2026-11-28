@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { authApi, checkinApi, winsApi } from '../../api/endpoints';
+import { authApi, checkinApi, profileApi, winsApi } from '../../api/endpoints';
 import type { DailyLog } from '../../api/types';
 import { AuthProvider } from '../auth/AuthContext';
 import { TodayStatusProvider } from '../today/TodayStatus';
@@ -176,5 +176,37 @@ describe('WinsPage state and UX', () => {
     expect(screen.getByTestId('work-step-choice')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('recalibrate-work'));
     await waitFor(() => expect(screen.queryByTestId('work-step-choice')).not.toBeInTheDocument());
+  });
+
+  it('loads the Milestone Path totals only when the third win lands', async () => {
+    const one = {
+      completed_total: 1,
+      checkpoints: [],
+      next_checkpoint_at: 3,
+      last_completed_on: '2026-11-26',
+    };
+    const heatmap = vi.spyOn(profileApi, 'getHeatmap').mockResolvedValue({
+      range: { from: '2026-10-30', to: '2026-11-26' },
+      milestones: { total_active_days: 1, total_daily_wins: 3, total_checkpoints: 0 },
+      days: [],
+      pillar_progress: { physical: one, work: one, soul: one },
+    } as unknown as Awaited<ReturnType<typeof profileApi.getHeatmap>>);
+    let count = 0;
+    vi.spyOn(winsApi, 'toggle').mockImplementation(async (_date, pillar) => {
+      count += 1;
+      return { pillar, completed: true, wins_completed_count: count };
+    });
+
+    renderWins();
+    for (const pillar of ['physical', 'work'] as const) {
+      fireEvent.click(await screen.findByTestId('win-toggle-' + pillar));
+      fireEvent.click(await screen.findByTestId('win-celebration-close'));
+      await waitFor(() => expect(screen.queryByTestId('win-celebration')).toBeNull());
+    }
+    expect(heatmap).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('win-toggle-soul'));
+    expect(await screen.findByTestId('win-celebration')).toHaveAttribute('data-kind', 'all');
+    await waitFor(() => expect(heatmap).toHaveBeenCalledTimes(1));
   });
 });

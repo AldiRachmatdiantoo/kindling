@@ -81,7 +81,7 @@ export function defaultPillar(progress: PillarProgressSet): Pillar {
 }
 
 /** A smooth S-curve through the step centers, relative to the path's center line. */
-function curveThrough(points: Array<[number, number]>): string {
+export function curveThrough(points: Array<[number, number]>): string {
   if (points.length === 0) return '';
   let d = `M ${points[0][0]} ${points[0][1]}`;
   for (let i = 1; i < points.length; i += 1) {
