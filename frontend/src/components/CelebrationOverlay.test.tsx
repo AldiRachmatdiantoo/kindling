@@ -1,6 +1,22 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CelebrationOverlay } from './CelebrationOverlay';
+import type { PillarProgress, PillarProgressSet } from '../api/types';
+import { CelebrationOverlay, PATH_BEAT_MS, PATH_HANDOFF_MS } from './CelebrationOverlay';
+
+function pillar(total: number): PillarProgress {
+  const reached = Math.floor(total / 3);
+  return {
+    completed_total: total,
+    checkpoints: Array.from({ length: reached }, (_, i) => ({
+      number: i + 1,
+      reached_on: '2026-11-28',
+    })),
+    next_checkpoint_at: (reached + 1) * 3,
+    last_completed_on: '2026-11-28',
+  };
+}
+
+const progress: PillarProgressSet = { physical: pillar(9), work: pillar(5), soul: pillar(2) };
 
 describe('CelebrationOverlay', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -68,5 +84,56 @@ describe('CelebrationOverlay', () => {
 
     unmount();
     expect(document.documentElement.style.overflow).toBe('');
+  });
+
+  it('hands 3 out of 3 over to the Milestone Path once the crew has had its moment', () => {
+    render(
+      <CelebrationOverlay
+        celebration={{ id: 5, kind: 'all' }}
+        pathProgress={progress}
+        onDone={vi.fn()}
+      />,
+    );
+    const overlay = screen.getByTestId('win-celebration');
+    expect(overlay).toHaveAttribute('data-beat', 'cheer');
+    expect(screen.queryByTestId('celebration-path')).toBeNull();
+
+    act(() => vi.advanceTimersByTime(PATH_BEAT_MS));
+    // The crew fades out first, so the paths never cut in.
+    expect(overlay).toHaveAttribute('data-beat', 'handoff');
+    expect(screen.queryByTestId('celebration-path')).toBeNull();
+
+    act(() => vi.advanceTimersByTime(PATH_HANDOFF_MS));
+    expect(overlay).toHaveAttribute('data-beat', 'path');
+    expect(screen.getByTestId('celebration-path-physical')).toHaveTextContent('9 wins');
+    expect(screen.getByRole('heading', { name: 'Your path grew 3 steps' })).toBeInTheDocument();
+    expect(screen.getByText(/Physical reached a checkpoint/)).toBeInTheDocument();
+  });
+
+  it('keeps the crew on stage when the path totals never arrive, and moves on when they do', () => {
+    const onDone = vi.fn();
+    const all = { id: 6, kind: 'all' } as const;
+    const { rerender } = render(
+      <CelebrationOverlay celebration={all} pathProgress={null} onDone={onDone} />,
+    );
+    act(() => vi.advanceTimersByTime(PATH_BEAT_MS * 3));
+    expect(screen.getByTestId('win-celebration')).toHaveAttribute('data-beat', 'cheer');
+    expect(screen.getByText('All 3 daily wins!')).toBeInTheDocument();
+
+    rerender(<CelebrationOverlay celebration={all} pathProgress={progress} onDone={onDone} />);
+    act(() => vi.advanceTimersByTime(PATH_HANDOFF_MS));
+    expect(screen.getByTestId('win-celebration')).toHaveAttribute('data-beat', 'path');
+  });
+
+  it('never shows the path for a single win', () => {
+    render(
+      <CelebrationOverlay
+        celebration={{ id: 7, kind: 'win', pillar: 'soul', count: 2 }}
+        pathProgress={progress}
+        onDone={vi.fn()}
+      />,
+    );
+    act(() => vi.advanceTimersByTime(PATH_BEAT_MS * 2));
+    expect(screen.queryByTestId('celebration-path')).toBeNull();
   });
 });

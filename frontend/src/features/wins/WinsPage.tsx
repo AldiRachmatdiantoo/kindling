@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { m } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ApiError, generateIdempotencyKey } from '../../api/client';
-import { checkinApi, winsApi } from '../../api/endpoints';
-import type { DailyLog, Pillar } from '../../api/types';
+import { checkinApi, profileApi, winsApi } from '../../api/endpoints';
+import type { DailyLog, Pillar, PillarProgressSet } from '../../api/types';
 import { CelebrationOverlay, type Celebration } from '../../components/CelebrationOverlay';
 import { CheckinPending } from '../../components/CheckinPending';
 import { FeatureTip } from '../../components/FeatureTip';
@@ -70,6 +70,7 @@ export function WinsPage() {
   const [recoverySkipped, setRecoverySkipped] = useState(false);
   const [justCompleted, setJustCompleted] = useState<Pillar | null>(null);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const [pathProgress, setPathProgress] = useState<PillarProgressSet | null>(null);
   const celebrationId = useRef(0);
   const [morph, setMorph] = useState<TaskMorph | null>(null);
   const morphId = useRef(0);
@@ -171,6 +172,18 @@ export function WinsPage() {
       // Marking done (never undo) brings out the pillar's mascot; the third win brings the whole crew.
       if (res.completed) {
         celebrationId.current += 1;
+        if (res.wins_completed_count >= 3) {
+          // The finale's second beat shows each Milestone Path gaining today's step. If the
+          // totals do not arrive, the crew celebration stands on its own.
+          const id = celebrationId.current;
+          setPathProgress(null);
+          profileApi
+            .getHeatmap()
+            .then((data) => {
+              if (celebrationId.current === id) setPathProgress(data.pillar_progress ?? null);
+            })
+            .catch(() => {});
+        }
         setCelebration(
           res.wins_completed_count >= 3
             ? { id: celebrationId.current, kind: 'all' }
@@ -436,7 +449,11 @@ export function WinsPage() {
 
   return (
     <div className="space-y-8">
-      <CelebrationOverlay celebration={celebration} onDone={() => setCelebration(null)} />
+      <CelebrationOverlay
+        celebration={celebration}
+        pathProgress={pathProgress}
+        onDone={() => setCelebration(null)}
+      />
       <TaskMorphOverlay morph={morph} onClose={() => setMorph(null)} />
 
       <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">

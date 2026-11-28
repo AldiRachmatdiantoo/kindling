@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import type { Pillar } from '../api/types';
+import type { Pillar, PillarProgressSet } from '../api/types';
+import { CelebrationPath, chestsReached } from './CelebrationPath';
 import { Mascot } from './Mascot';
 import './celebration.css';
 
@@ -55,8 +56,33 @@ function Burst({ accent, rays }: { accent: string; rays: number }) {
   );
 }
 
+/** How long the crew dances on 3 out of 3 before the Milestone Path takes the stage. */
+export const PATH_BEAT_MS = 2600;
+/** The crew fades out over this long before the paths fade in, so the two never cut. */
+export const PATH_HANDOFF_MS = 450;
+
+type Beat = 'cheer' | 'handoff' | 'path';
+
+const PILLAR_NAME: Record<Pillar, string> = { physical: 'Physical', work: 'Work', soul: 'Soul' };
+
+function pathCopy(progress: PillarProgressSet): { title: string; line: string } {
+  const chests = chestsReached(progress);
+  if (chests.length === 0) {
+    return { title: 'Your path grew 3 steps', line: 'Every pillar moved one step forward today.' };
+  }
+  const names = chests.map((p) => PILLAR_NAME[p]);
+  const list =
+    names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  return {
+    title: 'Your path grew 3 steps',
+    line: `${list} reached a checkpoint. Open it on your profile.`,
+  };
+}
+
 export interface CelebrationOverlayProps {
   celebration: Celebration | null;
+  /** Milestone Path totals after today's wins; on 3 out of 3 the path fills in as a second beat. */
+  pathProgress?: PillarProgressSet | null;
   onDone: () => void;
 }
 
@@ -64,8 +90,10 @@ export interface CelebrationOverlayProps {
  * The pillar mascot pops up when a Daily Win is marked done, and the whole crew shows up for
  * 3 out of 3. It stays until the user taps, or presses Escape, Enter or Space, and never moves focus.
  */
-export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayProps) {
+export function CelebrationOverlay({ celebration, pathProgress, onDone }: CelebrationOverlayProps) {
   const [leaving, setLeaving] = useState(false);
+  const [pathDue, setPathDue] = useState(false);
+  const [beat, setBeat] = useState<Beat>('cheer');
   const overlayRef = useRef<HTMLDivElement>(null);
   const dismissRef = useRef<HTMLButtonElement>(null);
   const closingRef = useRef(false);
@@ -90,6 +118,10 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
     const opener = document.activeElement as HTMLElement | null;
     closingRef.current = false;
     setLeaving(false);
+    setPathDue(false);
+    setBeat('cheer');
+    const beatTimer =
+      celebration.kind === 'all' ? window.setTimeout(() => setPathDue(true), PATH_BEAT_MS) : null;
     dismissRef.current?.focus();
     const prevOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
@@ -128,6 +160,7 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
+      if (beatTimer !== null) window.clearTimeout(beatTimer);
       if (closeTimerRef.current !== null) {
         window.clearTimeout(closeTimerRef.current);
         closeTimerRef.current = null;
@@ -137,12 +170,26 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
     };
   }, [celebration, close]);
 
+  // The paths take over once the crew has had its moment and the totals are in, whichever is
+  // later; without totals the crew celebration simply stays.
+  const readyForPath = celebration?.kind === 'all' && pathDue && !!pathProgress;
+  useEffect(() => {
+    if (!readyForPath) return;
+    setBeat('handoff');
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const timer = window.setTimeout(() => setBeat('path'), reduce ? 0 : PATH_HANDOFF_MS);
+    return () => window.clearTimeout(timer);
+  }, [readyForPath]);
+
   if (!celebration) return null;
 
   const isAll = celebration.kind === 'all';
-  const copy = isAll
-    ? { title: 'All 3 daily wins!', line: 'Small sparks, steady fire. See you tomorrow.' }
-    : WIN_COPY[celebration.pillar];
+  const showPath = isAll && beat === 'path' && !!pathProgress;
+  const copy = showPath
+    ? pathCopy(pathProgress)
+    : isAll
+      ? { title: 'All 3 daily wins!', line: 'Small sparks, steady fire. See you tomorrow.' }
+      : WIN_COPY[celebration.pillar];
 
   return createPortal(
     <div
@@ -155,52 +202,58 @@ export function CelebrationOverlay({ celebration, onDone }: CelebrationOverlayPr
       aria-labelledby="kc-title"
       data-testid="win-celebration"
       data-kind={celebration.kind}
+      data-beat={isAll ? beat : 'cheer'}
     >
-      <div className="kc-stage">
-        <Burst
-          accent={isAll ? '#7c8cff' : WIN_COPY[celebration.pillar].accent}
-          rays={isAll ? 14 : 10}
-        />
-        {isAll ? (
-          <div className="kc-finale">
-            <div className="kc-ember kc-jump" style={{ animationDelay: '550ms' }}>
-              <div className="kc-hop" style={{ animationDelay: '1.4s' }}>
-                <Mascot mood="cheer" className="" />
+      <div className="kc-scene">
+        <div className="kc-stage">
+          <Burst
+            accent={isAll ? '#7c8cff' : WIN_COPY[celebration.pillar].accent}
+            rays={isAll ? 14 : 10}
+          />
+          {isAll ? (
+            <div className="kc-finale">
+              <div className="kc-ember kc-jump" style={{ animationDelay: '550ms' }}>
+                <div className="kc-hop" style={{ animationDelay: '1.4s' }}>
+                  <Mascot mood="cheer" className="" />
+                </div>
+              </div>
+              <div className="kc-crew">
+                {(['physical', 'work', 'soul'] as Pillar[]).map((pillar, i) => (
+                  <div key={pillar} className="kc-jump" style={{ animationDelay: `${i * 160}ms` }}>
+                    <div className="kc-hop" style={{ animationDelay: `${900 + i * 200}ms` }}>
+                      <Mascot pillar={pillar} mood="cheer" className="" />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="kc-crew">
-              {(['physical', 'work', 'soul'] as Pillar[]).map((pillar, i) => (
-                <div key={pillar} className="kc-jump" style={{ animationDelay: `${i * 160}ms` }}>
-                  <div className="kc-hop" style={{ animationDelay: `${900 + i * 200}ms` }}>
-                    <Mascot pillar={pillar} mood="cheer" className="" />
-                  </div>
-                </div>
-              ))}
+          ) : (
+            <div className="kc-hero">
+              <div className="kc-float">
+                <Mascot pillar={celebration.pillar} mood="cheer" className="" />
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="kc-hero">
-            <div className="kc-float">
-              <Mascot pillar={celebration.pillar} mood="cheer" className="" />
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      <div className="kc-count" aria-hidden="true">
-        {isAll ? (
-          <span className="kc-num kc-num-only">3 / 3</span>
-        ) : (
-          <>
-            <span className="kc-num kc-num-old">{celebration.count - 1} / 3</span>
-            <span className="kc-num kc-num-new">{celebration.count} / 3</span>
-          </>
-        )}
+        <div className="kc-count" aria-hidden="true">
+          {isAll ? (
+            <span className="kc-num kc-num-only">3 / 3</span>
+          ) : (
+            <>
+              <span className="kc-num kc-num-old">{celebration.count - 1} / 3</span>
+              <span className="kc-num kc-num-new">{celebration.count} / 3</span>
+            </>
+          )}
+        </div>
+        {showPath && <CelebrationPath progress={pathProgress} />}
       </div>
 
       <div className="kc-caption" aria-live="polite">
-        <h2 id="kc-title">{copy.title}</h2>
-        <p>{copy.line}</p>
+        <h2 key={`t-${showPath}`} id="kc-title">
+          {copy.title}
+        </h2>
+        <p key={`l-${showPath}`}>{copy.line}</p>
       </div>
       <button
         ref={dismissRef}

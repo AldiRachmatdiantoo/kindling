@@ -310,6 +310,283 @@
   }
 }
 
+/*
+  Second beat of 3 out of 3: the three Milestone Paths, each gaining today's step in turn.
+  Same rules as above: only transform and opacity animate.
+*/
+.kc-scene {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Handoff: the crew and the count ease away in place, so nothing below them moves. */
+.kc-stage,
+.kc-count {
+  transition:
+    opacity 450ms ease,
+    transform 450ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.kc-overlay[data-beat='handoff'] .kc-stage,
+.kc-overlay[data-beat='handoff'] .kc-count,
+.kc-overlay[data-beat='path'] .kc-stage,
+.kc-overlay[data-beat='path'] .kc-count {
+  opacity: 0;
+  transform: scale(0.94);
+}
+.kc-overlay[data-beat='path'] .kc-stage,
+.kc-overlay[data-beat='path'] .kc-count {
+  visibility: hidden;
+}
+.kc-overlay[data-beat='path'] .kc-stage * {
+  animation-play-state: paused;
+}
+.kc-caption > * {
+  transition: opacity 300ms ease;
+}
+.kc-overlay[data-beat='handoff'] .kc-caption > * {
+  opacity: 0;
+}
+.kc-overlay[data-beat='path'] .kc-caption > * {
+  animation: kc-rise 600ms 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* The paths fill the space the crew and the count held, resting on the caption. */
+.kc-path {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-left: -158px;
+}
+.kc-path-col {
+  display: flex;
+  width: 100px;
+  flex-direction: column;
+  align-items: center;
+  will-change: transform, opacity;
+  animation: kc-soft-rise 700ms var(--kc-dl) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.kc-path-mascot {
+  animation: kc-float 2.4s calc(var(--kc-dl) + 700ms) ease-in-out infinite alternate;
+}
+.kc-path-mascot svg {
+  display: block;
+  width: 52px;
+  height: 64px;
+}
+.kc-path-track {
+  position: relative;
+  width: 100px;
+  margin-top: 6px;
+}
+.kc-path-curve {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  fill: none;
+  stroke-linecap: round;
+}
+.kc-curve-done {
+  stroke: var(--kc-accent);
+  stroke-width: 4;
+  opacity: 0.45;
+}
+/* The stretch into today's step draws itself before the step fills. */
+.kc-curve-new {
+  stroke: var(--kc-accent);
+  stroke-width: 4;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: kc-draw 520ms calc(var(--kc-dl) + 420ms) cubic-bezier(0.45, 0, 0.25, 1) forwards;
+}
+.kc-curve-next {
+  stroke: rgba(244, 244, 246, 0.3);
+  stroke-width: 3;
+  stroke-dasharray: 2 8;
+}
+.kc-path-steps {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kc-step {
+  position: absolute;
+  isolation: isolate;
+  transform: translate(-50%, -50%);
+}
+.kc-node {
+  position: relative;
+  display: flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #0e0e11;
+  isolation: isolate;
+}
+.kc-step-chest .kc-node {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+.kc-node::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--kc-accent);
+}
+.kc-node svg {
+  position: relative;
+}
+.kc-step-next .kc-node {
+  border: 3px dashed rgba(244, 244, 246, 0.3);
+  background: #0e0e11;
+  color: rgba(244, 244, 246, 0.45);
+}
+.kc-step-next .kc-node::before {
+  content: none;
+}
+/* The new step starts as an empty dashed outline, then fills in the pillar color. */
+.kc-step-new .kc-node {
+  box-shadow: inset 0 0 0 3px rgba(244, 244, 246, 0.3);
+}
+.kc-step-new .kc-node::before {
+  will-change: transform;
+  animation: kc-fill 600ms calc(var(--kc-dl) + 900ms) cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+.kc-step-new .kc-node svg {
+  will-change: transform, opacity;
+  animation: kc-punch-in 520ms calc(var(--kc-dl) + 1150ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.kc-step-new .kc-node::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 3px solid var(--kc-accent);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: kc-ring 1000ms calc(var(--kc-dl) + 1100ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.kc-chest-glow {
+  position: absolute;
+  top: 50%;
+  margin-top: -38px;
+  left: 50%;
+  width: 76px;
+  height: 76px;
+  margin-left: -38px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--kc-accent) 0%, transparent 65%);
+  opacity: 0;
+  z-index: -2;
+  will-change: transform, opacity;
+  animation: kc-glow 1600ms calc(var(--kc-dl) + 1150ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.kc-path-label {
+  display: flex;
+  margin: 8px 0 0;
+  flex-direction: column;
+  align-items: center;
+  font-size: 13px;
+  color: #a9a9b4;
+}
+.kc-path-name {
+  font-weight: 600;
+  color: #f4f4f6;
+}
+.kc-path-total {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 22px;
+  vertical-align: bottom;
+  overflow: hidden;
+  font: 700 17px/22px var(--font-serif, Georgia, serif);
+  color: var(--kc-accent);
+  text-align: center;
+}
+.kc-path-total > span {
+  position: absolute;
+  inset: 0;
+}
+.kc-path-old {
+  animation: kc-roll-out 550ms calc(var(--kc-dl) + 1200ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.kc-path-new {
+  animation: kc-roll-in 550ms calc(var(--kc-dl) + 1200ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes kc-soft-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0) scale(0.96);
+  }
+}
+@keyframes kc-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes kc-fill {
+  from {
+    transform: scale(0);
+  }
+}
+@keyframes kc-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+@keyframes kc-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  35% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0.25;
+    transform: scale(1.15);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kc-stage,
+  .kc-count,
+  .kc-caption > * {
+    transition: none;
+  }
+  .kc-path-mascot,
+  .kc-path-col,
+  .kc-step-new .kc-node::before,
+  .kc-step-new .kc-node svg,
+  .kc-path-new,
+  .kc-overlay[data-beat='path'] .kc-caption > * {
+    animation: none !important;
+  }
+  .kc-curve-new {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .kc-path-old,
+  .kc-step-new .kc-node::after,
+  .kc-chest-glow {
+    display: none;
+  }
+}
+
 /* The reserved scrollbar gutter sits outside the fixed overlay; paint it to match. */
 html:has(.kc-overlay) {
   background-color: #0e0e11;
